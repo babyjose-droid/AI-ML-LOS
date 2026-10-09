@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build and test (unit + Testcontainers journeys)
+        working-directory: backend
+        run: mvn -B verify 2>&1 | tee ../backend-build.log
+      - name: Test summary
+        if: always()
+        run: |
+          {
+            echo "## Backend"
+            grep -E "Tests run:|BUILD|ERROR|FAIL" backend-build.log | tail -60 || true
+          } > backend-summary.md
+          for f in backend/target/surefire-reports/*.txt backend/target/failsafe-reports/*.txt; do
+            [ -f "$f" ] && { echo "### $f"; cat "$f"; } >> backend-summary.md
+          done
+          cat backend-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-report
+          path: |
+            backend-summary.md
+            backend-build.log
+            backend/target/surefire-reports/
+          if-no-files-found: ignore
+
+  web:
+    name: Web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build 2>&1 | tee ../web-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-report
+          path: web-build.log
+          if-no-files-found: ignore
+
+  e2e:
+    name: Docker Compose + browser tests
+    needs: [backend, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the stack
+        run: |
+          INTEGRATION_BACKOFF_MS=0 docker compose up -d --build
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3000/actuator/health >/dev/null; then echo "stack is up"; break; fi
+            sleep 5
+          done
+          curl -fs http://localhost:3000/actuator/health
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Playwright tests
+        working-directory: e2e
+        env:
+          CI: 'true'
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npx playwright test 2>&1 | tee ../e2e.log
+      - name: Stack logs
+        if: always()
+        run: docker compose logs --no-color > compose.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            e2e.log
+            compose.log
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+
+  status:
+    # Writes a plain-text result to the ci-status branch so results can be read with git alone.
+    name: Publish status
+    needs: [backend, web, e2e]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: reports
+      - name: Commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir out && cd out
+          git init -q -b ci-status
+          {
+            echo "commit: ${{ github.sha }}"
+            echo "run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "backend: ${{ needs.backend.result }}"
+            echo "web: ${{ needs.web.result }}"
+            echo "e2e: ${{ needs.e2e.result }}"
+          } > STATUS.txt
+          cp -r ../reports/* . 2>/dev/null || true
+          find . -name '*.log' -size +400k -exec sh -c 'tail -c 400000 "$1" > "$1.tail" && mv "$1.tail" "$1"' _ {} \;
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "CI status ${{ github.sha }}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-status

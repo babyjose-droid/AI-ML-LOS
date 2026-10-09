@@ -1,0 +1,117 @@
+[
+ {
+  "id": "APP-100231",
+  "decision": "APPROVE",
+  "pd": 0.015425,
+  "score": 822,
+  "band": "B",
+  "fraud": 2,
+  "kyc": "PASS",
+  "income": 60500,
+  "rate": 17.5,
+  "maxEmi": 24500,
+  "reqEmi": 14905,
+  "recAmt": 300000,
+  "recEmi": 14905,
+  "rules": [],
+  "reasons": [
+   "RC-015"
+  ]
+ },
+ {
+  "id": "APP-100232",
+  "decision": "APPROVE WITH CONDITIONS",
+  "pd": 0.011512,
+  "score": 841,
+  "band": "B",
+  "fraud": 2,
+  "kyc": "PASS",
+  "income": 72000,
+  "rate": 17.25,
+  "maxEmi": 22400,
+  "reqEmi": 24781,
+  "recAmt": 450000,
+  "recEmi": 22303,
+  "rules": [
+   "R12"
+  ],
+  "reasons": [
+   "RC-003",
+   "RC-006"
+  ]
+ },
+ {
+  "id": "APP-100233",
+  "decision": "APPROVE",
+  "pd": 0.021859,
+  "score": 800,
+  "band": "B",
+  "fraud": 2,
+  "kyc": "PASS",
+  "income": 18113,
+  "rate": 18.92,
+  "maxEmi": 5119,
+  "reqEmi": 3212,
+  "recAmt": 50000,
+  "recEmi": 3212,
+  "rules": [],
+  "reasons": [
+   "RC-015"
+  ]
+ },
+ {
+  "id": "APP-100234",
+  "decision": "REFER",
+  "pd": 0.142232,
+  "score": 626,
+  "band": "D",
+  "fraud": 3,
+  "kyc": "PASS",
+  "income": 87000,
+  "rate": 23.98,
+  "maxEmi": 22750,
+  "reqEmi": 23533,
+  "recAmt": 580000,
+  "recEmi": 22749,
+  "rules": [
+   "R08",
+   "R10",
+   "R12",
+   "R13"
+  ],
+  "reasons": [
+   "RC-006",
+   "RC-001",
+   "RC-014",
+   "RC-003",
+   "RC-009",
+   "RC-005"
+  ]
+ },
+ {
+  "id": "APP-100235",
+  "decision": "REJECT",
+  "pd": 0.041717,
+  "score": 749,
+  "band": "C",
+  "fraud": 100,
+  "kyc": "PASS",
+  "income": 38000,
+  "rate": 20.21,
+  "maxEmi": 12250,
+  "reqEmi": 14908,
+  "recAmt": 325000,
+  "recEmi": 12113,
+  "rules": [
+   "R04",
+   "R05",
+   "R12"
+  ],
+  "reasons": [
+   "RC-012",
+   "RC-006",
+   "RC-008",
+   "RC-009"
+  ]
+ }
+]

@@ -1,0 +1,46 @@
+# Rhythm LOS - local stack: PostgreSQL + Spring Boot API + React web
+# Start:  docker compose up --build
+# Open:   http://localhost:3000   (users: sales1, ops1, co1, cm1, cro1, fraud1, comp1, admin / Rhythm@123)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rhythm
+      POSTGRES_USER: rhythm
+      POSTGRES_PASSWORD: rhythm
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhythm -d rhythm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/rhythm
+      DB_USER: rhythm
+      DB_PASSWORD: rhythm
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-local-dev-secret-change-me-0123}
+      DEMO_DATA: ${DEMO_DATA:-true}
+      INTEGRATION_BACKOFF_MS: ${INTEGRATION_BACKOFF_MS:-300}
+    volumes:
+      - documents:/data/documents
+    ports:
+      - "8081:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  documents:

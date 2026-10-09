@@ -1,0 +1,295 @@
+ai-1  | INFO:     Uvicorn running on http://0.0.0.0:8090 (Press CTRL+C to quit)
+ai-1  | INFO:     Started parent process [1]
+ai-1  | INFO:     Started server process [9]
+ai-1  | INFO:     Waiting for application startup.
+ai-1  | INFO:     Application startup complete.
+ai-1  | INFO:     Started server process [8]
+ai-1  | INFO:     Waiting for application startup.
+ai-1  | INFO:     Application startup complete.
+ai-1  | INFO:     127.0.0.1:57504 - "GET /health HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     127.0.0.1:33404 - "GET /health HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:59424 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     127.0.0.1:47740 - "GET /health HTTP/1.1" 200 OK
+ai-1  | INFO:     127.0.0.1:42558 - "GET /health HTTP/1.1" 200 OK
+ai-1  | INFO:     127.0.0.1:50206 - "GET /health HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:34650 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:34650 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     172.18.0.4:34650 - "POST /v1/documents/analyze HTTP/1.1" 200 OK
+ai-1  | INFO:     127.0.0.1:37420 - "GET /health HTTP/1.1" 200 OK
+db-1  | The files belonging to this database system will be owned by user "postgres".
+db-1  | This user must also own the server process.
+db-1  | 
+db-1  | The database cluster will be initialized with locale "en_US.utf8".
+db-1  | The default database encoding has accordingly been set to "UTF8".
+db-1  | The default text search configuration will be set to "english".
+db-1  | 
+db-1  | Data page checksums are disabled.
+db-1  | 
+db-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+db-1  | creating subdirectories ... ok
+db-1  | selecting dynamic shared memory implementation ... posix
+db-1  | selecting default max_connections ... 100
+db-1  | selecting default shared_buffers ... 128MB
+db-1  | selecting default time zone ... UTC
+db-1  | creating configuration files ... ok
+db-1  | running bootstrap script ... ok
+db-1  | sh: locale: not found
+db-1  | 2026-10-09 12:10:40.657 UTC [34] WARNING:  no usable system locales were found
+db-1  | performing post-bootstrap initialization ... ok
+db-1  | initdb: warning: enabling "trust" authentication for local connections
+db-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+db-1  | syncing data to disk ... ok
+db-1  | 
+db-1  | 
+db-1  | Success. You can now start the database server using:
+db-1  | 
+db-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+db-1  | 
+db-1  | waiting for server to start....2026-10-09 12:10:41.356 UTC [40] LOG:  starting PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+db-1  | 2026-10-09 12:10:41.357 UTC [40] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+db-1  | 2026-10-09 12:10:41.359 UTC [43] LOG:  database system was shut down at 2026-10-09 12:10:41 UTC
+db-1  | 2026-10-09 12:10:41.363 UTC [40] LOG:  database system is ready to accept connections
+db-1  |  done
+db-1  | server started
+db-1  | CREATE DATABASE
+db-1  | 
+db-1  | 
+db-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+db-1  | 
+db-1  | waiting for server to shut down....2026-10-09 12:10:41.501 UTC [40] LOG:  received fast shutdown request
+db-1  | 2026-10-09 12:10:41.501 UTC [40] LOG:  aborting any active transactions
+db-1  | 2026-10-09 12:10:41.503 UTC [40] LOG:  background worker "logical replication launcher" (PID 46) exited with exit code 1
+db-1  | 2026-10-09 12:10:41.504 UTC [41] LOG:  shutting down
+db-1  | 2026-10-09 12:10:41.504 UTC [41] LOG:  checkpoint starting: shutdown immediate
+db-1  | 2026-10-09 12:10:41.571 UTC [41] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.056 s, sync=0.011 s, total=0.068 s; sync files=301, longest=0.010 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D58, redo lsn=0/1925D58
+db-1  | 2026-10-09 12:10:41.578 UTC [40] LOG:  database system is shut down
+db-1  |  done
+db-1  | server stopped
+db-1  | 
+db-1  | PostgreSQL init process complete; ready for start up.
+db-1  | 
+db-1  | 2026-10-09 12:10:41.616 UTC [1] LOG:  starting PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+db-1  | 2026-10-09 12:10:41.616 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+db-1  | 2026-10-09 12:10:41.616 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+db-1  | 2026-10-09 12:10:41.617 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+db-1  | 2026-10-09 12:10:41.619 UTC [56] LOG:  database system was shut down at 2026-10-09 12:10:41 UTC
+db-1  | 2026-10-09 12:10:41.623 UTC [1] LOG:  database system is ready to accept connections
+web-1  | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+web-1  | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+web-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+web-1  | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+web-1  | 10-listen-on-ipv6-by-default.sh: info: /etc/nginx/conf.d/default.conf differs from the packaged version
+web-1  | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+web-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+web-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+web-1  | /docker-entrypoint.sh: Configuration complete; ready for start up
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: using the "epoll" event method
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: nginx/1.27.5
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: built by gcc 14.2.0 (Alpine 14.2.0) 
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: OS: Linux 6.17.0-1022-azure
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 65536:65536
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: start worker processes
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: start worker process 29
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: start worker process 30
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: start worker process 31
+web-1  | 2026/10/09 12:11:01 [notice] 1#1: start worker process 32
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:06 +0000] "GET /actuator/health HTTP/1.1" 200 60 "-" "curl/8.5.0" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:06 +0000] "GET /actuator/health HTTP/1.1" 200 60 "-" "curl/8.5.0" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:26 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:26 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:26 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "POST /api/auth/login HTTP/1.1" 200 381 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /api/my-work HTTP/1.1" 200 1061 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /applications HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3324 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:27 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:28 +0000] "POST /api/auth/login HTTP/1.1" 200 379 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/my-work HTTP/1.1" 200 205 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/products HTTP/1.1" 200 1246 "http://localhost:3000/applications/new" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "POST /api/applications HTTP/1.1" 200 871 "http://localhost:3000/applications/new" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "POST /api/applications/8/submit HTTP/1.1" 200 879 "http://localhost:3000/applications/new" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8 HTTP/1.1" 200 1760 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8/documents HTTP/1.1" 200 12 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 2026/10/09 12:11:29 [warn] 29#29: *12 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000001, client: 172.18.0.1, server: _, request: "POST /api/applications/8/documents HTTP/1.1", host: "localhost:3000", referrer: "http://localhost:3000/applications/8"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "POST /api/applications/8/documents HTTP/1.1" 200 324 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8/documents HTTP/1.1" 200 323 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8 HTTP/1.1" 200 1760 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 2026/10/09 12:11:29 [warn] 29#29: *13 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000002, client: 172.18.0.1, server: _, request: "POST /api/applications/8/documents HTTP/1.1", host: "localhost:3000", referrer: "http://localhost:3000/applications/8"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "POST /api/applications/8/documents HTTP/1.1" 200 332 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8/documents HTTP/1.1" 200 641 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8 HTTP/1.1" 200 1760 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 2026/10/09 12:11:29 [warn] 29#29: *12 a client request body is buffered to a temporary file /var/cache/nginx/client_temp/0000000003, client: 172.18.0.1, server: _, request: "POST /api/applications/8/documents HTTP/1.1", host: "localhost:3000", referrer: "http://localhost:3000/applications/8"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "POST /api/applications/8/documents HTTP/1.1" 200 335 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8/documents HTTP/1.1" 200 962 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:29 +0000] "GET /api/applications/8 HTTP/1.1" 200 1760 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "POST /api/auth/login HTTP/1.1" 200 381 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/my-work HTTP/1.1" 200 1236 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /applications HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3802 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/applications?state=&q=Deepa%20Menon HTTP/1.1" 200 491 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:30 +0000] "GET /api/applications/8 HTTP/1.1" 200 1823 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "POST /api/applications/8/process HTTP/1.1" 200 1818 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8 HTTP/1.1" 200 1591 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8/documents HTTP/1.1" 200 3672 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8/snapshots HTTP/1.1" 200 1351 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8/kyc-checks HTTP/1.1" 200 1699 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8/decision HTTP/1.1" 200 4486 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:31 +0000] "GET /api/applications/8/decision HTTP/1.1" 200 4486 "http://localhost:3000/applications/8" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1  | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+backend-1  | 
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "POST /api/auth/login HTTP/1.1" 200 402 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/my-work HTTP/1.1" 200 191 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /applications HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/auth/me HTTP/1.1" 200 108 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3792 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/applications?state=&q=Ramesh%20Patil HTTP/1.1" 200 484 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/applications/1 HTTP/1.1" 200 1691 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "POST /api/auth/login HTTP/1.1" 200 391 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/my-work HTTP/1.1" 200 196 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/auth/me HTTP/1.1" 200 103 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3792 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:32 +0000] "GET /api/applications?state=&q=Ramesh%20Patil HTTP/1.1" 200 484 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1 HTTP/1.1" 200 1722 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "POST /api/applications/1/sanction HTTP/1.1" 200 215 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1 HTTP/1.1" 200 1735 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1/sanctions HTTP/1.1" 200 214 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1/kfs HTTP/1.1" 200 2524 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "POST /api/auth/login HTTP/1.1" 200 379 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/my-work HTTP/1.1" 200 403 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/auth/me HTTP/1.1" 200 103 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3790 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications?state=&q=Ramesh%20Patil HTTP/1.1" 200 482 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1 HTTP/1.1" 200 1746 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+backend-1  |   .   ____          _            __ _ _
+backend-1  |  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+backend-1  | ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+backend-1  |  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+backend-1  |   '  |____| .__|_| |_|_| |_\__, | / / / /
+backend-1  |  =========|_|==============|___/=/_/_/_/
+backend-1  | 
+backend-1  |  :: Spring Boot ::                (v3.5.6)
+backend-1  | 
+backend-1  | 2026-10-09T12:10:46.623Z  INFO 1 --- [rhythm-los] [           main] com.rhythm.los.LosApplication            : Starting LosApplication v0.1.0 using Java 21.0.12.1 with PID 1 (/app/app.jar started by rhythm in /app)
+backend-1  | 2026-10-09T12:10:46.626Z  INFO 1 --- [rhythm-los] [           main] com.rhythm.los.LosApplication            : No active profile set, falling back to 1 default profile: "default"
+backend-1  | 2026-10-09T12:10:47.699Z  INFO 1 --- [rhythm-los] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+backend-1  | 2026-10-09T12:10:47.753Z  INFO 1 --- [rhythm-los] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 46 ms. Found 14 JPA repository interfaces.
+backend-1  | 2026-10-09T12:10:48.188Z  INFO 1 --- [rhythm-los] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+backend-1  | 2026-10-09T12:10:48.207Z  INFO 1 --- [rhythm-los] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+backend-1  | 2026-10-09T12:10:48.207Z  INFO 1 --- [rhythm-los] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.46]
+backend-1  | 2026-10-09T12:10:48.238Z  INFO 1 --- [rhythm-los] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+backend-1  | 2026-10-09T12:10:48.239Z  INFO 1 --- [rhythm-los] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1573 ms
+backend-1  | 2026-10-09T12:10:48.506Z  INFO 1 --- [rhythm-los] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+backend-1  | 2026-10-09T12:10:48.655Z  INFO 1 --- [rhythm-los] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@49e62b17
+backend-1  | 2026-10-09T12:10:48.656Z  INFO 1 --- [rhythm-los] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+backend-1  | 2026-10-09T12:10:48.681Z  INFO 1 --- [rhythm-los] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://db:5432/rhythm (PostgreSQL 16.15)
+backend-1  | 2026-10-09T12:10:48.712Z  INFO 1 --- [rhythm-los] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "POST /api/applications/1/kfs/accept HTTP/1.1" 200 957 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:33 +0000] "GET /api/applications/1 HTTP/1.1" 200 1729 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "POST /api/auth/login HTTP/1.1" 200 381 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/my-work HTTP/1.1" 200 1230 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3786 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/applications?state=&q=Ramesh%20Patil HTTP/1.1" 200 478 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/applications/1 HTTP/1.1" 200 1739 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "POST /api/applications/1/disburse HTTP/1.1" 200 764 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /api/applications/1 HTTP/1.1" 200 1731 "http://localhost:3000/applications/1" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:34 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "POST /api/auth/login HTTP/1.1" 200 381 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/my-work HTTP/1.1" 200 1061 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+backend-1  | 2026-10-09T12:10:48.715Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.015s)
+backend-1  | 2026-10-09T12:10:48.726Z  INFO 1 --- [rhythm-los] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+backend-1  | 2026-10-09T12:10:48.789Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+backend-1  | 2026-10-09T12:10:48.814Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "1 - schema"
+backend-1  | 2026-10-09T12:10:48.923Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "2 - seed"
+backend-1  | 2026-10-09T12:10:48.948Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - document ai"
+backend-1  | 2026-10-09T12:10:48.977Z  INFO 1 --- [rhythm-los] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 3 migrations to schema "public", now at version v3 (execution time 00:00.121s)
+backend-1  | 2026-10-09T12:10:49.060Z  INFO 1 --- [rhythm-los] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+backend-1  | 2026-10-09T12:10:49.102Z  INFO 1 --- [rhythm-los] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.29.Final
+backend-1  | 2026-10-09T12:10:49.134Z  INFO 1 --- [rhythm-los] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+backend-1  | 2026-10-09T12:10:49.323Z  INFO 1 --- [rhythm-los] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+backend-1  | 2026-10-09T12:10:49.375Z  INFO 1 --- [rhythm-los] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+backend-1  | 	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+backend-1  | 	Database driver: undefined/unknown
+backend-1  | 	Database version: 16.15
+backend-1  | 	Autocommit mode: undefined/unknown
+backend-1  | 	Isolation level: undefined/unknown
+backend-1  | 	Minimum pool size: undefined/unknown
+backend-1  | 	Maximum pool size: undefined/unknown
+backend-1  | 2026-10-09T12:10:50.223Z  INFO 1 --- [rhythm-los] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+backend-1  | 2026-10-09T12:10:50.258Z  INFO 1 --- [rhythm-los] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+backend-1  | 2026-10-09T12:10:50.471Z  INFO 1 --- [rhythm-los] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+backend-1  | 2026-10-09T12:10:51.866Z  INFO 1 --- [rhythm-los] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+backend-1  | 2026-10-09T12:10:52.291Z  INFO 1 --- [rhythm-los] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+backend-1  | 2026-10-09T12:10:52.305Z  INFO 1 --- [rhythm-los] [           main] com.rhythm.los.LosApplication            : Started LosApplication in 6.047 seconds (process running for 6.433)
+backend-1  | 2026-10-09T12:10:52.442Z  INFO 1 --- [rhythm-los] [           main] com.rhythm.los.workflow.DemoDataLoader   : Loading demo applications
+backend-1  | 2026-10-09T12:10:55.993Z  INFO 1 --- [rhythm-los] [nio-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+backend-1  | 2026-10-09T12:10:55.993Z  INFO 1 --- [rhythm-los] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+backend-1  | 2026-10-09T12:10:55.994Z  INFO 1 --- [rhythm-los] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+backend-1  | 2026-10-09T12:10:56.773Z  WARN 1 --- [rhythm-los] [           main] c.r.los.integration.IntegrationGateway   : MOCK aa.fetch attempt 1 failed: FIP unavailable (HDFC Bank FIP down)
+backend-1  | 2026-10-09T12:10:56.774Z  WARN 1 --- [rhythm-los] [           main] c.r.los.integration.IntegrationGateway   : MOCK aa.fetch attempt 2 failed: FIP unavailable (HDFC Bank FIP down)
+backend-1  | 2026-10-09T12:10:56.774Z  WARN 1 --- [rhythm-los] [           main] c.r.los.integration.IntegrationGateway   : MOCK aa.fetch attempt 3 failed: FIP unavailable (HDFC Bank FIP down)
+backend-1  | 2026-10-09T12:10:56.787Z  INFO 1 --- [rhythm-los] [           main] com.rhythm.los.workflow.DemoDataLoader   : Demo applications loaded
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /integrations HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/integrations" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/integrations/logs?status= HTTP/1.1" 200 11882 "http://localhost:3000/integrations" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/integrations/logs?status=DLQ HTTP/1.1" 200 249 "http://localhost:3000/integrations" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /applications HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "POST /api/integrations/logs/38/retry HTTP/1.1" 499 0 "http://localhost:3000/integrations" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3786 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/applications?state=&q=Meera%20Shah HTTP/1.1" 200 486 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/applications/6 HTTP/1.1" 200 1732 "http://localhost:3000/applications/6" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "POST /api/auth/login HTTP/1.1" 200 379 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/my-work HTTP/1.1" 200 205 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /admin/users HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/auth/me HTTP/1.1" 200 103 "http://localhost:3000/admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/branches HTTP/1.1" 200 519 "http://localhost:3000/admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:35 +0000] "GET /api/admin/users HTTP/1.1" 403 137 "http://localhost:3000/admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET / HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /assets/index-DcD-DbRV.js HTTP/1.1" 200 223354 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /assets/index-Rbrcpahv.css HTTP/1.1" 200 7661 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "POST /api/auth/login HTTP/1.1" 200 381 "http://localhost:3000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/my-work HTTP/1.1" 200 735 "http://localhost:3000/my-work" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /applications HTTP/1.1" 200 591 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/auth/me HTTP/1.1" 200 101 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications?state=&q= HTTP/1.1" 200 3786 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/pipeline/summary HTTP/1.1" 200 202 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications?state=&q=Anil%20Kumar HTTP/1.1" 200 488 "http://localhost:3000/applications" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications/5 HTTP/1.1" 200 1749 "http://localhost:3000/applications/5" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications/5/documents HTTP/1.1" 200 3964 "http://localhost:3000/applications/5" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "POST /api/applications/5/documents/13/review HTTP/1.1" 200 1507 "http://localhost:3000/applications/5" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications/5/documents HTTP/1.1" 200 4104 "http://localhost:3000/applications/5" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"
+web-1      | 172.18.0.1 - - [09/Oct/2026:12:11:36 +0000] "GET /api/applications/5 HTTP/1.1" 200 1737 "http://localhost:3000/applications/5" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36" "-"

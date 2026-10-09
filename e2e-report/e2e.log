@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 tests/journeys.spec.ts:28:5 › demo data is visible in the pipeline (844ms)
+  ✓  2 tests/journeys.spec.ts:35:5 › new application: capture, documents, automated checks, decision (4.3s)
+  ✓  3 tests/journeys.spec.ts:87:5 › L2 sanction, KFS acceptance and disbursement (2.7s)
+  ✓  4 tests/journeys.spec.ts:118:5 › dead-letter queue: failed AA call is retried from the integration log (791ms)
+  ✓  5 tests/journeys.spec.ts:130:5 › roles: sales cannot open user admin (420ms)
+  ✓  6 tests/journeys.spec.ts:137:5 › document review: an edited salary slip waits for a person, who rejects it (898ms)
+
+  6 passed (10.7s)

@@ -9,6 +9,8 @@ import com.rhythm.los.disbursement.Disbursement;
 import com.rhythm.los.disbursement.DisbursementService;
 import com.rhythm.los.document.AppDocument;
 import com.rhythm.los.document.DocumentService;
+import com.rhythm.los.document.KycCheck;
+import com.rhythm.los.document.KycCheckRepository;
 import com.rhythm.los.integration.DataFetchService;
 import com.rhythm.los.integration.DataSnapshot;
 import com.rhythm.los.integration.DataSnapshotRepository;
@@ -50,8 +52,9 @@ public class ApplicationController {
     private final ProcessService process;
     private final DataSnapshotRepository snapshots;
     private final IntegrationLogRepository logs;
+    private final KycCheckRepository kycChecks;
 
-    public ApplicationController(ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
+    public ApplicationController(KycCheckRepository kycChecks, ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
                                  DecisionService decisions, FraudReviewService fraud, SanctionService sanctions,
                                  SanctionRecordRepository sanctionRecords, DisbursementService disbursements,
                                  ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs) {
@@ -67,6 +70,7 @@ public class ApplicationController {
         this.process = process;
         this.snapshots = snapshots;
         this.logs = logs;
+        this.kycChecks = kycChecks;
     }
 
     public record NoteRequest(String note) {}
@@ -97,6 +101,7 @@ public class ApplicationController {
         m.put("blockers", decisions.blockers(a));
         m.put("missingDocuments", docs.missing(a));
         m.put("product", apps.product(a));
+        m.put("documentAi", docs.aiEnabled());
         return m;
     }
 
@@ -122,6 +127,15 @@ public class ApplicationController {
 
     @GetMapping("/{id}/disbursements")
     public List<Disbursement> disbursementList(@PathVariable Long id) { return disbursements.list(id); }
+
+    @GetMapping("/{id}/kyc-checks")
+    public List<KycCheck> kycChecks(@PathVariable Long id) { return kycChecks.findByApplicationIdOrderByIdAsc(id); }
+
+    @PostMapping("/{id}/documents/{docId}/review")
+    @PreAuthorize(OPS)
+    public AppDocument reviewDocument(@PathVariable Long id, @PathVariable Long docId, @RequestBody DocumentService.ReviewRequest r) {
+        return docs.review(id, docId, r, CurrentUser.get());
+    }
 
     @GetMapping("/{id}/documents")
     public List<AppDocument> documents(@PathVariable Long id) { return docs.list(id); }

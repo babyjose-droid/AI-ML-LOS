@@ -11,7 +11,12 @@ import com.rhythm.los.integration.VendorModels.*;
 public final class Vendors {
     private Vendors() {}
 
-    public interface KycProvider { String name(); KycBundle verify(LoanApplication app); }
+    public interface KycProvider {
+        String name();
+        KycBundle verify(LoanApplication app);
+        /** True when KYC is derived from verified documents, so documents must be complete first. */
+        default boolean needsVerifiedDocuments() { return false; }
+    }
     public interface AccountAggregator { String name(); AaStatement fetchStatements(LoanApplication app, int months); }
     public interface CreditBureau { String name(); BureauReport pull(LoanApplication app); }
     public interface GstProvider { String name(); GstProfile profile(LoanApplication app); }

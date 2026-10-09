@@ -24,7 +24,7 @@ export interface Product {
 }
 
 export interface AppView {
-  application: LoanApplication; states: States; actions: string[]; blockers: string[]; missingDocuments: string[]; product: Product
+  application: LoanApplication; states: States; actions: string[]; blockers: string[]; missingDocuments: string[]; product: Product; documentAi: boolean
 }
 
 export interface Rule { id: string; description: string; pass: boolean; action: string }
@@ -46,7 +46,14 @@ export interface Kfs {
   schedule: { month: number; emi: number; interest: number; principal: number; balance: number }[]
 }
 
-export interface Doc { id: number; docType: string; fileName: string; contentType: string; sizeBytes: number; sha256: string; status: string; remarks?: string; tamperFlag: boolean; readConfidence?: number; uploadedBy: string; uploadedAt: string }
+export interface FieldValue { value: string; confidence: number; source: string }
+export interface Doc {
+  id: number; docType: string; fileName: string; contentType: string; sizeBytes: number; sha256: string; status: string; remarks?: string
+  tamperFlag: boolean; readConfidence?: number; uploadedBy: string; uploadedAt: string
+  aiStatus?: string; detectedType?: string; typeConfidence?: number; extractedJson?: string; validationsJson?: string; qualityJson?: string
+  tamperJson?: string; reviewReasons?: string; engine?: string; masked: boolean; reviewedBy?: string; reviewedAt?: string; reviewNote?: string
+}
+export interface KycCheck { id: number; checkName: string; result: 'PASS' | 'WARN' | 'FAIL'; score: number; expected?: string; found?: string; source?: string; createdAt: string }
 export interface History { id: number; domain: string; fromState: string; toState: string; event: string; actor: string; note?: string; createdAt: string }
 export interface IntegrationLog { id: number; applicationId?: number; vendor: string; operation: string; attempt: number; status: string; latencyMs: number; requestRef: string; responseSummary?: string; errorMessage?: string; retryOf?: number; createdAt: string }
 export interface Snapshot { id: number; kind: string; vendor: string; payloadJson: string; fetchedAt: string }

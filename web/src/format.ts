@@ -10,9 +10,9 @@ export const when = (iso?: string) =>
   iso ? new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
 export const label = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())
 
-const GOOD = ['VERIFIED', 'FETCHED', 'COMPLETE', 'NOT_REQUIRED', 'DONE', 'APPROVE', 'CLEAR', 'SANCTIONED', 'KFS_ACCEPTED', 'DISBURSED', 'SUCCESS', 'RESOLVED', 'APPROVE_WITH_CONDITIONS', 'READY']
-const BAD = ['FAILED', 'REJECT', 'REJECTED', 'BLOCK', 'DECLINED', 'DLQ', 'WITHDRAWN']
-const WARN = ['REVIEW', 'PARTIAL', 'DEFICIENT', 'REQUIRED', 'REFER', 'PENDING_L1', 'PENDING_L2', 'PENDING_L3']
+const GOOD = ['VERIFIED', 'PASS', 'OK', 'FETCHED', 'COMPLETE', 'NOT_REQUIRED', 'DONE', 'APPROVE', 'CLEAR', 'SANCTIONED', 'KFS_ACCEPTED', 'DISBURSED', 'SUCCESS', 'RESOLVED', 'APPROVE_WITH_CONDITIONS', 'READY']
+const BAD = ['FAILED', 'FAIL', 'UNREADABLE', 'REJECT', 'REJECTED', 'BLOCK', 'DECLINED', 'DLQ', 'WITHDRAWN']
+const WARN = ['REVIEW', 'WARN', 'NEEDS_REVIEW', 'IN_REVIEW', 'PARTIAL', 'DEFICIENT', 'REQUIRED', 'REFER', 'PENDING_L1', 'PENDING_L2', 'PENDING_L3']
 export function tone(s: string): 'ok' | 'bad' | 'warn' | 'muted' {
   if (GOOD.includes(s)) return 'ok'
   if (BAD.includes(s)) return 'bad'

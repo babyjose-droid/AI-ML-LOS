@@ -63,6 +63,8 @@ public class DataFetchService {
     public LoanApplication runKyc(Long id, CurrentUser by) {
         LoanApplication a = requireActive(id);
         if (!"NOT_STARTED".equals(a.getKycState())) throw ApiException.conflict("ALREADY_DONE", "KYC already run: " + a.getKycState());
+        if (kyc.needsVerifiedDocuments() && !"COMPLETE".equals(a.getDocsState()))
+            throw ApiException.conflict("DOCUMENTS_FIRST", "KYC is read from the documents: verify the documents first (now " + a.getDocsState() + ")");
         var out = gateway.call(a.getId(), kyc.name(), OP_KYC, () -> kyc.verify(a),
                 k -> "name " + k.nameMatch() + ", address " + k.addressMatch() + ", contact " + k.contactMatch(), null);
         if (!out.ok()) throw ApiException.conflict("VENDOR_FAILED", "KYC provider failed: " + out.error());

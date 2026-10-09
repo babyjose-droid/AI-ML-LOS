@@ -44,6 +44,7 @@ public class MyWorkService {
                     if ("REVIEW".equals(a.getKycState())) add(out, a, "KYC review: do video KYC and resolve", "resolveKyc", 8);
                     if (List.of("FAILED", "PARTIAL").contains(a.getDataState())) add(out, a, "Data fetch failed: retry from integration log", "fetchData", 4);
                     if ("DEFICIENT".equals(a.getDocsState())) add(out, a, "Documents deficient: follow up", "verifyDocuments", 24);
+                    if ("IN_REVIEW".equals(a.getDocsState())) add(out, a, "Document review: AI was not sure", "reviewDocuments", 4);
                     if ("REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st)) add(out, a, "Field visit required", "fieldVisit", 48);
                     if ("READY".equals(a.getDisbState())) add(out, a, "Disburse", "disburse", 8);
                     if ("FAILED".equals(a.getDisbState())) add(out, a, "Disbursement failed: fix and retry", "retryDisbursement", 4);

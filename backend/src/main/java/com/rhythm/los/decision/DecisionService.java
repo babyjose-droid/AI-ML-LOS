@@ -56,7 +56,8 @@ public class DecisionService {
         if ("NOT_STARTED".equals(a.getKycState())) b.add("KYC not run");
         if ("REVIEW".equals(a.getKycState())) b.add("KYC review pending (video KYC)");
         if (!"FETCHED".equals(a.getDataState())) b.add("External data not fetched (" + a.getDataState() + ")");
-        if (!"COMPLETE".equals(a.getDocsState())) b.add("Documents not complete (" + a.getDocsState() + ")");
+        if ("IN_REVIEW".equals(a.getDocsState())) b.add("Documents waiting for review");
+        else if (!"COMPLETE".equals(a.getDocsState())) b.add("Documents not complete (" + a.getDocsState() + ")");
         if ("REQUIRED".equals(a.getFieldState())) b.add("Field visit pending");
         if (Set.of("SANCTIONED", "KFS_ACCEPTED", "DECLINED").contains(a.getSanctionState())) b.add("Already " + a.getSanctionState());
         return b;

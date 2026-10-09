@@ -53,3 +53,7 @@ rhythm:
   kfs:
     otp: ${KFS_MOCK_OTP:123456}
   demo-data: ${DEMO_DATA:true}
+  document-ai:
+    # URL of the AI document service. Empty = filename-based mock reader and mock KYC (used by unit tests).
+    url: ${DOCUMENT_AI_URL:}
+    timeout-seconds: ${DOCUMENT_AI_TIMEOUT:90}

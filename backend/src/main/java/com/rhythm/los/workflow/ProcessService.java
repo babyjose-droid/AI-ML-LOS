@@ -13,7 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Straight-through processing: runs every automatic step that is ready, in order, each in its own
+ * Straight-through processing: documents (AI reading), KYC, bank/bureau/GST data, decision. Runs every
+ * automatic step that is ready, in order, each in its own
  * transaction, and stops at the first step that needs a person. Returns what happened.
  */
 @Service
@@ -44,9 +45,17 @@ public class ProcessService {
             log.add(new StepLog("Check stage", "Nothing to run at stage " + a.getAppState()));
             return log;
         }
+        if (!"COMPLETE".equals(a.getDocsState())) {
+            a = docs.verify(appId, by);
+            log.add(new StepLog("Documents", a.getDocsState()));
+        }
         if ("NOT_STARTED".equals(a.getKycState())) {
-            a = data.runKyc(appId, by);
-            log.add(new StepLog("KYC", a.getKycState()));
+            try {
+                a = data.runKyc(appId, by);
+                log.add(new StepLog("KYC", a.getKycState()));
+            } catch (ApiException e) {
+                log.add(new StepLog("KYC", e.getMessage()));
+            }
         }
         if (!"FETCHED".equals(a.getDataState())) {
             try {
@@ -55,10 +64,6 @@ public class ProcessService {
             } catch (ApiException e) {
                 log.add(new StepLog("Bank, bureau and GST data", e.getMessage()));
             }
-        }
-        if (!"COMPLETE".equals(a.getDocsState())) {
-            a = docs.verify(appId, by);
-            log.add(new StepLog("Documents", a.getDocsState()));
         }
         a = apps.get(appId);
         List<String> blockers = decisions.blockers(a);

@@ -1,4 +1,4 @@
-# Rhythm LOS - local stack: PostgreSQL + Spring Boot API + React web
+# Rhythm LOS - local stack: PostgreSQL + Spring Boot API + AI document service + React web
 # Start:  docker compose up --build
 # Open:   http://localhost:3000
 # Ports busy?  BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build   (users: sales1, ops1, co1, cm1, cro1, fraud1, comp1, admin / Rhythm@123)
@@ -17,6 +17,15 @@ services:
       timeout: 3s
       retries: 20
 
+  ai:
+    # AI document service: OCR (Tesseract) on this machine; Claude vision fallback only if ANTHROPIC_API_KEY is set
+    build: ./ai
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-5}
+      ALLOW_SPECIMEN: ${ALLOW_SPECIMEN:-true}
+      REVIEW_CONFIDENCE: ${REVIEW_CONFIDENCE:-0.80}
+
   backend:
     build: ./backend
     environment:
@@ -26,6 +35,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-local-dev-secret-change-me-0123}
       DEMO_DATA: ${DEMO_DATA:-true}
       INTEGRATION_BACKOFF_MS: ${INTEGRATION_BACKOFF_MS:-300}
+      DOCUMENT_AI_URL: http://ai:8090
     volumes:
       - documents:/data/documents
     ports:
@@ -33,6 +43,8 @@ services:
       - "127.0.0.1:${BACKEND_PORT:-8081}:8081"
     depends_on:
       db:
+        condition: service_healthy
+      ai:
         condition: service_healthy
 
   web:

@@ -127,7 +127,7 @@ export function Products() {
         <Table head={['Code', 'Name', 'Segment', 'Amount', 'Tenure', 'Rate', 'Fee', 'Field visit', 'Documents', 'Status', '']} rows={(p.data ?? []).map(x => [
           <span className="mono">{x.code}</span>, x.name, x.segment.toLowerCase(), `${inr(x.minAmount)}–${inr(x.maxAmount)}`, `${x.minTenure}–${x.maxTenure} m`,
           `${x.rateMin}–${x.rateMax}%`, `${x.processingFeePct}%`,
-          x.fieldVisitRule === 'ABOVE_AMOUNT' ? `Above ${inr(x.fieldVisitThreshold)}` : x.fieldVisitRule.toLowerCase(), <span className="small">{x.requiredDocs.replace(/,/g, ', ')}</span>,
+          x.fieldVisitRule === 'ABOVE_AMOUNT' ? `Above ${inr(x.fieldVisitThreshold)}` : x.fieldVisitRule.toLowerCase(), <span className="small">{x.requiredDocs.replace(/,/g, ', ').replace(/\|/g, ' or ')}</span>,
           <Pill s={x.status === 'LIVE' ? 'SUCCESS' : 'WITHDRAWN'} />, user?.role === 'ADMIN' ? <button className="btn sm" onClick={() => setEdit(x)}>Edit</button> : '',
         ])} />
       </div>

@@ -39,4 +39,13 @@ public class StorageService {
             throw new UncheckedIOException("Could not read document", e);
         }
     }
+
+    public void delete(String relative) {
+        try {
+            Path p = root.resolve(relative).normalize();
+            if (p.startsWith(root)) Files.deleteIfExists(p);
+        } catch (IOException e) {
+            // a leftover file is not fatal; it is never served once the record points elsewhere
+        }
+    }
 }

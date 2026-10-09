@@ -1,4 +1,7 @@
+import path from 'path'
 import { expect, test, type Page } from '@playwright/test'
+
+const fixture = (f: string) => path.join(__dirname, '..', 'fixtures', f)
 
 async function login(page: Page, user: string) {
   await page.goto('/')
@@ -51,19 +54,30 @@ test('new application: capture, documents, automated checks, decision', async ({
   await expect(state(page, 'APP')).toHaveText('Submitted')
 
   await page.getByRole('tab', { name: 'Documents' }).click()
-  for (const t of ['PAN', 'AADHAAR', 'SALARY_SLIP']) {
+  for (const [t, f] of [['PAN', 'deepa-pan.png'], ['AADHAAR', 'deepa-aadhaar.png'], ['SALARY_SLIP', 'deepa-salary.png']]) {
     await page.getByLabel('Document type').selectOption(t)
-    await page.getByLabel('File').setInputFiles({ name: t.toLowerCase() + '.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 e2e') })
+    await page.getByLabel('File').setInputFiles(fixture(f))
     await page.getByRole('button', { name: 'Upload', exact: true }).click()
-    await expect(page.getByRole('cell', { name: t, exact: true })).toBeVisible()
+    await expect(page.locator(`[data-doc="${t}"]`)).toBeVisible()
   }
   await logout(page)
 
   await login(page, 'ops1')
   await openApp(page, 'Deepa Menon')
   await page.locator('[data-action=process]').click()
-  await expect(page.getByRole('status')).toContainText('Decision engine')
+  await expect(page.getByRole('status')).toContainText('Decision engine', { timeout: 30_000 })
+  await expect(state(page, 'DOCS')).toHaveText('Complete')
+  await expect(state(page, 'KYC')).toHaveText('Verified')
   await expect(state(page, 'DECISION')).not.toHaveText('Pending')
+
+  // the AI read the documents; Aadhaar is masked
+  await page.getByRole('tab', { name: 'Documents' }).click()
+  await expect(page.locator('[data-doc=PAN] [data-field=pan]')).toHaveText('DEEPM4321D')
+  await expect(page.locator('[data-doc=AADHAAR] [data-field=aadhaarMasked]')).toContainText('XXXX XXXX')
+  await expect(page.locator('[data-doc=AADHAAR]')).toContainText('Aadhaar masked')
+  await page.getByRole('tab', { name: 'Data' }).click()
+  await expect(page.getByText('KYC checks from documents')).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'PAN on card matches application' })).toBeVisible()
   await page.getByRole('tab', { name: 'Decision' }).click()
   await expect(page.getByText('What drove the risk')).toBeVisible()
   await page.getByRole('tab', { name: 'Credit memo' }).click()
@@ -118,4 +132,17 @@ test('roles: sales cannot open user admin', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Users' })).toHaveCount(0)
   await page.goto('/admin/users')
   await expect(page.getByRole('alert')).toContainText('not allowed')
+})
+
+test('document review: an edited salary slip waits for a person, who rejects it', async ({ page }) => {
+  await login(page, 'ops1')
+  await openApp(page, 'Anil Kumar')
+  await expect(state(page, 'DOCS')).toHaveText('In review')
+  await page.getByRole('tab', { name: 'Documents' }).click()
+  await expect(page.locator('[data-doc=SALARY_SLIP]')).toContainText('editing software')
+  await page.locator('[data-review=SALARY_SLIP]').click()
+  await page.locator('textarea[name=note]').fill('Slip was edited in Photoshop; ask for the original from employer')
+  await page.getByRole('button', { name: 'Reject' }).click()
+  await expect(page.locator('[data-doc=SALARY_SLIP]')).toContainText('Rejected')
+  await expect(state(page, 'DOCS')).toHaveText('Deficient')
 })

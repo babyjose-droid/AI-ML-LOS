@@ -18,7 +18,7 @@ import java.util.Set;
 public class ProductController {
     private static final Set<String> SEGMENTS = Set.of("MSME", "SALARIED", "MICROFINANCE");
     private static final Set<String> FIELD_RULES = Set.of("ALWAYS", "NEVER", "ABOVE_AMOUNT");
-    private static final Set<String> DOC_TYPES = Set.of("PAN", "AADHAAR", "UDYAM", "SALARY_SLIP", "BANK_STATEMENT", "GST_CERT", "RENT_AGREEMENT", "PHOTO");
+    private static final Set<String> DOC_TYPES = com.rhythm.los.document.DocumentService.TYPES;
 
     private final ProductRepository repo;
     private final AuditService audit;
@@ -87,7 +87,7 @@ public class ProductController {
         if (r.rateMin().compareTo(r.rateMax()) > 0) throw ApiException.unprocessable("BAD_RANGE", "Minimum rate is above maximum");
         if ("ABOVE_AMOUNT".equals(r.fieldVisitRule()) && r.fieldVisitThreshold() == null)
             throw ApiException.unprocessable("MISSING_THRESHOLD", "Field visit threshold is needed for ABOVE_AMOUNT");
-        for (String d : r.requiredDocs().split(","))
+        for (String d : r.requiredDocs().split("[,|]"))
             if (!DOC_TYPES.contains(d.trim())) throw ApiException.unprocessable("BAD_DOC_TYPE", "Unknown document type " + d.trim());
         p.setName(r.name());
         p.setSegment(r.segment());

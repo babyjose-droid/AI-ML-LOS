@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
 import { inr, label, pct, when } from '../format'
-import type { AppView, Contribution, Decision, Disbursement, Doc, History, IntegrationLog, Kfs, Rule, SanctionRecord, Snapshot, Step } from '../types'
+import type { AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, Step } from '../types'
 
 const TABS = ['Overview', 'Documents', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
@@ -25,7 +25,7 @@ const ACTION_LABEL: Record<string, string> = {
   edit: 'Edit draft', submit: 'Submit', withdraw: 'Withdraw', process: 'Run automated checks', runKyc: 'Run KYC', fetchData: 'Fetch bank, bureau and GST data',
   verifyDocuments: 'Verify documents', runDecision: 'Run decision engine', resolveKyc: 'Resolve KYC review', fieldVisit: 'Record field visit',
   fraudDisposition: 'Fraud review outcome', sanction: 'Sanction', decline: 'Decline', escalate: 'Escalate', acceptKfs: 'Borrower accepts KFS',
-  disburse: 'Disburse', retryDisbursement: 'Retry disbursement', uploadDocument: 'Upload document',
+  disburse: 'Disburse', retryDisbursement: 'Retry disbursement', uploadDocument: 'Upload document', reviewDocuments: 'Review documents',
 }
 
 export default function Application360() {
@@ -70,6 +70,7 @@ export default function Application360() {
           break
         }
         case 'retryDisbursement': await api.post(base + '/disburse/retry'); break
+        case 'reviewDocuments': setTab('Documents'); break
       }
       setDialog(null)
       refresh()
@@ -99,7 +100,7 @@ export default function Application360() {
             {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
           </div>
           {tab === 'Overview' && <Overview v={v} />}
-          {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
+          {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Data' && <DataTab id={id!} rev={rev} />}
           {tab === 'Decision' && <DecisionTab id={id!} rev={rev} />}
           {tab === 'Credit memo' && <MemoTab id={id!} rev={rev} />}
@@ -177,11 +178,23 @@ function Overview({ v }: { v: AppView }) {
   )
 }
 
-function Documents({ id, canUpload, missing, rev, onChange }: { id: string; canUpload: boolean; missing: string[]; rev: number; onChange: () => void }) {
+const DOC_TYPES = ['PAN', 'AADHAAR', 'VOTER_ID', 'DRIVING_LICENCE', 'PASSPORT', 'UDYAM', 'SALARY_SLIP', 'BANK_STATEMENT', 'GST_CERT', 'RENT_AGREEMENT', 'PHOTO']
+const FIELD_LABEL: Record<string, string> = {
+  pan: 'PAN', name: 'Name', fatherName: "Father's name", dob: 'Date of birth', holderType: 'Holder type', aadhaarMasked: 'Aadhaar (masked)',
+  aadhaarLast4: 'Aadhaar last 4', aadhaarChecksum: 'Aadhaar checksum', gender: 'Gender', address: 'Address', pincode: 'PIN code', epicNumber: 'EPIC number',
+  relationName: 'Relation name', dlNumber: 'Licence number', validTill: 'Valid till', passportNumber: 'Passport number', surname: 'Surname',
+  givenNames: 'Given names', expiry: 'Expiry', sex: 'Sex', nationality: 'Nationality', mrzChecks: 'MRZ checks', udyamNumber: 'Udyam number',
+  enterpriseName: 'Enterprise', ownerName: 'Owner', enterpriseType: 'Enterprise type', employeeName: 'Employee', employer: 'Employer',
+  netPay: 'Net pay', grossPay: 'Gross pay', month: 'Month',
+}
+const parse = <T,>(s: string | undefined, d: T): T => { try { return s ? JSON.parse(s) as T : d } catch { return d } }
+
+function Documents({ id, canUpload, canReview, missing, rev, onChange }: { id: string; canUpload: boolean; canReview: boolean; missing: string[]; rev: number; onChange: () => void }) {
   const docs = useLoad(() => api.get<Doc[]>(`/api/applications/${id}/documents`), [id, rev])
-  const [type, setType] = useState(missing[0] ?? 'PAN')
+  const [type, setType] = useState(missing[0]?.split(' or ')[0] ?? 'PAN')
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<unknown>()
+  const [reviewing, setReviewing] = useState<Doc | null>(null)
   async function upload() {
     if (!file) return
     const fd = new FormData()
@@ -203,24 +216,91 @@ function Documents({ id, canUpload, missing, rev, onChange }: { id: string; canU
           <ErrorBox error={error} />
           <div className="row">
             <select style={{ maxWidth: 200 }} value={type} onChange={e => setType(e.target.value)} aria-label="Document type">
-              {['PAN', 'AADHAAR', 'UDYAM', 'SALARY_SLIP', 'BANK_STATEMENT', 'GST_CERT', 'RENT_AGREEMENT', 'PHOTO'].map(t => <option key={t}>{t}</option>)}
+              {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
             <input style={{ maxWidth: 320 }} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFile(e.target.files?.[0] ?? null)} aria-label="File" />
             <button className="btn primary" disabled={!file} onClick={upload}>Upload</button>
           </div>
-          <p className="small muted" style={{ marginBottom: 0 }}>PDF, JPG or PNG up to 10 MB. Each file is fingerprinted (SHA-256) for the audit trail.</p>
+          <p className="small muted" style={{ marginBottom: 0 }}>PDF, JPG or PNG up to 10 MB. The AI reads each file when automated checks run. Aadhaar images are stored masked (last 4 digits only).</p>
         </div>
       )}
-      <div className="panel flush">
-        <Table head={['Type', 'File', 'Status', 'Read confidence', 'Notes', 'Uploaded']} rows={(docs.data ?? []).map(d => [
-          <b>{d.docType}</b>,
-          <a href={`/api/applications/${id}/documents/${d.id}/content`} onClick={e => { e.preventDefault(); openDoc(id, d) }}>{d.fileName}</a>,
-          <Pill s={d.status} />, d.readConfidence ? pct(d.readConfidence, 0) : '—',
-          <span className={d.tamperFlag ? 'small' : 'small muted'} style={d.tamperFlag ? { color: 'var(--bad)' } : undefined}>{d.remarks ?? '—'}</span>,
-          <span className="small muted">{d.uploadedBy} · {when(d.uploadedAt)}</span>,
-        ])} empty="No documents uploaded yet." />
-      </div>
+      {(docs.data ?? []).length === 0 && <div className="panel empty">No documents uploaded yet.</div>}
+      {(docs.data ?? []).map(d => <DocCard key={d.id} appId={id} d={d} canReview={canReview} onReview={() => setReviewing(d)} />)}
+      {reviewing && <ReviewDialog appId={id} d={reviewing} onClose={() => setReviewing(null)} onDone={() => { setReviewing(null); onChange() }} />}
     </>
+  )
+}
+
+function DocCard({ appId, d, canReview, onReview }: { appId: string; d: Doc; canReview: boolean; onReview: () => void }) {
+  const fields = parse<Record<string, FieldValue>>(d.extractedJson, {})
+  const checks = parse<{ check: string; pass: boolean }[]>(d.validationsJson, [])
+  const quality = parse<{ issues?: string[]; sharpness?: number }>(d.qualityJson, {})
+  const tamper = parse<{ score?: number; signals?: string[] }>(d.tamperJson, {})
+  const reasons = parse<string[]>(d.reviewReasons, [])
+  return (
+    <div className="panel" data-doc={d.docType}>
+      <div className="head" style={{ marginBottom: 10 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>{d.docType.replace(/_/g, ' ')} <Pill s={d.status} /> {d.masked && <span className="pill ok">Aadhaar masked</span>}</h3>
+          <p className="small muted" style={{ margin: '4px 0 0' }}>
+            <a href="#" onClick={e => { e.preventDefault(); openDoc(appId, d) }}>{d.fileName}</a> · {d.uploadedBy} · {when(d.uploadedAt)}
+            {d.engine && <> · read by <b>{d.engine}</b></>}
+            {d.detectedType && <> · looks like <b>{d.detectedType.replace(/_/g, ' ')}</b> ({pct(d.typeConfidence ?? 0, 0)})</>}
+            {d.readConfidence !== undefined && d.readConfidence !== null && <> · confidence <b>{pct(d.readConfidence, 0)}</b></>}
+          </p>
+        </div>
+        {canReview && d.status === 'NEEDS_REVIEW' && <button className="btn primary sm" data-review={d.docType} onClick={onReview}>Review</button>}
+      </div>
+      {d.remarks && <div className={'alert ' + (d.status === 'REJECTED' ? 'bad' : d.status === 'VERIFIED' ? 'warn' : 'warn')}>{d.remarks}</div>}
+      {Object.keys(fields).length > 0 && (
+        <Table head={['Field', 'Value', 'Confidence', 'Source']} rows={Object.entries(fields).map(([k, f]) => [
+          FIELD_LABEL[k] ?? k, <b className="mono" data-field={k}>{f.value}</b>,
+          <div className="row" style={{ flexWrap: 'nowrap' }}><div className="bar" style={{ width: 80 }}><span style={{ width: `${f.confidence * 100}%`, background: f.confidence >= 0.85 ? 'var(--ok)' : f.confidence >= 0.6 ? 'var(--warn)' : 'var(--bad)' }} /></div><span className="small num">{pct(f.confidence, 0)}</span></div>,
+          <span className="small muted">{f.source}</span>,
+        ])} />
+      )}
+      <div className="row small" style={{ marginTop: 10, gap: 14 }}>
+        {checks.map(c => <span key={c.check}><Pill s={c.pass ? 'PASS' : 'FAIL'} /> {c.check}</span>)}
+        {(quality.issues ?? []).map(q => <span key={q}><Pill s="WARN" /> {q}</span>)}
+        {(tamper.signals ?? []).map(t => <span key={t}><Pill s="FAIL" /> {t}</span>)}
+      </div>
+      {d.status === 'NEEDS_REVIEW' && reasons.length > 0 && <p className="small muted">Why it needs a person: {reasons.join('; ')}</p>}
+      {d.reviewedBy && <p className="small muted">Reviewed by {d.reviewedBy} {when(d.reviewedAt)}: {d.reviewNote}</p>}
+    </div>
+  )
+}
+
+function ReviewDialog({ appId, d, onClose, onDone }: { appId: string; d: Doc; onClose: () => void; onDone: () => void }) {
+  const fields = parse<Record<string, FieldValue>>(d.extractedJson, {})
+  const editable = Object.keys(fields).filter(k => !['aadhaarMasked', 'aadhaarChecksum', 'mrzChecks', 'holderType'].includes(k))
+  const [vals, setVals] = useState<Record<string, string>>(Object.fromEntries(editable.map(k => [k, fields[k].value])))
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<unknown>()
+  async function send(action: 'APPROVE' | 'REJECT') {
+    const changed = Object.fromEntries(Object.entries(vals).filter(([k, v]) => v !== fields[k]?.value))
+    try {
+      await api.post(`/api/applications/${appId}/documents/${d.id}/review`, { action, fields: changed, note })
+      onDone()
+    } catch (e) { setError(e) }
+  }
+  return (
+    <Modal title={`Review ${d.docType.replace(/_/g, ' ')}`} onClose={onClose}>
+      <ErrorBox error={error} />
+      <p className="small muted">Open the file, compare it with the values below, correct anything wrong, then approve or reject. {d.remarks}</p>
+      <p className="small"><a href="#" onClick={e => { e.preventDefault(); openDoc(appId, d) }}>Open {d.fileName}</a></p>
+      <div className="form" style={{ gridTemplateColumns: '1fr' }}>
+        {editable.map(k => (
+          <label key={k} className="fld">{FIELD_LABEL[k] ?? k} {fields[k] && <span className="muted">({pct(fields[k].confidence, 0)})</span>}
+            <input name={k} value={vals[k] ?? ''} onChange={e => setVals({ ...vals, [k]: e.target.value })} />
+          </label>
+        ))}
+        <label className="fld">Reviewer note (required)<textarea name="note" rows={3} value={note} onChange={e => setNote(e.target.value)} /></label>
+        <div className="row">
+          <button className="btn primary" onClick={() => send('APPROVE')}>Approve</button>
+          <button className="btn danger" onClick={() => send('REJECT')}>Reject</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -233,6 +313,24 @@ async function openDoc(id: string, d: Doc) {
 }
 
 function DataTab({ id, rev }: { id: string; rev: number }) {
+  const kc = useLoad(() => api.get<KycCheck[]>(`/api/applications/${id}/kyc-checks`), [id, rev])
+  return (
+    <>
+      {(kc.data ?? []).length > 0 && (
+        <div className="panel">
+          <h3>KYC checks from documents</h3>
+          <Table head={['Check', 'Result', 'Score', 'Application', 'Document']} rows={(kc.data ?? []).map(c => [
+            c.checkName, <Pill s={c.result} />, pct(c.score, 0), <span className="small">{c.expected ?? '—'}</span>, <span className="small">{c.found ?? '—'}</span>,
+          ])} />
+          <p className="small muted" style={{ marginBottom: 0 }}>These checks compare what the AI read on the documents with the application. Online validation with the issuers is added in the integrations phase.</p>
+        </div>
+      )}
+      <VendorData id={id} rev={rev} />
+    </>
+  )
+}
+
+function VendorData({ id, rev }: { id: string; rev: number }) {
   const snaps = useLoad(() => api.get<Snapshot[]>(`/api/applications/${id}/snapshots`), [id, rev])
   const latest: Record<string, Snapshot> = {}
   for (const s of snaps.data ?? []) if (!latest[s.kind]) latest[s.kind] = s

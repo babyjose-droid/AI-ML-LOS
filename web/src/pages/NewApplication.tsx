@@ -79,7 +79,7 @@ export default function NewApplication() {
           {txt('tenureMonths', 'Tenure (months)', { type: 'number', min: 1 })}
           {txt('purpose', 'Purpose')}
         </div>
-        {p && <p className="small muted" style={{ marginBottom: 0 }}>{p.name}: {inr(p.minAmount)}–{inr(p.maxAmount)}, {p.minTenure}–{p.maxTenure} months, documents {p.requiredDocs.replace(/,/g, ', ')}.</p>}
+        {p && <p className="small muted" style={{ marginBottom: 0 }}>{p.name}: {inr(p.minAmount)}–{inr(p.maxAmount)}, {p.minTenure}–{p.maxTenure} months, documents {p.requiredDocs.replace(/,/g, ', ').replace(/\|/g, ' or ')}.</p>}
       </div>
       <div className="panel">
         <h3>Applicant</h3>

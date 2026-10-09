@@ -2,7 +2,16 @@
 
 Rhythm is a loan origination system (LOS) with a built-in AI decision engine. It is for NBFCs that do not yet use credit risk models or rely only on the bureau. It takes an application from lead to disbursement: KYC, bank cash-flow analysis, bureau, documents, an explainable decision, credit memo, sanction by delegation, Key Fact Statement and disbursement. Every step has an audit trail.
 
-**Status: Phase 1 (core LOS).** In this phase, all external services (KYC, Account Aggregator, bureau, GST, penny drop, payout) are deterministic mocks. They plug in behind interfaces that the real integrations will implement later.
+**Status: Phase 2 (AI document reading).** Documents are read in-house by the AI document service (`ai/`), with no third-party KYC vendor:
+
+- **Classification and extraction:** the document type is identified, and the key fields are extracted with a confidence score for each.
+- **Validators:** PAN structure, the Aadhaar Verhoeff checksum, and the passport MRZ check digits.
+- **Image checks:** blur, resolution and exposure are checked, and edit signals (editing software, PDF changes) are flagged.
+- **Aadhaar masking:** the first 8 digits are hidden on the stored image and in all data.
+- **KYC from documents:** the name, date of birth, PAN and PIN code are compared between the documents and the application.
+- **Human review:** anything the AI is unsure about goes to a review queue.
+
+OCR runs locally with Tesseract. If `ANTHROPIC_API_KEY` is set, Claude vision reads low-confidence documents, and only masked Aadhaar images are ever sent. Online validation with issuers, the Account Aggregator, bureaus, eSign, eNACH and UPI mandates remain mocks until the integrations phase.
 
 ## Run it locally
 
@@ -33,7 +42,7 @@ On first start, seven demo applications are created at different stages:
 | Priya | Disbursed | Full journey to disbursement |
 | Lakshmi | Field visit pending | JLG loan |
 | Suresh | Referred to L3 | Referral to the top sanction level |
-| Anil | Rejected | Tampered salary slip led to a fraud block |
+| Anil | Document review | Salary slip saved from photo-editing software, now waiting for a reviewer |
 | Meera | Data fetch failed | Bank data call in the dead-letter queue; retry it from Integration logs |
 | Sunil | Draft | Not yet submitted |
 
@@ -58,12 +67,24 @@ The four digits in the PAN choose how the mock vendors respond. This lets you re
 | `9401`–`9499` | Declared income far above bank inflows (fraud signal) |
 | `9501`–`9599` | Penny drop name mismatch, so disbursement fails and can be retried |
 
-Upload a document whose file name contains `blur` to see it rejected as unreadable. A file name containing `tamper` raises a tamper flag.
+SPECIMEN identity cards for fictional people are in `e2e/fixtures/`. To make more, run `cd ai && python -m tools.specimens out/`. Upload them on an application to watch the AI read them.
+
+In production, set `ALLOW_SPECIMEN=false` so that any document marked SPECIMEN is sent for review.
+
+### Optional: Claude vision fallback
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+```
+
+Without a key, everything runs locally, and low-confidence reads go to a human reviewer.
 
 ## Architecture
 
 ```
 web (React + TypeScript, nginx)  ──/api──▶  backend (Spring Boot 3, Java 21)  ──▶  PostgreSQL 16
+                                              │
+                                              └──▶ ai (Python FastAPI: Tesseract OCR, OpenCV, validators, masking, optional Claude vision)
                                               ├── state machine (9 domains), audit trail
                                               ├── integration gateway (logs, retry, dead-letter queue)
                                               ├── decision engine (rules + logistic PD model, reason codes)
@@ -74,6 +95,7 @@ web (React + TypeScript, nginx)  ──/api──▶  backend (Spring Boot 3, Ja
 |---|---|
 | `backend/` | Spring Boot API, Flyway migrations, unit tests, Testcontainers journey tests |
 | `web/` | React app |
+| `ai/` | AI document service with pytest tests over generated SPECIMEN cards |
 | `e2e/` | Playwright browser journeys against the running Docker Compose stack |
 | `.github/workflows/ci.yml` | Builds and tests everything on each push, then publishes a summary to the `ci-status` branch |
 
@@ -101,8 +123,8 @@ Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with 
 
 | Phase | Scope |
 |---|---|
-| 1 (this) | Core LOS, decision engine, sanction, KFS, disbursement, admin, mock vendors |
-| 2 | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
+| 1 (done) | Core LOS, decision engine, sanction, KFS, disbursement, admin, mock vendors |
+| 2 (this) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
 | 3 | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
 | 4 | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
 | 5 | Policy studio with simulation and maker-checker, trained PD and fraud models, workflow per product, borrower and field apps |

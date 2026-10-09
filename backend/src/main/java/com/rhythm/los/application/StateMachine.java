@@ -27,8 +27,9 @@ public final class StateMachine {
         allow(Domain.DATA, "FAILED", "FETCHED", "PARTIAL");
 
         init(Domain.DOCS, "PENDING");
-        allow(Domain.DOCS, "PENDING", "COMPLETE", "DEFICIENT");
-        allow(Domain.DOCS, "DEFICIENT", "COMPLETE");
+        allow(Domain.DOCS, "PENDING", "COMPLETE", "DEFICIENT", "IN_REVIEW");
+        allow(Domain.DOCS, "DEFICIENT", "COMPLETE", "IN_REVIEW");
+        allow(Domain.DOCS, "IN_REVIEW", "COMPLETE", "DEFICIENT");
 
         init(Domain.FIELD, "NOT_EVALUATED");
         allow(Domain.FIELD, "NOT_EVALUATED", "NOT_REQUIRED", "REQUIRED");

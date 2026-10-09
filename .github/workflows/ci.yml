@@ -26,6 +26,7 @@ jobs:
           cache: maven
       - name: Build and test (unit + Testcontainers journeys)
         working-directory: backend
+        shell: bash
         run: mvn -B verify 2>&1 | tee ../backend-build.log
       - name: Test summary
         if: always()
@@ -46,6 +47,7 @@ jobs:
             backend-summary.md
             backend-build.log
             backend/target/surefire-reports/
+            backend/target/failsafe-reports/
           if-no-files-found: ignore
 
   web:
@@ -59,6 +61,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - working-directory: web
+        shell: bash
         run: |
           npm ci --no-audit --no-fund
           npm run build 2>&1 | tee ../web-build.log
@@ -90,6 +93,7 @@ jobs:
         working-directory: e2e
         env:
           CI: 'true'
+        shell: bash
         run: |
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium

@@ -67,7 +67,7 @@ test('new application: capture, documents, automated checks, decision', async ({
   await page.getByRole('tab', { name: 'Decision' }).click()
   await expect(page.getByText('What drove the risk')).toBeVisible()
   await page.getByRole('tab', { name: 'Credit memo' }).click()
-  await expect(page.getByText('CREDIT MEMO')).toBeVisible()
+  await expect(page.locator('pre.memo')).toContainText('CREDIT MEMO')
 })
 
 test('L2 sanction, KFS acceptance and disbursement', async ({ page }) => {

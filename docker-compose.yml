@@ -1,6 +1,7 @@
 # Rhythm LOS - local stack: PostgreSQL + Spring Boot API + React web
 # Start:  docker compose up --build
-# Open:   http://localhost:3000   (users: sales1, ops1, co1, cm1, cro1, fraud1, comp1, admin / Rhythm@123)
+# Open:   http://localhost:3000
+# Ports busy?  BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build   (users: sales1, ops1, co1, cm1, cro1, fraud1, comp1, admin / Rhythm@123)
 services:
   db:
     image: postgres:16-alpine
@@ -28,7 +29,8 @@ services:
     volumes:
       - documents:/data/documents
     ports:
-      - "8081:8081"
+      # API port on your machine (only needed for /api/docs); change with BACKEND_PORT if 8081 is taken
+      - "127.0.0.1:${BACKEND_PORT:-8081}:8081"
     depends_on:
       db:
         condition: service_healthy
@@ -36,7 +38,8 @@ services:
   web:
     build: ./web
     ports:
-      - "3000:80"
+      # web app port on your machine; change with WEB_PORT if 3000 is taken
+      - "${WEB_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy

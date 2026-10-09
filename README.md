@@ -39,6 +39,12 @@ On first start, seven demo applications are created at different stages:
 
 API documentation: http://localhost:8081/api/docs
 
+If port 8081 or 3000 is already used on your machine, choose other ports:
+
+```bash
+BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build
+```
+
 ## Mock vendor scenarios
 
 The four digits in the PAN choose how the mock vendors respond. This lets you replay any path in the journey.

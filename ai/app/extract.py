@@ -44,9 +44,15 @@ class Ctx:
         cs = [self._conf.get(t, self._fuzzy(t)) for t in toks]
         return round(sum(cs) / len(cs), 3)
 
+    @staticmethod
+    def _canon(t: str) -> str:
+        return t.translate(str.maketrans({"L": "I", "1": "I", "|": "I", "0": "O"}))
+
     def _fuzzy(self, tok: str) -> float:
+        ct = self._canon(tok)
         for k, v in self._conf.items():
-            if tok in k or k in tok:
+            ck = self._canon(k)
+            if tok in k or k in tok or ct == ck or ct in ck:
                 return v
         return 0.5
 

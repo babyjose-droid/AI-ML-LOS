@@ -116,7 +116,7 @@ export default function Application360() {
             ? <Link key={x} className="btn" to={`/applications/${id}/edit`} style={{ display: 'block', marginBottom: 8 }}>{ACTION_LABEL[x]}</Link>
             : <button key={x} data-action={x} className={'btn' + (['process', 'sanction', 'disburse', 'submit', 'acceptKfs'].includes(x) ? ' primary' : '') + (x === 'decline' ? ' danger' : '')}
                 disabled={busy} onClick={() => DIALOGS[x] ? setDialog(DIALOGS[x]) : run(x)}>{ACTION_LABEL[x] ?? x}</button>)}
-          {v.blockers.length > 0 && v.states.APP !== 'DRAFT' && (
+          {v.blockers.length > 0 && ['SUBMITTED', 'UNDERWRITING'].includes(v.states.APP) && v.states.DECISION === 'PENDING' && (
             <>
               <h3 style={{ marginTop: 14 }}>Waiting for</h3>
               <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{v.blockers.map(b => <li key={b}>{b}</li>)}</ul>
@@ -409,7 +409,7 @@ function DecisionTab({ id, rev }: { id: string; rev: number }) {
         </div>
       </div>
       <div className="panel flush">
-        <Table head={['Rule', 'Check', 'Result']} rows={rules.map(r => [r.id, r.description, r.pass ? <Pill s="SUCCESS" /> : <span className={'pill ' + (r.action === 'REJECT' ? 'bad' : 'warn')}>{r.action}</span>])} />
+        <Table head={['Rule', 'Check', 'Result']} rows={rules.map(r => [r.id, r.description, r.pass ? <Pill s="PASS" /> : <span className={'pill ' + (r.action === 'REJECT' ? 'bad' : 'warn')}>{r.action}</span>])} />
       </div>
       <p className="small muted">Model {x.modelVersion} · policy {x.policyVersion} · input hash <span className="mono">{x.inputHash.slice(0, 16)}</span> · run by {x.createdBy} {when(x.createdAt)}</p>
     </>

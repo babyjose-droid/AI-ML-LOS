@@ -50,6 +50,19 @@ class Ctx:
                 return v
         return 0.5
 
+    def weakest(self, value: str) -> float:
+        if self.from_pdf_text:
+            return 0.95
+        toks = [t for t in re.split(r"\s+", value.upper()) if t]
+        return min((self._conf.get(t, self._fuzzy(t)) for t in toks), default=0.0)
+
+    def name_field(self, value) -> Field | None:
+        """Names: confidence is the weakest word, so a stray OCR letter ("E Bhavna Shaikh") goes to review."""
+        f = self.field(value)
+        if f:
+            f["confidence"] = round(min(f["confidence"], self.weakest(f["value"])), 3)
+        return f
+
     def field(self, value, boost: float = 1.0, source: str = "ocr", raw: str | None = None) -> Field | None:
         if value is None or value == "":
             return None
@@ -98,13 +111,18 @@ def _raw_date(s: str | None) -> str | None:
     return m.group(0) if m else None
 
 
+def _join_digits(s: str | None) -> str:
+    """OCR sometimes splits an amount ("13 1,000"); join digit groups separated only by spaces."""
+    return re.sub(r"(?<=\d)\s+(?=[\d,])", "", s or "")
+
+
 def _raw_money(s: str | None) -> str | None:
-    m = re.search(r"[0-9][0-9,]*\.?[0-9]*", s or "")
+    m = re.search(r"[0-9][0-9,]*\.?[0-9]*", _join_digits(s))
     return m.group(0) if m else None
 
 
 def _money(s: str) -> str | None:
-    m = re.search(r"([0-9][0-9,]*\.?[0-9]*)", s or "")
+    m = re.search(r"([0-9][0-9,]*\.?[0-9]*)", _join_digits(s))
     if not m:
         return None
     v = m.group(1).replace(",", "")
@@ -130,7 +148,7 @@ def pan(c: Ctx) -> dict[str, Field]:
     dob = parse_date(dob_src)
     out = {
         "pan": c.field(number, 1.0 if m else 0.85),
-        "name": c.field(_clean_name(name) if name else None),
+        "name": c.name_field(_clean_name(name) if name else None),
         "fatherName": c.field(_clean_name(father) if father else None),
         "dob": c.field(dob, raw=_raw_date(dob_src)),
     }
@@ -175,7 +193,7 @@ def aadhaar(c: Ctx) -> dict[str, Field]:
     out = {
         "aadhaarMasked": c.field(mask_aadhaar(number) if number else None, source="derived"),
         "aadhaarLast4": c.field(number[-4:] if number else None, source="derived"),
-        "name": c.field(name),
+        "name": c.name_field(name),
         "dob": c.field(dob, raw=_raw_date(c.lines[dob_line_idx]) if dob_line_idx is not None else None),
         "gender": c.field(gender.title() if gender else None),
         "address": c.field(addr),
@@ -195,7 +213,7 @@ def voter(c: Ctx) -> dict[str, Field]:
     rel = _after_label(c.lines, "Father's Name") or _after_label(c.lines, "Husband's Name")
     return {
         "epicNumber": c.field(m.group(1) if m else None),
-        "name": c.field(_clean_name(name) if name else None),
+        "name": c.name_field(_clean_name(name) if name else None),
         "relationName": c.field(_clean_name(rel) if rel else None),
         "dob": c.field(parse_date(_after_label(c.lines, "Date of Birth") or c.text), raw=_raw_date(_after_label(c.lines, "Date of Birth") or c.text)),
     }
@@ -209,7 +227,7 @@ def driving_licence(c: Ctx) -> dict[str, Field]:
     dob, valid = parse_date(dob_src), parse_date(valid_src)
     return {
         "dlNumber": c.field(re.sub(r"[\s-]", "", m.group(1)) if m else None),
-        "name": c.field(_clean_name(name) if name else None),
+        "name": c.name_field(_clean_name(name) if name else None),
         "dob": c.field(dob, raw=_raw_date(dob_src)),
         "validTill": c.field(valid, raw=_raw_date(valid_src)),
         "address": c.field(_after_label(c.lines, "Address")),
@@ -265,7 +283,7 @@ def udyam(c: Ctx) -> dict[str, Field]:
     return {
         "udyamNumber": c.field(m.group(1) if m else None),
         "enterpriseName": c.field(ent),
-        "ownerName": c.field(_clean_name(owner) if owner else None),
+        "ownerName": c.name_field(_clean_name(owner) if owner else None),
         "enterpriseType": c.field(typ),
     }
 
@@ -277,7 +295,7 @@ def salary(c: Ctx) -> dict[str, Field]:
     net, gross = _money(net_src), _money(gross_src)
     month = re.search(r"(?i)(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20[0-9]{2})", c.text)
     return {
-        "employeeName": c.field(_clean_name(name) if name else None),
+        "employeeName": c.name_field(_clean_name(name) if name else None),
         "employer": c.field(c.lines[0] if c.lines else None, 0.8),
         "netPay": c.field(net, raw=_raw_money(net_src)),
         "grossPay": c.field(gross, raw=_raw_money(gross_src)),
@@ -310,6 +328,14 @@ def validations(doc_type: str, fields: dict[str, Field]) -> list[dict]:
         out.append({"check": "Aadhaar number found and checksum valid (Verhoeff)", "pass": v("aadhaarChecksum") == "ok"})
     if doc_type == "PASSPORT" and fields.get("mrzChecks"):
         out.append({"check": "Passport MRZ check digits", "pass": "fail" not in v("mrzChecks")})
+    if doc_type == "SALARY_SLIP" and v("netPay"):
+        try:
+            net, gross = float(v("netPay")), float(v("grossPay") or 0)
+            out.append({"check": "Net pay is a plausible monthly amount", "pass": 1000 <= net <= 10_000_000})
+            if gross:
+                out.append({"check": "Net pay is not more than gross pay", "pass": net <= gross})
+        except ValueError:
+            out.append({"check": "Net pay is a number", "pass": False})
     if v("dob") and len(v("dob")) == 10:
         out.append({"check": "Date of birth plausible", "pass": plausible_dob(v("dob"))})
     if doc_type == "DRIVING_LICENCE" and v("validTill"):

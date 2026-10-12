@@ -68,11 +68,17 @@ jobs:
         run: |
           pip install -q -r requirements-dev.txt
           python -m pytest -q tests 2>&1 | tee ../ai-tests.log
+      - name: Accuracy evaluation (2 people x 7 document types x 13 photo conditions)
+        working-directory: ai
+        continue-on-error: true
+        run: python -m tools.evaluate 2 --out ../ai-accuracy.json > /dev/null
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ai-report
-          path: ai-tests.log
+          path: |
+            ai-tests.log
+            ai-accuracy.json
           if-no-files-found: ignore
 
   web:

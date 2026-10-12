@@ -112,7 +112,8 @@ label.check input { width: auto; margin-top: 3px; }
 
 /* application 360 */
 .states { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-.states div { background: var(--soft); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.states div { background: var(--soft); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.states .pill { white-space: normal; align-self: flex-start; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 16px; }
 .tabs button { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
 .tabs button.on { background: var(--fg); color: var(--surface); border-color: var(--fg); }

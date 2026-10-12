@@ -167,7 +167,7 @@ def evaluate(n_people=6, seed=7):
                     "type": dtype, "degradation": dname, "status": r["status"], "detected": r["documentType"],
                     "typeOk": r["documentType"] == dtype, "fieldsOk": sum(correct.values()), "fields": len(correct),
                     "allOk": all(correct.values()),
-                    "silentError": r["status"] == "OK" and (not all(correct.values()) or r["documentType"] != dtype),
+                    "silentError": r["status"] == "OK" and (bool(wrong_present) or r["documentType"] != dtype),
                     "wrong": {k: [expected[k], got[k]] for k in wrong_present}, "conf": r["overallConfidence"],
                 })
     return rows, time.time() - t0

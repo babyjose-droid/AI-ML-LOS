@@ -18,9 +18,12 @@ async function token(request: APIRequestContext, user: string) {
 }
 const auth = (t: string) => ({ Authorization: 'Bearer ' + t })
 
+// every test application gets its own mobile number: one number shared by several PANs is a fraud signal
+let mobileSeq = 0
 function application(over: Record<string, unknown> = {}) {
+  mobileSeq += 1
   return {
-    productCode: 'PL', applicantName: 'Kavya Iyer', pan: 'KAVPI5566K', mobile: '9876512345', dob: '1993-08-21',
+    productCode: 'PL', applicantName: 'Kavya Iyer', pan: 'KAVPI5566K', mobile: String(9123400000 + mobileSeq * 7 + Math.floor(Math.random() * 5)), dob: '1993-08-21',
     city: 'Chennai', pincode: '600004', address: '18 Temple Street', businessVintageYears: 6, declaredMonthlyIncome: 90000,
     essentialExpenses: 30000, loanAmount: 300000, tenureMonths: 24, purpose: 'Wedding', bankAccountNo: '123456789012',
     bankIfsc: 'HDFC0001234', consentBureau: true, consentAa: true, consentKyc: true, ...over,
@@ -232,6 +235,8 @@ test('full API journey with real OCR, concurrent sanction, and no Aadhaar number
   expect(everything).not.toContain(fullAadhaar)
   expect(everything).not.toContain(fullAadhaar.slice(0, 8))
 
+  // the shared-mobile fraud signal is covered separately; this applicant has a unique mobile, so fraud is clear
+  expect(view.states.FRAUD).toBe('CLEAR')
   // concurrent sanction: exactly one succeeds
   const dec = await (await request.get(`/api/applications/${id}/decision`, { headers: auth(ops) })).json()
   if (dec.decision !== 'REJECT') {
@@ -278,4 +283,23 @@ test('backend on its own also refuses an oversized upload quickly (defence in de
   expect(r.status()).toBe(413)
   expect(Date.now() - started).toBeLessThan(15_000)
   await api.dispose()
+})
+
+test('network fraud: one mobile number used by several PANs is referred to a fraud analyst', async ({ request }) => {
+  const sales = await token(request, 'sales1'), ops = await token(request, 'ops1')
+  const shared = '9000000999'
+  for (const pan of ['NETPA1001N', 'NETPB1002N', 'NETPC1003N']) {
+    const r = await request.post('/api/applications', { headers: auth(sales), data: application({ pan, mobile: shared, applicantName: 'Net Test' }) })
+    expect(r.status()).toBe(200)
+  }
+  const r = await request.post('/api/applications', { headers: auth(sales), data: application({ pan: 'NETPD1004N', mobile: shared }) })
+  const id = (await r.json()).id
+  for (const [t, f] of [['PAN', 'kavya-pan.png'], ['AADHAAR', 'kavya-aadhaar.png'], ['SALARY_SLIP', 'kavya-salary.png']]) await upload(request, sales, id, t, f)
+  await request.post(`/api/applications/${id}/process`, { headers: auth(ops), timeout: 90_000 })
+  // KYC fails here anyway (the PAN card belongs to someone else), and the decision is a reject or a fraud referral
+  const v = await (await request.get(`/api/applications/${id}`, { headers: auth(ops) })).json()
+  expect(v.states.KYC).toBe('FAILED')
+  const d = await (await request.get(`/api/applications/${id}/decision`, { headers: auth(ops) })).json()
+  expect(d.decision).toBe('REJECT')
+  expect(d.fraudStatus).not.toBe('CLEAR')
 })

@@ -13,6 +13,7 @@ COPY tools ./tools
 
 RUN useradd -r -u 10001 rhythm
 USER rhythm
+LABEL org.opencontainers.image.source="https://github.com/babyjose-droid/AI-ML-LOS"
 EXPOSE 8090
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=10 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/health').status==200 else 1)"

@@ -1,6 +1,7 @@
 # Rhythm LOS - local stack: PostgreSQL + Spring Boot API + AI document service + React web
 # Start:  docker compose up --build
 # Open:   http://localhost:3000
+# Prebuilt images (Docker Hub, rhythmconsultancy):  docker compose pull && docker compose up   (no local build needed)
 # Ports busy?  BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build   (users: sales1, ops1, co1, cm1, cro1, fraud1, comp1, admin / Rhythm@123)
 services:
   db:
@@ -19,6 +20,7 @@ services:
 
   ai:
     # AI document service: OCR (Tesseract) on this machine; Claude vision fallback only if ANTHROPIC_API_KEY is set
+    image: ${RHYTHM_REGISTRY:-rhythmconsultancy}/rhythm-los-ai:${RHYTHM_TAG:-latest}
     build: ./ai
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -27,6 +29,7 @@ services:
       REVIEW_CONFIDENCE: ${REVIEW_CONFIDENCE:-0.80}
 
   backend:
+    image: ${RHYTHM_REGISTRY:-rhythmconsultancy}/rhythm-los-backend:${RHYTHM_TAG:-latest}
     build: ./backend
     environment:
       DB_URL: jdbc:postgresql://db:5432/rhythm
@@ -48,6 +51,7 @@ services:
         condition: service_healthy
 
   web:
+    image: ${RHYTHM_REGISTRY:-rhythmconsultancy}/rhythm-los-web:${RHYTHM_TAG:-latest}
     build: ./web
     ports:
       # web app port on your machine; change with WEB_PORT if 3000 is taken

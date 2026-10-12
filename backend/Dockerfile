@@ -13,6 +13,7 @@ USER rhythm
 WORKDIR /app
 COPY --from=build /src/app.jar app.jar
 ENV STORAGE_PATH=/data/documents JAVA_OPTS="-XX:MaxRAMPercentage=75"
+LABEL org.opencontainers.image.source="https://github.com/babyjose-droid/AI-ML-LOS"
 EXPOSE 8081
 HEALTHCHECK --interval=10s --timeout=3s --start-period=40s --retries=12 CMD wget -qO- http://localhost:8081/actuator/health || exit 1
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

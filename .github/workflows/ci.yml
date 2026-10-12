@@ -134,6 +134,29 @@ jobs:
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
           npx playwright test 2>&1 | tee ../e2e.log
+      - name: Publish images to Docker Hub (rhythmconsultancy)
+        # only after every browser test passed on main; needs repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "docker-hub: skipped (add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets)" | tee docker-publish.txt
+            exit 0
+          fi
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          {
+            for s in ai backend web; do
+              img=rhythmconsultancy/rhythm-los-$s
+              docker tag $img:latest $img:$SHA
+              docker push -q $img:latest && docker push -q $img:$SHA && echo "pushed $img:latest and :$SHA" || echo "FAILED $img"
+            done
+          } 2>&1 | tee docker-publish.txt
+          docker logout
+          ! grep -q FAILED docker-publish.txt
       - name: Stack logs
         if: always()
         run: docker compose logs --no-color > compose.log 2>&1 || true
@@ -142,6 +165,7 @@ jobs:
         with:
           name: e2e-report
           path: |
+            docker-publish.txt
             e2e.log
             compose.log
             e2e/playwright-report/

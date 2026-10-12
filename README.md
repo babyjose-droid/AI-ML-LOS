@@ -63,6 +63,17 @@ If port 8081 or 3000 is already used on your machine, choose other ports:
 BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build
 ```
 
+### Run from Docker Hub (no build)
+
+After every green CI run on `main`, the tested images are published to Docker Hub as `rhythmconsultancy/rhythm-los-ai`, `rhythmconsultancy/rhythm-los-backend` and `rhythmconsultancy/rhythm-los-web` (tags `latest` and the short commit hash).
+
+```bash
+docker compose pull
+BACKEND_PORT=8091 docker compose up
+```
+
+`RHYTHM_TAG=<commit>` runs a specific build. Publishing needs two repository secrets: `DOCKERHUB_USERNAME` (`rhythmconsultancy`) and `DOCKERHUB_TOKEN` (a Docker Hub access token with Read & Write).
+
 ## Mock vendor scenarios
 
 The four digits in the PAN choose how the mock vendors respond. This lets you replay any path in the journey.

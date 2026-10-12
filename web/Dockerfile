@@ -10,4 +10,5 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/dist /usr/share/nginx/html
+LABEL org.opencontainers.image.source="https://github.com/babyjose-droid/AI-ML-LOS"
 EXPOSE 80

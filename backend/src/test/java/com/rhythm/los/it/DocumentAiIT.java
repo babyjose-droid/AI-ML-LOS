@@ -64,6 +64,14 @@ class DocumentAiIT {
                 public boolean extractsFields() { return true; }
                 public DocumentReading read(byte[] b, String ct, String file, String declared) {
                     Map<String, FieldValue> f = new LinkedHashMap<>();
+                    boolean kiran = file.contains("kiran");
+                    if (file.startsWith("pan") && kiran) {
+                        f.put("pan", new FieldValue("KIRPJ1008K", 0.95, "ocr"));
+                        f.put("name", new FieldValue("KIRAN JOSHI", 0.96, "ocr"));
+                        f.put("dob", new FieldValue("1990-04-15", 0.95, "ocr"));
+                        return new DocumentReading("OK", "PAN", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0, "signals", List.of()),
+                                List.of(), 0.95, "tesseract", false, null);
+                    }
                     if (file.startsWith("pan")) {
                         f.put("pan", new FieldValue("DEEPM4321D", 0.95, "ocr"));
                         f.put("name", new FieldValue(file.contains("review") ? "DEEPA MENN" : "DEEPA MENON", file.contains("review") ? 0.55 : 0.96, "ocr"));
@@ -76,14 +84,14 @@ class DocumentAiIT {
                     if (file.startsWith("aadhaar")) {
                         f.put("aadhaarMasked", new FieldValue("XXXX XXXX 0369", 0.96, "derived"));
                         f.put("aadhaarLast4", new FieldValue("0369", 0.96, "derived"));
-                        f.put("name", new FieldValue("Deepa Menon", 0.96, "ocr"));
+                        f.put("name", new FieldValue(kiran ? "Kiran Joshi" : "Deepa Menon", 0.96, "ocr"));
                         f.put("dob", new FieldValue("1990-04-15", 0.95, "ocr"));
                         f.put("pincode", new FieldValue("411038", 0.96, "ocr"));
                         return new DocumentReading("OK", "AADHAAR", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0),
                                 List.of(), 0.95, "tesseract", true, MASKED_PNG);
                     }
                     if (file.startsWith("statement")) return analyzeStatement(b, ct, file, null, null).reading();
-                    f.put("employeeName", new FieldValue("Deepa Menon", 0.96, "ocr"));
+                    f.put("employeeName", new FieldValue(kiran ? "Kiran Joshi" : "Deepa Menon", 0.96, "ocr"));
                     f.put("netPay", new FieldValue("80000", 0.96, "ocr"));
                     return new DocumentReading("OK", "SALARY_SLIP", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0),
                             List.of(), 0.96, "tesseract", false, null);
@@ -100,7 +108,7 @@ class DocumentAiIT {
                     // what the AI service returns for a 6-month salaried statement with betting transactions
                     String json = """
                         {"status":"OK","documentType":"BANK_STATEMENT","engine":"pdf-text","bank":"SAHYADRI CO-OPERATIVE BANK LTD",
-                         "accountHolder":"DEEPA MENON","accountNumberMasked":"XXXX4821","ifsc":"SAHY0000123",
+                         "accountHolder":"KIRAN JOSHI","accountNumberMasked":"XXXX4821","ifsc":"SAHY0000123",
                          "periodFrom":"2026-04-01","periodTo":"2026-09-30","transactionCount":2,
                          "transactions":[{"date":"2026-04-01","narration":"NEFT SALARY ACME","debit":0,"credit":80000,"balance":92000,"category":"SALARY","flags":[]},
                                          {"date":"2026-04-03","narration":"UPI DREAM11","debit":2000,"credit":0,"balance":90000,"category":"GAMBLING","flags":["Betting / gaming"]}],
@@ -248,10 +256,10 @@ class DocumentAiIT {
     @Test
     void lockedBankStatementIsUnlockedAnalysedAndDrivesTheDecision() throws Exception {
         String sales = login("sales1"), ops = login("ops1");
-        long id = create(sales, "Deepa Menon", "DEEPM4321D", "9811100003");
-        upload(sales, id, "PAN", "pan.png");
-        upload(sales, id, "AADHAAR", "aadhaar.png");
-        upload(sales, id, "SALARY_SLIP", "salary.png");
+        long id = create(sales, "Kiran Joshi", "KIRPJ1008K", "9811100003");
+        upload(sales, id, "PAN", "pan-kiran.png");
+        upload(sales, id, "AADHAAR", "aadhaar-kiran.png");
+        upload(sales, id, "SALARY_SLIP", "salary-kiran.png");
 
         Res noPw = uploadPdf(sales, id, "statement.pdf", LOCKED_PDF, null);
         assertThat(noPw.status()).isEqualTo(422);
@@ -270,7 +278,7 @@ class DocumentAiIT {
         JsonNode st = doc(id, ops, "BANK_STATEMENT");
         assertThat(st.get("status").asText()).isEqualTo("VERIFIED");
         assertThat(st.get("hasAnalysis").asBoolean()).isTrue();
-        assertThat(st.get("extractedJson").asText()).contains("XXXX4821").contains("DEEPA MENON");
+        assertThat(st.get("extractedJson").asText()).contains("XXXX4821").contains("KIRAN JOSHI");
         JsonNode analysis = ok(get("/api/applications/" + id + "/documents/" + docId + "/analysis"), ops, null).body();
         assertThat(analysis.get("monthly").size()).isEqualTo(6);
         assertThat(analysis.has("unlockedPdf")).isFalse();

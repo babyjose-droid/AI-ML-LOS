@@ -34,7 +34,6 @@ async function upload(request: APIRequestContext, t: string, id: number, type: s
   })
 }
 
-test.describe.configure({ mode: 'serial' })
 
 test('authentication: no token, bad token, wrong password, deactivated user', async ({ request }) => {
   expect((await request.get('/api/applications')).status()).toBe(401)
@@ -162,7 +161,8 @@ test('uploads: wrong type, empty, too large, unknown document type, other applic
   expect((await post('empty.png', 'image/png', Buffer.alloc(0))).status()).toBe(422)
   expect((await post('a.png', 'image/png', Buffer.from('x'), 'SELFIE_WITH_CAT')).status()).toBe(422)
   const big = await post('big.pdf', 'application/pdf', Buffer.alloc(11 * 1024 * 1024, 1))
-  expect([413]).toContain(big.status())
+  expect(big.status()).toBe(413)
+  expect(await big.text()).toContain('FILE_TOO_LARGE')
   // a document of one application cannot be fetched through another application's URL
   const ok = await upload(request, t, id, 'PAN', 'kavya-pan.png')
   const docId = (await ok.json()).id
@@ -262,4 +262,20 @@ test('errors do not leak internals; security headers are set', async ({ request 
   const health = await request.get('/actuator/health')
   expect(health.status()).toBe(200)
   expect(await health.text()).not.toContain('jdbc')
+})
+
+test('backend on its own also refuses an oversized upload quickly (defence in depth)', async ({ playwright }) => {
+  const api = await playwright.request.newContext({ baseURL: process.env.API_URL ?? 'http://localhost:8081' })
+  const login = await api.post('/api/auth/login', { data: { username: 'sales1', password: 'Rhythm@123' } })
+  const t = (await login.json()).token
+  const id = (await (await api.post('/api/applications', { headers: auth(t), data: application({ pan: 'QAVPZ6666Q' }) })).json()).id
+  const started = Date.now()
+  const r = await api.post(`/api/applications/${id}/documents`, {
+    headers: auth(t), timeout: 20_000,
+    multipart: { type: 'PAN', file: { name: 'big.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(11 * 1024 * 1024, 1) } },
+  }).catch(e => e as Error)
+  if (r instanceof Error) throw new Error('backend did not answer an oversized upload within 20 s: ' + r.message)
+  expect(r.status()).toBe(413)
+  expect(Date.now() - started).toBeLessThan(15_000)
+  await api.dispose()
 })

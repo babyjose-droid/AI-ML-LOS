@@ -41,9 +41,11 @@ async function request<T>(method: string, url: string, body?: unknown, isForm = 
   }
   if (res.status === 204) return undefined as T
   const text = await res.text()
-  const data = text ? JSON.parse(text) : undefined
+  let data: any
+  try { data = text ? JSON.parse(text) : undefined } catch { data = undefined }
   if (!res.ok) {
-    throw new ApiError(res.status, data?.code ?? 'ERROR', data?.message ?? res.statusText, data?.fields)
+    const fallback = res.status === 413 ? 'The file is larger than 10 MB' : res.status >= 500 ? 'The server had a problem. Please try again.' : res.statusText
+    throw new ApiError(res.status, data?.code ?? 'ERROR', data?.message ?? fallback, data?.fields)
   }
   return data as T
 }

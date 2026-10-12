@@ -197,6 +197,7 @@ function Documents({ id, canUpload, canReview, missing, rev, onChange }: { id: s
   const [reviewing, setReviewing] = useState<Doc | null>(null)
   async function upload() {
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setError(new Error('The file is larger than 10 MB')); return }
     const fd = new FormData()
     fd.append('type', type)
     fd.append('file', file)

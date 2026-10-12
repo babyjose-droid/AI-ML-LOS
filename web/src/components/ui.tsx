@@ -38,7 +38,7 @@ export function StateBoard({ states }: { states: States }) {
 
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null
-  const msg = error instanceof ApiError ? error.message : String(error)
+  const msg = error instanceof ApiError || error instanceof Error ? error.message : String(error)
   const fields = error instanceof ApiError && error.fields
   return (
     <div className="alert bad" role="alert">

@@ -22,6 +22,9 @@ spring:
 
 server:
   port: ${PORT:8081}
+  tomcat:
+    # read the rest of an oversized upload so the client gets a clean 413 instead of a reset connection
+    max-swallow-size: 20MB
   error:
     include-message: always
 

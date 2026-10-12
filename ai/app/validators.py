@@ -105,7 +105,9 @@ def parse_mrz(lines: list[str]):
         l1, l2 = cand[i].ljust(44, "<")[:44], cand[i + 1].ljust(44, "<")[:44]
         if not l1.startswith("P"):
             continue
-        names = l1[5:].split("<<", 1)
+        # the name zone holds only letters and fillers: undo common OCR digit/letter swaps
+        name_zone = l1[5:].translate(str.maketrans({"0": "O", "1": "I", "5": "S", "8": "B", "2": "Z", "6": "G"}))
+        names = name_zone.split("<<", 1)
         surname = names[0].replace("<", " ").strip()
         given = names[1].split("<<")[0].replace("<", " ").strip() if len(names) > 1 else ""
         given = re.sub(r"[^A-Z ]", "", given).strip()

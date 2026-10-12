@@ -48,6 +48,38 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.CONFLICT, "STALE_UPDATE", "The application was changed by someone else. Reload and try again.", null);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> tooLarge(Exception e) {
+        return body(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "The file is larger than 10 MB", null);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> unreadable(Exception e) {
+        return body(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "The request body is missing or not valid JSON", null);
+    }
+
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<Map<String, Object>> badParam(Exception e) {
+        String msg = e instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException m
+                ? "Invalid value for '" + m.getName() + "'"
+                : e instanceof org.springframework.web.bind.MissingServletRequestParameterException p
+                ? "Missing parameter '" + p.getParameterName() + "'"
+                : "A required part of the request is missing";
+        return body(HttpStatus.BAD_REQUEST, "BAD_REQUEST", msg, null);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> noRoute(Exception e) {
+        return body(HttpStatus.NOT_FOUND, "NOT_FOUND", "No such endpoint", null);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> method(Exception e) {
+        return body(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", e.getMessage(), null);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> other(Exception e) {
         log.error("Unhandled error", e);

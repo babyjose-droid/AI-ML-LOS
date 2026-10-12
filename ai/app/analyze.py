@@ -86,6 +86,9 @@ def analyze(data: bytes, content_type: str, declared_type: str | None = None) ->
     missing = [k for k in required if k not in fields]
     if missing:
         reasons.append("Could not read: " + ", ".join(missing))
+    weak = [k for k in required if k in fields and fields[k]["confidence"] < 0.6]
+    if weak:
+        reasons.append("Not sure about: " + ", ".join(weak))
     if required and conf < REVIEW_BELOW:
         reasons.append(f"Low reading confidence ({round(conf * 100)}%)")
     reasons += [f"Check failed: {c['check']}" for c in checks if not c["pass"]]

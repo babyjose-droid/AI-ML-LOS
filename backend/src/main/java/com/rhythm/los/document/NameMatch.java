@@ -40,21 +40,30 @@ public final class NameMatch {
     }
 
     static double ratio(String a, String b) {
-        int d = levenshtein(a, b);
+        double d = levenshtein(a, b);
         int m = Math.max(a.length(), b.length());
-        return m == 0 ? 1 : 1.0 - (double) d / m;
+        return m == 0 ? 1 : 1.0 - d / m;
     }
 
-    static int levenshtein(String a, String b) {
-        int[] prev = new int[b.length() + 1], cur = new int[b.length() + 1];
+    /** Characters OCR confuses cost less to substitute. */
+    private static final String[] CONFUSABLE = {"IL1", "O0Q", "S5", "B8", "Z2", "G6"};
+
+    static double subCost(char x, char y) {
+        if (x == y) return 0;
+        for (String g : CONFUSABLE) if (g.indexOf(x) >= 0 && g.indexOf(y) >= 0) return 0.25;
+        return 1;
+    }
+
+    static double levenshtein(String a, String b) {
+        double[] prev = new double[b.length() + 1], cur = new double[b.length() + 1];
         for (int j = 0; j <= b.length(); j++) prev[j] = j;
         for (int i = 1; i <= a.length(); i++) {
             cur[0] = i;
             for (int j = 1; j <= b.length(); j++) {
-                int c = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                double c = subCost(a.charAt(i - 1), b.charAt(j - 1));
                 cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + c);
             }
-            int[] t = prev; prev = cur; cur = t;
+            double[] t = prev; prev = cur; cur = t;
         }
         return prev[b.length()];
     }

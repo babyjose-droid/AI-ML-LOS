@@ -43,10 +43,38 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                     .requestMatchers("/actuator/health/**", "/actuator/info", "/api/docs/**", "/api/openapi/**",
                             "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                    // role rules at the edge, so a forbidden caller is refused before the body is even read;
+                    // the same rules are repeated with @PreAuthorize on each controller method
+                    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/api/audit/**", "/api/audit").hasAnyRole("ADMIN", "COMPLIANCE", "CRO", "CREDIT_MANAGER")
+                    .requestMatchers(HttpMethod.GET, "/api/integrations/**").hasAnyRole("ADMIN", "OPERATIONS", "COMPLIANCE")
+                    .requestMatchers(HttpMethod.POST, "/api/integrations/**").hasAnyRole("ADMIN", "OPERATIONS")
+                    .requestMatchers(HttpMethod.POST, "/api/applications/*/fraud/**").hasRole("FRAUD_ANALYST")
+                    .requestMatchers(HttpMethod.POST, "/api/applications/*/sanction", "/api/applications/*/sanction/**")
+                        .hasAnyRole("CREDIT_OFFICER", "CREDIT_MANAGER", "CRO")
+                    .requestMatchers(HttpMethod.POST, "/api/applications/*/field-visit").hasAnyRole("OPERATIONS", "CREDIT_OFFICER", "ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/applications/*/process", "/api/applications/*/kyc/**",
+                            "/api/applications/*/data/**", "/api/applications/*/documents/verify", "/api/applications/*/documents/*/review",
+                            "/api/applications/*/decision/**", "/api/applications/*/disburse", "/api/applications/*/disburse/**")
+                        .hasAnyRole("OPERATIONS", "ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/applications", "/api/applications/*/submit", "/api/applications/*/withdraw",
+                            "/api/applications/*/documents", "/api/applications/*/kfs/**").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
+                    .requestMatchers(HttpMethod.PUT, "/api/applications/*").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
                     .requestMatchers("/api/**").authenticated()
                     .anyRequest().permitAll())
-            .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(authConverter())));
+            .exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) ->
+                    json(res, 403, "FORBIDDEN", "Your role is not allowed to do this")))
+            .oauth2ResourceServer(o -> o
+                    .jwt(j -> j.jwtAuthenticationConverter(authConverter()))
+                    .authenticationEntryPoint((req, res, ex) -> json(res, 401, "UNAUTHENTICATED", "Sign in again: the session is missing or has expired"))
+                    .accessDeniedHandler((req, res, ex) -> json(res, 403, "FORBIDDEN", "Your role is not allowed to do this")));
         return http.build();
+    }
+
+    private static void json(jakarta.servlet.http.HttpServletResponse res, int status, String code, String message) throws java.io.IOException {
+        res.setStatus(status);
+        res.setContentType("application/json");
+        res.getWriter().write("{\"status\":" + status + ",\"code\":\"" + code + "\",\"message\":\"" + message + "\"}");
     }
 
     private JwtAuthenticationConverter authConverter() {

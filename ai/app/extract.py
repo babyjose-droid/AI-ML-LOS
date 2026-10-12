@@ -60,7 +60,9 @@ class Ctx:
 
 def _clean_name(s: str) -> str:
     s = re.sub(r"[^A-Za-z .']", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\s+", " ", s).strip()
+    # OCR often reads a capital I as a lower-case l at the start of a word ("lyer" for "Iyer"); names start upper-case
+    return " ".join("I" + t[1:] if len(t) > 1 and t[0] == "l" and (t[1:].islower() or t[1:].isupper()) else t for t in s.split(" "))
 
 
 def _after_label(lines: list[str], label: str, same_line_ok=True, exclude: tuple[str, ...] = ()) -> str | None:
@@ -231,6 +233,19 @@ def passport(c: Ctx) -> dict[str, Field]:
         }
         out["mrzChecks"] = {"value": ",".join(f"{k}:{'ok' if v else 'fail'}" for k, v in mrz["checks"].items()),
                             "confidence": 0.99 if ok else 0.3, "source": "derived"}
+        # MRZ names have no check digit and '<' fillers are often misread as K or E: cross-check with the printed names
+        for key, label in (("surname", "Surname"), ("givenNames", "Given Name")):
+            viz = _after_label(c.lines, label)
+            if not viz or not out.get(key):
+                continue
+            viz = re.sub(r"(?i)^\(s\)\s*:?\s*", "", viz)
+            viz = re.sub(r"[^A-Z ]", "", viz.upper()).strip()
+            mrz_val = out[key]["value"]
+            if viz and viz != mrz_val:
+                if mrz_val.startswith(viz) or mrz_val.replace(" ", "").startswith(viz.replace(" ", "")):
+                    out[key] = {"value": viz, "confidence": c.conf(viz), "source": "ocr"}
+                else:
+                    out[key]["confidence"] = 0.5
     else:
         m = PASSPORT_RE.search(c.text.upper())
         out = {

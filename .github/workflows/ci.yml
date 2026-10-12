@@ -61,7 +61,7 @@ jobs:
           cache: pip
           cache-dependency-path: ai/requirements-dev.txt
       - name: Install Tesseract
-        run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin fonts-dejavu-core
+        run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-osd fonts-dejavu-core
       - name: Tests
         working-directory: ai
         shell: bash
@@ -135,6 +135,7 @@ jobs:
             compose.log
             e2e/playwright-report/
             e2e/test-results/
+            e2e/screens/
           if-no-files-found: ignore
 
   status:

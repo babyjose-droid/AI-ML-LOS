@@ -136,3 +136,37 @@ def test_api_endpoint():
     r = c.post("/v1/documents/analyze", files={"file": ("pan.png", data, "image/png")}, data={"declared_type": "PAN"})
     assert r.status_code == 200 and r.json()["fields"]["pan"]["value"] == "DEEPM4321D"
     assert c.post("/v1/documents/analyze", files={"file": ("x.txt", b"hi", "text/plain")}).status_code == 415
+
+
+# ---------- robustness (found in QA, 12 Oct 2026) ----------
+
+def test_sideways_and_upside_down_photos_are_corrected():
+    card = sp.pan_card("Kavya Iyer", "Raman Iyer", "21/08/1993", "KAVPI5566K")
+    for angle in (90, 180):
+        r = run(card.rotate(angle, expand=True), "PAN")
+        assert val(r, "pan") == "KAVPI5566K", angle
+
+
+def test_uneven_lighting_is_normalised():
+    import numpy as np
+    a = np.array(sp.pan_card("Kavya Iyer", "Raman Iyer", "21/08/1993", "KAVPI5566K")).astype(float)
+    a *= np.linspace(0.55, 1.05, a.shape[1])[None, :, None]
+    r = run(Image.fromarray(a.clip(0, 255).astype("uint8")), "PAN")
+    assert val(r, "pan") == "KAVPI5566K" and val(r, "dob") == "1993-08-21"
+
+
+def test_lower_case_l_read_for_capital_i_is_fixed():
+    num = sp.aadhaar_number("KAVYA")
+    r = run(sp.aadhaar_card("Kavya Iyer", "21/08/1993", "Female", num, ["18 Temple Street", "Chennai, Tamil Nadu 600004"]), "AADHAAR")
+    assert val(r, "name") == "Kavya Iyer"
+
+
+def test_weak_required_field_is_never_auto_accepted():
+    # a passport whose printed given name disagrees with the MRZ must go to a person
+    img = sp.passport("KHAN", "POOJA", "901102", "330101", "J4161059", "F")
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(img)
+    d.rectangle([255, 245, 1000, 290], fill=(246, 244, 238))
+    d.text((260, 250), "Given Name(s): RANI", font=sp._font(28), fill=(10, 10, 10))
+    r = run(img, "PASSPORT")
+    assert r["status"] != "OK"

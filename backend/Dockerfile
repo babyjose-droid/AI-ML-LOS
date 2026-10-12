@@ -1,5 +1,6 @@
 # ---- build ----
-FROM maven:3.9-eclipse-temurin-21 AS build
+# the jar is the same on every chip, so it is built natively and only the runtime image is per-platform
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY pom.xml .
 RUN mvn -B -q dependency:go-offline

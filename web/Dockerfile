@@ -1,5 +1,6 @@
 # ---- build ----
-FROM node:22-alpine AS build
+# static files are the same on every chip: build natively, serve from a per-platform nginx
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

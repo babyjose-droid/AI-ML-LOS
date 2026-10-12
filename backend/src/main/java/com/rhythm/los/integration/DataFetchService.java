@@ -73,8 +73,18 @@ public class DataFetchService {
         double s = idScore(k);
         var p = policy.live();
         String to = s < p.kycFail() ? "FAILED" : s < p.kycReview() ? "REVIEW" : "VERIFIED";
-        apps.transition(a, Domain.KYC, to, "kyc.completed", by, "Identity match " + Math.round(s * 100) + "%");
+        String note = "Identity match " + Math.round(s * 100) + "%";
+        if (panMismatch(k, a)) {
+            // a PAN card with a different number is never cleared by a reviewer: the application must be corrected
+            to = "FAILED";
+            note = "PAN on the card (" + k.pan().pan() + ") does not match the application (" + a.getPan() + ")";
+        }
+        apps.transition(a, Domain.KYC, to, "kyc.completed", by, note);
         return a;
+    }
+
+    static boolean panMismatch(KycBundle k, LoanApplication a) {
+        return k.pan() != null && k.pan().pan() != null && !k.pan().pan().isBlank() && !k.pan().pan().equalsIgnoreCase(a.getPan());
     }
 
     /** After video KYC or a document re-check, an operations user can clear or fail a KYC review. */
@@ -82,6 +92,12 @@ public class DataFetchService {
     public LoanApplication resolveKyc(Long id, boolean verified, String note, CurrentUser by) {
         LoanApplication a = apps.get(id);
         if (note == null || note.trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
+        if (verified) {
+            snapshots.findFirstByApplicationIdAndKindOrderByIdDesc(id, "KYC").map(x -> Json.read(x.getPayloadJson(), KycBundle.class))
+                    .filter(k -> panMismatch(k, a)).ifPresent(k -> {
+                        throw ApiException.unprocessable("PAN_MISMATCH", "The PAN on the card does not match the application; it cannot be cleared");
+                    });
+        }
         apps.transition(a, Domain.KYC, verified ? "VERIFIED" : "FAILED", verified ? "kyc.review_cleared" : "kyc.review_failed", by, note);
         return a;
     }

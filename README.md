@@ -2,7 +2,16 @@
 
 Rhythm is a loan origination system (LOS) with a built-in AI decision engine. It is for NBFCs that do not yet use credit risk models or rely only on the bureau. It takes an application from lead to disbursement: KYC, bank cash-flow analysis, bureau, documents, an explainable decision, credit memo, sanction by delegation, Key Fact Statement and disbursement. Every step has an audit trail.
 
-**Status: Phase 2 (AI document reading).** Documents are read in-house by the AI document service (`ai/`), with no third-party KYC vendor:
+**Status: Phase 3 (AI bank statement analysis).** Bank statements are analysed in-house, with no statement-analysis vendor:
+
+- **Any bank, text or scanned:** the transaction table is found by its column headers, so new bank layouts need no template. Text PDFs are read from the text layer; scanned PDFs and photos are deskewed and read with OCR. Claude can be enabled as a fallback for pages OCR cannot read (`STATEMENT_LLM_FALLBACK=true`).
+- **Password-protected PDFs:** the password is used once at upload to unlock the file. Only the unlocked copy is stored, and the password is neither saved nor logged.
+- **Balance reconciliation:** every row is checked as previous balance + credit − debit = printed balance. In a text PDF, a row that does not add up is treated as a sign of editing. Editing-tool metadata, changed dates, mixed fonts and a wrong closing balance are also flagged.
+- **Categorisation and cash flow:** salary, EMIs (with lender), bounces and bounce charges, betting/gambling, cash deposits, rent, utilities, own-account transfers, UPI and more. This gives monthly inflow, outflow, average and minimum balance, and flags for large cash deposits, round-figure cash income and duplicates.
+- **Into the decision:** a verified statement replaces the Account Aggregator as the bank data for the engine. Betting transactions trigger rule **R14** (refer, RC-020), an edited statement is caught by the existing document-tamper fraud signal, and the account holder name is matched in KYC.
+- **Bank statement tab:** shows KPIs, month-by-month bars, where the money goes, flagged transactions and a filterable transaction list.
+
+Phase 2 added **AI document reading**. Identity and income documents are read in-house by the AI document service (`ai/`), with no third-party KYC vendor:
 
 - **Classification and extraction:** the document type is identified, and the key fields are extracted with a confidence score for each.
 - **Validators:** PAN structure, the Aadhaar Verhoeff checksum, and the passport MRZ check digits.
@@ -67,6 +76,8 @@ The four digits in the PAN choose how the mock vendors respond. This lets you re
 | `9401`–`9499` | Declared income far above bank inflows (fraud signal) |
 | `9501`–`9599` | Penny drop name mismatch, so disbursement fails and can be retried |
 
+Demo case **Kiran Joshi** has a password-protected bank statement with online rummy payments, which shows R14. `e2e/fixtures/sunil-statement-locked.pdf` (password `SUNI1402`) can be uploaded on the draft for Sunil Wagh. To make more specimen statements, use `ai/tools/statements_gen.py`. Accuracy is measured by `cd ai && python -m tools.evaluate_statements 3`.
+
 SPECIMEN identity cards for fictional people are in `e2e/fixtures/`. To make more, run `cd ai && python -m tools.specimens out/`. Upload them on an application to watch the AI read them.
 
 In production, set `ALLOW_SPECIMEN=false` so that any document marked SPECIMEN is sent for review.
@@ -124,8 +135,8 @@ Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with 
 | Phase | Scope |
 |---|---|
 | 1 (done) | Core LOS, decision engine, sanction, KFS, disbursement, admin, mock vendors |
-| 2 (this) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
-| 3 | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
+| 2 (done) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
+| 3 (this) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
 | 4 | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
 | 5 | Policy studio with simulation and maker-checker, trained PD and fraud models, workflow per product, borrower and field apps |
 | 6 | **Third-party integrations:** online PAN, Aadhaar and CKYC validation, Account Aggregator, bureaus, eSign and eStamp, eNACH and UPI Autopay, penny drop, payouts, WhatsApp and SMS. Replaces the mocks through the existing vendor ports |

@@ -5,6 +5,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from . import llm
 from .analyze import analyze
+from .statements_analyze import PasswordRequired, analyse_statement, unlock
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="Rhythm AI document service", version="0.2.0")
@@ -35,3 +36,38 @@ async def analyze_document(file: UploadFile = File(...), declared_type: str | No
                 "tamper": {"score": 0, "signals": []}, "overallConfidence": 0, "engine": "none",
                 "reviewReasons": [f"File could not be processed: {type(e).__name__}"], "masked": False, "maskedImage": None,
                 "text": "", "pages": 0, "specimen": False}
+
+
+@app.post("/v1/statements/analyze")
+async def analyze_statement(file: UploadFile = File(...), password: str | None = Form(None),
+                            holder_hint: str | None = Form(None), declared_income: float | None = Form(None)):
+    ct = file.content_type or ""
+    if ct not in ALLOWED:
+        raise HTTPException(415, "Only PDF, JPG and PNG are supported")
+    data = await file.read()
+    if not data or len(data) > MAX_BYTES:
+        raise HTTPException(413, "File is empty or larger than 10 MB")
+    try:
+        return analyse_statement(data, ct, password, holder_hint, declared_income)
+    except PasswordRequired:
+        raise HTTPException(422, "PASSWORD_REQUIRED")
+    except Exception as e:  # noqa: BLE001
+        logging.exception("statement analysis failed")
+        return {"status": "UNREADABLE", "documentType": "BANK_STATEMENT", "engine": "none", "transactions": [], "transactionCount": 0,
+                "monthly": [], "summary": {}, "reconciliation": {"checked": 0, "passed": 0, "rate": 0, "breaks": []},
+                "tamper": {"score": 0, "signals": []}, "notes": [], "reviewReasons": [f"File could not be processed: {type(e).__name__}"],
+                "overallConfidence": 0, "headerFound": False, "passwordProtected": False}
+
+
+@app.post("/v1/pdf/unlock")
+async def unlock_pdf(file: UploadFile = File(...), password: str = Form(...)):
+    """Removes the password from a PDF so the LOS can store an unlocked copy and forget the password."""
+    data = await file.read()
+    try:
+        out, was = unlock(data, password)
+    except PasswordRequired:
+        raise HTTPException(422, "WRONG_PASSWORD")
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, "NOT_A_PDF")
+    import base64
+    return {"wasEncrypted": was, "pdf": base64.b64encode(out).decode()}

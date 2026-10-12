@@ -12,8 +12,14 @@ public final class VendorModels {
     public record KycBundle(PanResult pan, AadhaarResult aadhaar, CkycResult ckyc,
                             double nameMatch, double dobMatch, double idMatch, double addressMatch, double contactMatch) {}
 
+    /** Bank data for underwriting: from the Account Aggregator, or from an AI-read bank statement (gambling is then known). */
     public record AaStatement(String fipName, String maskedAccount, int months, List<Double> inflows, List<Double> outflows,
-                              double avgBalance, int bounces, double detectedEmi) {}
+                              double avgBalance, int bounces, double detectedEmi, int gambling) {
+        public AaStatement(String fipName, String maskedAccount, int months, List<Double> inflows, List<Double> outflows,
+                           double avgBalance, int bounces, double detectedEmi) {
+            this(fipName, maskedAccount, months, inflows, outflows, avgBalance, bounces, detectedEmi, 0);
+        }
+    }
 
     public record BureauReport(String bureau, boolean hit, int score, int activeLines, int maxDpd12, boolean ever90,
                                int enquiries6m, int historyMonths, double totalEmi) {}

@@ -36,6 +36,7 @@ public class AppDocument {
     @Column(name = "reviewed_by") private String reviewedBy;
     @Column(name = "reviewed_at") private Instant reviewedAt;
     @Column(name = "review_note") private String reviewNote;
+    @JsonIgnore @Column(name = "analysis_json") private String analysisJson;
 
 
     public Long getId() { return id; }
@@ -90,4 +91,7 @@ public class AppDocument {
     public void setReviewedAt(Instant v) { this.reviewedAt = v; }
     public String getReviewNote() { return reviewNote; }
     public void setReviewNote(String v) { this.reviewNote = v; }
+    public String getAnalysisJson() { return analysisJson; }
+    public void setAnalysisJson(String v) { this.analysisJson = v; }
+    public boolean isHasAnalysis() { return analysisJson != null; }
 }

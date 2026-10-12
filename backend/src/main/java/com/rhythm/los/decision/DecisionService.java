@@ -151,7 +151,7 @@ public class DecisionService {
                 a.getAppNo(), a.getApplicantName(), a.getSegment(), a.ageYears(),
                 a.getBusinessVintageYears().doubleValue(), kyc,
                 a.getDeclaredMonthlyIncome().doubleValue(), a.getEssentialExpenses().doubleValue(),
-                new EngineInput.Bank(s.inflows(), s.outflows(), s.avgBalance(), s.bounces(), s.detectedEmi()),
+                new EngineInput.Bank(s.inflows(), s.outflows(), s.avgBalance(), s.bounces(), s.detectedEmi(), s.gambling()),
                 b != null && b.hit() ? new EngineInput.Bureau(b.score(), b.activeLines(), b.maxDpd12(), b.ever90(), b.enquiries6m(), b.historyMonths(), b.totalEmi()) : null,
                 g == null ? null : new EngineInput.Gst(g.filingRegularity(), g.turnoverGrowth(), g.bankGstGap()),
                 null,

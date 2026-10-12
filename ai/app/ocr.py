@@ -133,7 +133,7 @@ def deskew_angle(gray: Image.Image) -> float:
     if len(angles) < 3:
         return 0.0
     ang = float(np.median(angles))
-    return ang if 0.4 < abs(ang) < 15 else 0.0
+    return ang if 0.2 < abs(ang) < 15 else 0.0
 
 
 def osd_rotation(gray: Image.Image) -> int:

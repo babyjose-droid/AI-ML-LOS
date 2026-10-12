@@ -101,6 +101,19 @@ public class DemoDataLoader {
             docs(a, "meera", "PAN", "AADHAAR", "UDYAM");
             process.process(a.getId(), OPS);
         });
+        step("Kiran", () -> {
+            // bank statement read by the AI (password-protected PDF): 6 months of salary, an EMI and online rummy
+            LoanApplication a = create("PL", "Kiran Joshi", "KIRPJ1008K", "9822001008", "1991-08-22", "411007", "Pune", null, 4, 68000, 24000, 250000, 24, "Wedding expenses");
+            docs(a, "kiran", "PAN", "AADHAAR", "SALARY_SLIP");
+            if (docs.aiEnabled()) {
+                try (InputStream in = getClass().getResourceAsStream("/demo-docs/kiran-statement.pdf")) {
+                    docs.upload(a.getId(), "BANK_STATEMENT", new BytesFile("kiran-statement.pdf", in.readAllBytes(), "application/pdf"), "KIRA2208", SALES);
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            process.process(a.getId(), OPS);
+        });
         create("BL-UNS", "Sunil Wagh", "SUNPW1234W", "9822001007", "1993-02-14", "411001", "Pune", "Wagh Hardware", 3, 55000, 20000, 200000, 24, "Working capital");
         log.info("Demo applications loaded");
     }

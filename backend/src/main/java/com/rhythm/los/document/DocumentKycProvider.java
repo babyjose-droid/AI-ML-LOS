@@ -102,6 +102,11 @@ public class DocumentKycProvider implements Vendors.KycProvider {
             out.add(new KycCheck(id, "Employee name on salary slip matches", NameMatch.score(a.getApplicantName(), v(slip, "employeeName")),
                     a.getApplicantName(), v(slip, "employeeName"), "SALARY_SLIP"));
         }
+        Map<String, DocumentReading.FieldValue> stmt = byType.get("BANK_STATEMENT");
+        if (stmt != null && v(stmt, "accountHolder") != null) {
+            out.add(new KycCheck(id, "Account holder on bank statement matches", NameMatch.score(a.getApplicantName(), v(stmt, "accountHolder")),
+                    a.getApplicantName(), v(stmt, "accountHolder"), "BANK_STATEMENT"));
+        }
         if (pan == null) out.add(new KycCheck(id, "PAN document verified", 0, "PAN", "not on file", "PAN"));
         if (ovd == null) out.add(new KycCheck(id, "Officially valid document verified", 0, "Aadhaar, voter ID, licence or passport", "not on file", "OVD"));
 

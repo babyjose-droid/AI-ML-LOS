@@ -70,3 +70,26 @@ def read_document(image_png: bytes, doc_type_hint: str | None) -> dict | None:
     except Exception as e:  # noqa: BLE001 - the fallback must never break the main read
         log.warning("Claude fallback failed: %s", e)
         return None
+
+
+def read_statement_page(image_png: bytes) -> list | None:
+    """Transactions on one statement page as [{date, narration, debit, credit, balance}], or None."""
+    if not enabled():
+        return None
+    prompt = ("This is one page of an Indian bank statement. List every transaction row in order. "
+              "Use ISO dates (YYYY-MM-DD) and plain numbers without commas. Copy numbers exactly; do not calculate. "
+              'Answer with JSON only: {"transactions": [{"date": "...", "narration": "...", "debit": 0, "credit": 0, "balance": 0}]}')
+    body = {"model": MODEL, "max_tokens": 8000, "messages": [{"role": "user", "content": [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64.b64encode(image_png).decode()}},
+        {"type": "text", "text": prompt}]}]}
+    headers = {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    try:
+        r = httpx.post(API_URL, json=body, headers=headers, timeout=float(os.getenv("CLAUDE_TIMEOUT", "90")))
+        r.raise_for_status()
+        text = "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text")
+        m = re.search(r"\{.*\}", text, re.S)
+        data = json.loads(m.group(0)) if m else None
+        return data.get("transactions") if isinstance(data, dict) else None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Claude statement fallback failed: %s", e)
+        return None

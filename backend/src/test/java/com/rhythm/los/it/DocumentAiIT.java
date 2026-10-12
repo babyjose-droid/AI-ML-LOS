@@ -50,6 +50,8 @@ class DocumentAiIT {
     @ServiceConnection
     static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    static final byte[] UNLOCKED_PDF = "%PDF-1.4 unlocked statement %%EOF".getBytes(StandardCharsets.UTF_8);
+    static final byte[] LOCKED_PDF = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<</Root 1 0 R/Encrypt 5 0 R>>\n%%EOF".getBytes(StandardCharsets.UTF_8);
     static final byte[] MASKED_PNG = "masked-image-bytes".getBytes(StandardCharsets.UTF_8);
 
     @TestConfiguration
@@ -80,10 +82,34 @@ class DocumentAiIT {
                         return new DocumentReading("OK", "AADHAAR", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0),
                                 List.of(), 0.95, "tesseract", true, MASKED_PNG);
                     }
+                    if (file.startsWith("statement")) return analyzeStatement(b, ct, file, null, null).reading();
                     f.put("employeeName", new FieldValue("Deepa Menon", 0.96, "ocr"));
                     f.put("netPay", new FieldValue("80000", 0.96, "ocr"));
                     return new DocumentReading("OK", "SALARY_SLIP", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0),
                             List.of(), 0.96, "tesseract", false, null);
+                }
+
+                public boolean readsStatements() { return true; }
+
+                public byte[] unlockPdf(byte[] pdf, String password) {
+                    if (!"PW1234".equals(password)) throw com.rhythm.los.common.ApiException.unprocessable("WRONG_PASSWORD", "The PDF password is not correct");
+                    return UNLOCKED_PDF;
+                }
+
+                public StatementReading analyzeStatement(byte[] b, String ct, String file, String holder, Double income) {
+                    // what the AI service returns for a 6-month salaried statement with betting transactions
+                    String json = """
+                        {"status":"OK","documentType":"BANK_STATEMENT","engine":"pdf-text","bank":"SAHYADRI CO-OPERATIVE BANK LTD",
+                         "accountHolder":"DEEPA MENON","accountNumberMasked":"XXXX4821","ifsc":"SAHY0000123",
+                         "periodFrom":"2026-04-01","periodTo":"2026-09-30","transactionCount":2,
+                         "transactions":[{"date":"2026-04-01","narration":"NEFT SALARY ACME","debit":0,"credit":80000,"balance":92000,"category":"SALARY","flags":[]},
+                                         {"date":"2026-04-03","narration":"UPI DREAM11","debit":2000,"credit":0,"balance":90000,"category":"GAMBLING","flags":["Betting / gaming"]}],
+                         "monthly":[%s],
+                         "summary":{"months":6,"avgBalance":30000,"bounces":0,"detectedEmi":4500,"gamblingCount":3,"salary":{"amount":80000}},
+                         "reconciliation":{"checked":120,"passed":120,"rate":1.0,"breaks":[]},
+                         "tamper":{"score":0,"signals":[]},"notes":[],"reviewReasons":[],"overallConfidence":1.0,"headerFound":true}
+                        """.formatted(String.join(",", java.util.Collections.nCopies(6, "{\"month\":\"2026-04\",\"inflow\":80000,\"outflow\":52000,\"avgBalance\":30000}")));
+                    return com.rhythm.los.document.HttpDocumentReader.parseStatement(json);
                 }
             };
         }
@@ -211,5 +237,48 @@ class DocumentAiIT {
         assertThat(st.get("KYC").asText()).isEqualTo("FAILED");
         String checks = ok(get("/api/applications/" + id + "/kyc-checks"), ops, null).body().toString();
         assertThat(checks).contains("\"FAIL\"");
+    }
+
+    Res uploadPdf(String token, long id, String file, byte[] bytes, String password) throws Exception {
+        var b = multipart("/api/applications/" + id + "/documents").file(new MockMultipartFile("file", file, "application/pdf", bytes)).param("type", "BANK_STATEMENT");
+        if (password != null) b.param("password", password);
+        return call(b, token, null);
+    }
+
+    @Test
+    void lockedBankStatementIsUnlockedAnalysedAndDrivesTheDecision() throws Exception {
+        String sales = login("sales1"), ops = login("ops1");
+        long id = create(sales, "Deepa Menon", "DEEPM4321D", "9811100003");
+        upload(sales, id, "PAN", "pan.png");
+        upload(sales, id, "AADHAAR", "aadhaar.png");
+        upload(sales, id, "SALARY_SLIP", "salary.png");
+
+        Res noPw = uploadPdf(sales, id, "statement.pdf", LOCKED_PDF, null);
+        assertThat(noPw.status()).isEqualTo(422);
+        assertThat(noPw.body().toString()).contains("PASSWORD_REQUIRED");
+        Res wrong = uploadPdf(sales, id, "statement.pdf", LOCKED_PDF, "nope");
+        assertThat(wrong.status()).isEqualTo(422);
+        assertThat(wrong.body().toString()).contains("WRONG_PASSWORD");
+        Res good = uploadPdf(sales, id, "statement.pdf", LOCKED_PDF, "PW1234");
+        assertThat(good.status()).as(String.valueOf(good.body())).isEqualTo(200);
+        assertThat(good.body().get("remarks").asText()).contains("password was not stored");
+        long docId = good.body().get("id").asLong();
+        assertThat(call(get("/api/applications/" + id + "/documents/" + docId + "/content"), ops, null).raw()).isEqualTo(UNLOCKED_PDF);
+        assertThat(ok(get("/api/audit?applicationId=" + id), login("comp1"), null).raw()).asString().doesNotContain("PW1234");
+
+        ok(post("/api/applications/" + id + "/process"), ops, null);
+        JsonNode st = doc(id, ops, "BANK_STATEMENT");
+        assertThat(st.get("status").asText()).isEqualTo("VERIFIED");
+        assertThat(st.get("hasAnalysis").asBoolean()).isTrue();
+        assertThat(st.get("extractedJson").asText()).contains("XXXX4821").contains("DEEPA MENON");
+        JsonNode analysis = ok(get("/api/applications/" + id + "/documents/" + docId + "/analysis"), ops, null).body();
+        assertThat(analysis.get("monthly").size()).isEqualTo(6);
+        assertThat(analysis.has("unlockedPdf")).isFalse();
+
+        assertThat(ok(get("/api/applications/" + id + "/snapshots"), ops, null).body().toString()).contains("STATEMENT-AI");
+        assertThat(ok(get("/api/applications/" + id + "/kyc-checks"), ops, null).body().toString()).contains("Account holder on bank statement matches");
+        String decision = ok(get("/api/applications/" + id + "/decision"), ops, null).body().toString();
+        assertThat(decision).contains("R14").contains("RC-020");
+        assertThat(states(id, ops).get("DECISION").asText()).isEqualTo("REFER");
     }
 }

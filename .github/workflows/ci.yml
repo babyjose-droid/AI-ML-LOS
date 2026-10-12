@@ -72,6 +72,10 @@ jobs:
         working-directory: ai
         continue-on-error: true
         run: python -m tools.evaluate 2 --out ../ai-accuracy.json > /dev/null
+      - name: Bank statement accuracy (3 seeds x 3 layouts x clean/locked/scanned/edited)
+        working-directory: ai
+        continue-on-error: true
+        run: python -m tools.evaluate_statements 3 --out ../ai-statement-accuracy.json > /dev/null
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -79,6 +83,7 @@ jobs:
           path: |
             ai-tests.log
             ai-accuracy.json
+            ai-statement-accuracy.json
           if-no-files-found: ignore
 
   web:

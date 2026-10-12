@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class DocumentAiConfig {
     @Bean
     DocumentReader documentReader(@Value("${rhythm.document-ai.url:}") String url,
-                                  @Value("${rhythm.document-ai.timeout-seconds:90}") int timeout) {
+                                  @Value("${rhythm.document-ai.timeout-seconds:180}") int timeout) {
         return url == null || url.isBlank() ? new FilenameDocumentReader() : new HttpDocumentReader(url, timeout);
     }
 }

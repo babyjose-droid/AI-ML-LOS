@@ -116,4 +116,22 @@ class UnderwritingEngineTest {
             assertThat(b.recAmt()).isLessThanOrEqualTo(a.recAmt());
         }
     }
+
+    @Test
+    void bettingInTheBankStatementIsReferredAndOtherwiseChangesNothing() {
+        for (EngineInput in : samples().values()) {
+            EngineInput.Bank b = in.bank();
+            EngineInput with = new EngineInput(in.id(), in.name(), in.segment(), in.age(), in.vintage(), in.kyc(), in.declaredIncome(), in.essential(),
+                    new EngineInput.Bank(b.inflows(), b.outflows(), b.avgBalance(), b.bounces(), b.detectedEmi(), 2),
+                    in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan());
+            EngineResult base = UnderwritingEngine.underwrite(in, PolicyParams.defaults());
+            EngineResult r = UnderwritingEngine.underwrite(with, PolicyParams.defaults());
+            assertThat(base.rules()).noneMatch(x -> x.id().equals("R14"));
+            assertThat(r.rules()).anyMatch(x -> x.id().equals("R14") && !x.pass());
+            assertThat(r.reasonCodes()).contains("RC-020");
+            assertThat(r.pd()).isEqualTo(base.pd());
+            assertThat(r.decision()).isIn("REFER", "REJECT");
+            if (base.decision().startsWith("APPROVE")) assertThat(r.decision()).isEqualTo("REFER");
+        }
+    }
 }

@@ -153,6 +153,8 @@ public final class UnderwritingEngine {
         rb.rule("R11", "Some EMI capacity after obligations", maxEmi >= 0.3 * reqEmi && surplus > 0, "REJECT", "RC-003");
         rb.rule("R12", "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
         rb.rule("R13", "Amount ≤ auto-approval limit ₹" + inr(p.autoApproveLimit()), recAmt <= p.autoApproveLimit(), "REFER", "RC-014");
+        if (a.bank().gambling() > 0)
+            rb.rule("R14", "No betting / gambling transactions in the bank statement", false, "REFER", "RC-020");
         if (!thick) reasons.add("RC-015");
 
         // 10. Decision

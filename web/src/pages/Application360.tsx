@@ -3,9 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
 import { inr, label, pct, when } from '../format'
-import type { AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, Step } from '../types'
+import type { AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Documents', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Documents', 'Bank statement', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice')[]; choices?: [string, string][]; hint?: string }
@@ -101,6 +101,7 @@ export default function Application360() {
           </div>
           {tab === 'Overview' && <Overview v={v} />}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
+          {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}
           {tab === 'Data' && <DataTab id={id!} rev={rev} />}
           {tab === 'Decision' && <DecisionTab id={id!} rev={rev} />}
           {tab === 'Credit memo' && <MemoTab id={id!} rev={rev} />}
@@ -186,6 +187,8 @@ const FIELD_LABEL: Record<string, string> = {
   givenNames: 'Given names', expiry: 'Expiry', sex: 'Sex', nationality: 'Nationality', mrzChecks: 'MRZ checks', udyamNumber: 'Udyam number',
   enterpriseName: 'Enterprise', ownerName: 'Owner', enterpriseType: 'Enterprise type', employeeName: 'Employee', employer: 'Employer',
   netPay: 'Net pay', grossPay: 'Gross pay', month: 'Month',
+  accountHolder: 'Account holder', accountNumberMasked: 'Account (masked)', ifsc: 'IFSC', bank: 'Bank', periodFrom: 'From', periodTo: 'To',
+  openingBalance: 'Opening balance', closingBalance: 'Closing balance', months: 'Months covered',
 }
 const parse = <T,>(s: string | undefined, d: T): T => { try { return s ? JSON.parse(s) as T : d } catch { return d } }
 
@@ -193,6 +196,7 @@ function Documents({ id, canUpload, canReview, missing, rev, onChange }: { id: s
   const docs = useLoad(() => api.get<Doc[]>(`/api/applications/${id}/documents`), [id, rev])
   const [type, setType] = useState(missing[0]?.split(' or ')[0] ?? 'PAN')
   const [file, setFile] = useState<File | null>(null)
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<unknown>()
   const [reviewing, setReviewing] = useState<Doc | null>(null)
   async function upload() {
@@ -201,9 +205,11 @@ function Documents({ id, canUpload, canReview, missing, rev, onChange }: { id: s
     const fd = new FormData()
     fd.append('type', type)
     fd.append('file', file)
+    if (password) fd.append('password', password)
     try {
       await api.upload(`/api/applications/${id}/documents`, fd)
       setFile(null)
+      setPassword('')
       setError(undefined)
       onChange()
     } catch (e) { setError(e) }
@@ -220,9 +226,14 @@ function Documents({ id, canUpload, canReview, missing, rev, onChange }: { id: s
               {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
             <input style={{ maxWidth: 320 }} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFile(e.target.files?.[0] ?? null)} aria-label="File" />
+            {type === 'BANK_STATEMENT' && (
+              <input style={{ maxWidth: 200 }} type="password" autoComplete="off" placeholder="PDF password, if any" value={password}
+                onChange={e => setPassword(e.target.value)} aria-label="PDF password" />
+            )}
             <button className="btn primary" disabled={!file} onClick={upload}>Upload</button>
           </div>
-          <p className="small muted" style={{ marginBottom: 0 }}>PDF, JPG or PNG up to 10 MB. The AI reads each file when automated checks run. Aadhaar images are stored masked (last 4 digits only).</p>
+          <p className="small muted" style={{ marginBottom: 0 }}>PDF, JPG or PNG up to 10 MB. The AI reads each file when automated checks run. Aadhaar images are stored masked (last 4 digits only).
+            {type === 'BANK_STATEMENT' && ' Bank statements: the password is used once to unlock the PDF and is not stored.'}</p>
         </div>
       )}
       {(docs.data ?? []).length === 0 && <div className="panel empty">No documents uploaded yet.</div>}
@@ -311,6 +322,98 @@ async function openDoc(id: string, d: Doc) {
   const r = await fetch(`/api/applications/${id}/documents/${d.id}/content`, { headers: token ? { Authorization: 'Bearer ' + token } : {} })
   const url = URL.createObjectURL(await r.blob())
   window.open(url, '_blank')
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  SALARY: 'Salary', EMI: 'Loan EMI', BOUNCE: 'Bounced payment', BOUNCE_CHARGE: 'Bounce charges', REVERSAL: 'Reversal', GAMBLING: 'Betting / gambling',
+  INTEREST: 'Interest', CHARGES: 'Bank charges', TAX: 'Tax', CASH_DEPOSIT: 'Cash deposit', CASH_WITHDRAWAL: 'Cash withdrawal', RENT: 'Rent',
+  UTILITIES: 'Utilities', INSURANCE: 'Insurance', INVESTMENT: 'Investment', UPI: 'UPI', CARD: 'Card', TRANSFER_IN: 'Transfer in',
+  TRANSFER_OUT: 'Transfer out', SELF_TRANSFER: 'Own account transfer', CHEQUE: 'Cheque', OTHER: 'Other',
+}
+
+function StatementTab({ id, rev }: { id: string; rev: number }) {
+  const docs = useLoad(() => api.get<Doc[]>(`/api/applications/${id}/documents`), [id, rev])
+  const stmt = (docs.data ?? []).filter(d => d.docType === 'BANK_STATEMENT' && d.hasAnalysis).pop()
+  const a = useLoad(() => stmt ? api.get<StatementAnalysis>(`/api/applications/${id}/documents/${stmt.id}/analysis`) : Promise.resolve(null), [id, rev, stmt?.id])
+  const [cat, setCat] = useState('')
+  const [flaggedOnly, setFlaggedOnly] = useState(false)
+  if (docs.loading || a.loading) return <div className="panel empty">Loading…</div>
+  if (!stmt) {
+    const pending = (docs.data ?? []).some(d => d.docType === 'BANK_STATEMENT')
+    return <div className="panel empty">{pending ? 'The bank statement is analysed when automated checks run.' : 'No bank statement uploaded. Upload one on the Documents tab (password-protected PDFs are fine).'}</div>
+  }
+  const r = a.data
+  if (!r) return <ErrorBox error={a.error} />
+  const s = r.summary
+  const maxFlow = Math.max(1, ...r.monthly.map(m => Math.max(m.inflow, m.outflow)))
+  const flagged = r.transactions.filter(t => t.flags.length > 0)
+  const shown = r.transactions.filter(t => (!cat || t.category === cat) && (!flaggedOnly || t.flags.length > 0))
+  const cats = Object.entries(s.categories ?? {})
+  return (
+    <div data-statement>
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>{r.bank ?? 'Bank statement'} · {r.accountNumberMasked ?? ''} <Pill s={stmt.status} /></h3>
+        <p className="small muted" style={{ margin: 0 }}>
+          {r.accountHolder} · {r.periodFrom} to {r.periodTo} · {r.transactionCount} transactions · read from the {r.engine === 'pdf-text' ? 'PDF text layer' : 'scanned image (OCR)'} ·
+          balances reconcile on <b data-reconcile>{pct(r.reconciliation.rate, 0)}</b> of {r.reconciliation.checked} rows
+        </p>
+      </div>
+      {(r.tamper.signals.length > 0 || r.notes.length > 0) && (
+        <div className="panel">
+          {r.tamper.signals.map(x => <div key={x} className="alert bad">{x}</div>)}
+          {r.notes.map(x => <div key={x} className="alert warn">{x}</div>)}
+        </div>
+      )}
+      <div className="kpis">
+        <div className="kpi"><span>Avg monthly inflow</span><b data-kpi="inflow">{inr(s.avgMonthlyInflow)}</b></div>
+        <div className="kpi"><span>Avg monthly outflow</span><b>{inr(s.avgMonthlyOutflow)}</b></div>
+        <div className="kpi"><span>Average balance</span><b>{inr(s.avgBalance)}</b></div>
+        <div className="kpi"><span>Salary</span><b data-kpi="salary">{s.salary ? inr(s.salary.amount) : '—'}</b>{s.salary?.employer && <span>{s.salary.employer} · {s.salary.months} months</span>}</div>
+        <div className="kpi"><span>EMIs seen</span><b data-kpi="emi">{inr(s.detectedEmi)}</b><span>{(s.emis ?? []).map(e => e.counterparty).join(', ') || 'none'}</span></div>
+        <div className="kpi"><span>Bounces</span><b data-kpi="bounces">{s.bounces ?? 0}</b>{(s.bounceCharges ?? 0) > 0 && <span>charges {inr(s.bounceCharges)}</span>}</div>
+        <div className="kpi"><span>Betting / gambling</span><b data-kpi="gambling">{s.gamblingCount ?? 0}</b>{(s.gamblingAmount ?? 0) > 0 && <span>{inr(s.gamblingAmount)} spent</span>}</div>
+        <div className="kpi"><span>Cash deposits</span><b>{pct(s.cashDepositShare ?? 0, 0)}</b><span>of income</span></div>
+      </div>
+      <div className="grid2">
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Month by month</h3>
+          <Table head={['Month', 'Inflow', 'Outflow', 'Avg balance', 'Bounces']} rows={r.monthly.map(m => [
+            m.month,
+            <div><div className="bar" style={{ width: 140 }}><span style={{ width: `${(m.inflow / maxFlow) * 100}%`, background: 'var(--ok)' }} /></div><span className="small num">{inr(m.inflow)}</span></div>,
+            <div><div className="bar" style={{ width: 140 }}><span style={{ width: `${(m.outflow / maxFlow) * 100}%`, background: 'var(--warn)' }} /></div><span className="small num">{inr(m.outflow)}</span></div>,
+            <span className="num">{inr(m.avgBalance)}</span>, m.bounces ? <span className="pill bad">{m.bounces}</span> : '0',
+          ])} />
+        </div>
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Where the money goes</h3>
+          <Table head={['Category', 'Count', 'In', 'Out']} rows={cats.map(([k, v]) => [CATEGORY_LABEL[k] ?? k, v.count, <span className="num">{v.credit ? inr(v.credit) : ''}</span>, <span className="num">{v.debit ? inr(v.debit) : ''}</span>])} />
+        </div>
+      </div>
+      {flagged.length > 0 && (
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Flagged transactions</h3>
+          <Table head={['Date', 'Narration', 'Amount', 'Why']} rows={flagged.slice(0, 50).map(t => [t.date, t.narration, <span className="num">{inr(t.debit || t.credit)}</span>, t.flags.join(', ')])} />
+        </div>
+      )}
+      <div className="panel">
+        <div className="head" style={{ marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Transactions</h3>
+          <div className="row">
+            <select aria-label="Category" value={cat} onChange={e => setCat(e.target.value)} style={{ maxWidth: 200 }}>
+              <option value="">All categories</option>
+              {cats.map(([k]) => <option key={k} value={k}>{CATEGORY_LABEL[k] ?? k}</option>)}
+            </select>
+            <label className="small"><input type="checkbox" checked={flaggedOnly} onChange={e => setFlaggedOnly(e.target.checked)} /> Flagged only</label>
+          </div>
+        </div>
+        <Table head={['Date', 'Narration', 'Category', 'Debit', 'Credit', 'Balance']} rows={shown.slice(0, 300).map(t => [
+          t.date, <span className="small">{t.narration}</span>, <span className={'pill ' + (t.flags.length ? 'bad' : '')}>{CATEGORY_LABEL[t.category] ?? t.category}</span>,
+          <span className="num">{t.debit ? inr(t.debit) : ''}</span>, <span className="num">{t.credit ? inr(t.credit) : ''}</span>, <span className="num">{inr(t.balance)}</span>,
+        ])} />
+        {shown.length > 300 && <p className="small muted">Showing the first 300 of {shown.length}.</p>}
+      </div>
+    </div>
+  )
 }
 
 function DataTab({ id, rev }: { id: string; rev: number }) {

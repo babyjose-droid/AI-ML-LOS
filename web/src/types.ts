@@ -52,6 +52,23 @@ export interface Doc {
   tamperFlag: boolean; readConfidence?: number; uploadedBy: string; uploadedAt: string
   aiStatus?: string; detectedType?: string; typeConfidence?: number; extractedJson?: string; validationsJson?: string; qualityJson?: string
   tamperJson?: string; reviewReasons?: string; engine?: string; masked: boolean; reviewedBy?: string; reviewedAt?: string; reviewNote?: string
+  hasAnalysis?: boolean
+}
+export interface StatementTxn { date: string; narration: string; ref?: string; debit: number; credit: number; balance: number | null; category: string; counterparty?: string; flags: string[] }
+export interface StatementMonth { month: string; credits: number; debits: number; inflow: number; outflow: number; endBalance: number | null; avgBalance: number | null; minBalance: number | null; bounces: number; cashDeposits: number }
+export interface StatementAnalysis {
+  status: string; engine: string; bank?: string; accountHolder?: string; accountNumberMasked?: string; ifsc?: string; periodFrom?: string; periodTo?: string
+  openingBalance?: number; closingBalance?: number; transactions: StatementTxn[]; transactionCount: number; monthly: StatementMonth[]
+  summary: {
+    months?: number; avgMonthlyInflow?: number; avgMonthlyOutflow?: number; avgBalance?: number | null; minBalance?: number | null; bounces?: number; bounceCharges?: number
+    salary?: { amount: number; employer?: string; months: number } | null; emis?: { counterparty: string; amount: number; months: number }[]; detectedEmi?: number
+    cashDepositShare?: number; roundAmountShare?: number; gamblingCount?: number; gamblingAmount?: number; duplicates?: number; missingMonths?: string[]
+    daysSinceLastTransaction?: number | null; declaredVsObserved?: number | null
+    topCreditors?: { name: string; amount: number }[]; topDebits?: { name: string; amount: number }[]
+    categories?: Record<string, { count: number; credit: number; debit: number }>
+  }
+  reconciliation: { checked: number; passed: number; rate: number; breaks: { row: number; date: string; narration: string; expected: number; printed: number }[] }
+  tamper: { score: number; signals: string[] }; notes: string[]; reviewReasons: string[]
 }
 export interface KycCheck { id: number; checkName: string; result: 'PASS' | 'WARN' | 'FAIL'; score: number; expected?: string; found?: string; source?: string; createdAt: string }
 export interface History { id: number; domain: string; fromState: string; toState: string; event: string; actor: string; note?: string; createdAt: string }

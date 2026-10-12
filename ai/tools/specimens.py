@@ -200,6 +200,7 @@ def demo_set() -> dict[str, bytes]:
         ("meera", "Meera Shah", "Dinesh Shah", "05/12/1988", "MEEPS9201M", "FEMALE", ["22 Market Lane", "Nashik, Maharashtra 422001"]),
         ("deepa", "Deepa Menon", "Ravi Menon", "15/04/1990", "DEEPM4321D", "FEMALE", ["9 Hill Road, Kothrud", "Pune, Maharashtra 411038"]),
         ("anil", "Anil Kumar", "Suresh Kumar", "10/07/1997", "ANIPK1005A", "MALE", ["5 Station Road, Shivajinagar", "Pune, Maharashtra 411005"]),
+        ("kiran", "Kiran Joshi", "Prakash Joshi", "22/08/1991", "KIRPJ1008K", "MALE", ["14 Shivaji Path, Aundh", "Pune, Maharashtra 411007"]),
     ]
     for key, name, father, dob, pan, gender, addr in people:
         out[f"{key}-pan.png"] = png(pan_card(name, father, dob, pan))
@@ -208,6 +209,7 @@ def demo_set() -> dict[str, bytes]:
     out["suresh-udyam.png"] = png(udyam_certificate("Suresh Yadav", "YADAV TRANSPORT", "UDYAM-UP-43-0054321"))
     out["meera-udyam.png"] = png(udyam_certificate("Meera Shah", "SHAH TAILORING", "UDYAM-MH-20-0098765"))
     out["priya-salary.png"] = png(salary_slip("Priya Nair", "Coastal Systems Pvt Ltd", "August 2026", 92000, 72000))
+    out["kiran-salary.png"] = png(salary_slip("Kiran Joshi", "Harbour Software Pvt Ltd", "August 2026", 86000, 68000))
     out["deepa-salary.png"] = png(salary_slip("Deepa Menon", "Western Tools Ltd", "August 2026", 98000, 80000))
     # an edited salary slip: saved from photo-editing software, which the tamper check picks up
     out["anil-salary-slip.jpg"] = jpeg(salary_slip("Anil Kumar", "Bright Sparks Pvt Ltd", "August 2026", 120000, 95000), "Adobe Photoshop 25.0 (Windows)")

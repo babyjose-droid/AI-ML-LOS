@@ -22,5 +22,6 @@ public final class ReasonCodes {
             Map.entry("RC-015", "External data unavailable (bureau thin-file)"),
             Map.entry("RC-016", "Exposure limit exceeded"),
             Map.entry("RC-017", "Business cash-flow volatility"),
-            Map.entry("RC-019", "Negative internal repayment history"));
+            Map.entry("RC-019", "Negative internal repayment history"),
+            Map.entry("RC-020", "Betting / gambling transactions in bank statement"));
 }

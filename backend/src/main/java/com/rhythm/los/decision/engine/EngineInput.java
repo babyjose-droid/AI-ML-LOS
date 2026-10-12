@@ -22,7 +22,11 @@ public record EngineInput(
         Loan loan) {
 
     public record Kyc(double name, double dob, double id, double address, double contact) {}
-    public record Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi) {}
+    public record Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi, int gambling) {
+        public Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi) {
+            this(inflows, outflows, avgBalance, bounces, detectedEmi, 0);
+        }
+    }
     public record Bureau(int score, int active, int maxDpd12, boolean ever90, int enq6, int ageM, double emi) {}
     public record Gst(double filing, double growth, double gap) {}
     public record Internal(int prevLoans, int maxDpd) {}

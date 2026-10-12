@@ -55,6 +55,15 @@ public class DocumentService {
 
     @Transactional
     public AppDocument upload(Long appId, String type, MultipartFile file, CurrentUser by) {
+        return upload(appId, type, file, null, by);
+    }
+
+    /**
+     * Uploads a document. A password-protected PDF (usual for bank statements) is unlocked straight away with the
+     * password given here; only the unlocked copy is stored and the password is not saved or logged.
+     */
+    @Transactional
+    public AppDocument upload(Long appId, String type, MultipartFile file, String password, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         if (!ApplicationService.isOpen(a) || "SANCTIONED".equals(a.getAppState()))
             throw ApiException.conflict("WRONG_STAGE", "Documents cannot be added at stage " + a.getAppState());
@@ -64,6 +73,13 @@ public class DocumentService {
         if (!MIME.contains(ct)) throw ApiException.unprocessable("BAD_FILE_TYPE", "Only PDF, JPG and PNG files are accepted");
         try {
             byte[] bytes = file.getBytes();
+            boolean unlocked = false;
+            if ("application/pdf".equals(ct) && isEncrypted(bytes)) {
+                if (password == null || password.isEmpty())
+                    throw ApiException.unprocessable("PASSWORD_REQUIRED", "This PDF is password protected. Enter its password to upload it.");
+                bytes = reader.unlockPdf(bytes, password);
+                unlocked = true;
+            }
             String name = Optional.ofNullable(file.getOriginalFilename()).orElse("document");
             String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')).toLowerCase() : "";
             AppDocument d = new AppDocument();
@@ -76,12 +92,19 @@ public class DocumentService {
             d.setStoragePath(storage.store(appId, bytes, ext.length() <= 5 ? ext : ""));
             d.setStatus("UPLOADED");
             d.setUploadedBy(by.username());
+            if (unlocked) d.setRemarks("Password removed at upload; the password was not stored");
             AppDocument saved = docs.save(d);
-            audit.record(by, "document.uploaded", "DOCUMENT", String.valueOf(saved.getId()), appId, type + " · " + name + " · sha256 " + saved.getSha256().substring(0, 12));
+            audit.record(by, "document.uploaded", "DOCUMENT", String.valueOf(saved.getId()), appId, type + " · " + name + " · sha256 " + saved.getSha256().substring(0, 12)
+                    + (unlocked ? " · unlocked with the customer's password (not stored)" : ""));
             return saved;
         } catch (IOException e) {
             throw ApiException.unprocessable("UPLOAD_FAILED", "Could not read the uploaded file");
         }
+    }
+
+    /** A PDF whose trailer references an /Encrypt dictionary is password protected. */
+    static boolean isEncrypted(byte[] pdf) {
+        return new String(pdf, java.nio.charset.StandardCharsets.ISO_8859_1).contains("/Encrypt");
     }
 
     public byte[] content(AppDocument d) { return storage.read(d.getStoragePath()); }
@@ -97,6 +120,10 @@ public class DocumentService {
         for (AppDocument d : list(appId)) {
             if (!"UPLOADED".equals(d.getStatus())) continue;
             byte[] bytes = storage.read(d.getStoragePath());
+            if ("BANK_STATEMENT".equals(d.getDocType()) && reader.readsStatements()) {
+                readStatement(a, d, bytes, by);
+                continue;
+            }
             var out = gateway.call(appId, reader.name(), "document.read",
                     () -> reader.read(bytes, d.getContentType(), d.getFileName(), d.getDocType()),
                     r -> d.getDocType() + " read as " + r.documentType() + " · " + r.status() + " · " + Math.round(r.overallConfidence() * 100) + "%", null);
@@ -114,6 +141,34 @@ public class DocumentService {
         }
         updateDocsState(a, by);
         return a;
+    }
+
+    private void readStatement(LoanApplication a, AppDocument d, byte[] bytes, CurrentUser by) {
+        Long appId = a.getId();
+        Double income = a.getDeclaredMonthlyIncome() == null ? null : a.getDeclaredMonthlyIncome().doubleValue();
+        var out = gateway.call(appId, reader.name(), "statement.analyze",
+                () -> reader.analyzeStatement(bytes, d.getContentType(), d.getFileName(), a.getApplicantName(), income),
+                r -> "Bank statement · " + r.reading().status() + " · " + Math.round(r.reading().overallConfidence() * 100) + "% of balances reconcile", null);
+        if (!out.ok()) {
+            d.setRemarks("Could not be analysed automatically (" + out.error() + "). Retry later or review manually.");
+            d.setStatus("NEEDS_REVIEW");
+            d.setAiStatus("ERROR");
+            docs.save(d);
+            return;
+        }
+        String keepRemark = d.getRemarks();
+        apply(d, out.value().reading());
+        d.setAnalysisJson(out.value().analysisJson());
+        if (d.getRemarks() == null && keepRemark != null) d.setRemarks(keepRemark);
+        docs.save(d);
+        audit.record(by, "document.statement_analyzed", "DOCUMENT", String.valueOf(d.getId()), appId,
+                "BANK_STATEMENT -> " + d.getStatus() + (d.getRemarks() == null ? "" : " · " + d.getRemarks()));
+    }
+
+    /** Latest verified bank statement analysis for an application, if any. */
+    public Optional<AppDocument> verifiedStatement(Long appId) {
+        return list(appId).stream().filter(x -> "BANK_STATEMENT".equals(x.getDocType()) && "VERIFIED".equals(x.getStatus()) && x.getAnalysisJson() != null)
+                .reduce((x, y) -> y);
     }
 
     void apply(AppDocument d, DocumentReading r) {

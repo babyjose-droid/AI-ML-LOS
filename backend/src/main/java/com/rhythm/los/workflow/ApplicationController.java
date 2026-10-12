@@ -140,6 +140,13 @@ public class ApplicationController {
     @GetMapping("/{id}/documents")
     public List<AppDocument> documents(@PathVariable Long id) { return docs.list(id); }
 
+    @GetMapping(value = "/{id}/documents/{docId}/analysis", produces = MediaType.APPLICATION_JSON_VALUE)
+    public String documentAnalysis(@PathVariable Long id, @PathVariable Long docId) {
+        AppDocument d = docs.get(docId);
+        if (!d.getApplicationId().equals(id) || d.getAnalysisJson() == null) throw ApiException.notFound("Statement analysis");
+        return d.getAnalysisJson();
+    }
+
     @GetMapping("/{id}/documents/{docId}/content")
     public ResponseEntity<byte[]> documentContent(@PathVariable Long id, @PathVariable Long docId) {
         AppDocument d = docs.get(docId);
@@ -170,8 +177,9 @@ public class ApplicationController {
 
     @PostMapping(value = "/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(FRONT)
-    public AppDocument upload(@PathVariable Long id, @RequestParam String type, @RequestParam MultipartFile file) {
-        return docs.upload(id, type, file, CurrentUser.get());
+    public AppDocument upload(@PathVariable Long id, @RequestParam String type, @RequestParam MultipartFile file,
+                              @RequestParam(required = false) String password) {
+        return docs.upload(id, type, file, password, CurrentUser.get());
     }
 
     // ---- processing (operations) ----

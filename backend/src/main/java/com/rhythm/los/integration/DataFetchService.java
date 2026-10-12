@@ -33,10 +33,13 @@ public class DataFetchService {
     private final Vendors.AccountAggregator aa;
     private final Vendors.CreditBureau bureau;
     private final Vendors.GstProvider gst;
+    private final com.rhythm.los.document.AppDocumentRepository documents;
 
     public DataFetchService(ApplicationService apps, IntegrationGateway gateway, DataSnapshotRepository snapshots,
                             IntegrationLogRepository logs, PolicyService policy, AuditService audit,
-                            Vendors.KycProvider kyc, Vendors.AccountAggregator aa, Vendors.CreditBureau bureau, Vendors.GstProvider gst) {
+                            Vendors.KycProvider kyc, Vendors.AccountAggregator aa, Vendors.CreditBureau bureau, Vendors.GstProvider gst,
+                            com.rhythm.los.document.AppDocumentRepository documents) {
+        this.documents = documents;
         this.apps = apps;
         this.gateway = gateway;
         this.snapshots = snapshots;
@@ -110,7 +113,7 @@ public class DataFetchService {
     public LoanApplication fetchData(Long id, CurrentUser by) {
         LoanApplication a = requireActive(id);
         if ("FETCHED".equals(a.getDataState())) throw ApiException.conflict("ALREADY_DONE", "Data already fetched");
-        boolean aaOk = has(a, "AA") || fetchAa(a, null);
+        boolean aaOk = has(a, "AA") || fromStatement(a, by) || fetchAa(a, null);
         boolean buOk = has(a, "BUREAU") || fetchBureau(a, null);
         if ("MSME".equals(a.getSegment()) && !has(a, "GST")) fetchGst(a, null);
         updateDataState(a, aaOk, buOk, by);
@@ -153,6 +156,41 @@ public class DataFetchService {
 
     private boolean has(LoanApplication a, String kind) {
         return snapshots.findFirstByApplicationIdAndKindOrderByIdDesc(a.getId(), kind).isPresent();
+    }
+
+    public static final String STATEMENT_VENDOR = "STATEMENT-AI";
+
+    /**
+     * When a bank statement has been read by the AI and verified, its cash flow is used as the bank data, so the
+     * Account Aggregator is not needed. Returns false when there is no usable statement.
+     */
+    private boolean fromStatement(LoanApplication a, CurrentUser by) {
+        var doc = documents.findByApplicationIdOrderByIdAsc(a.getId()).stream()
+                .filter(d -> "BANK_STATEMENT".equals(d.getDocType()) && "VERIFIED".equals(d.getStatus()) && d.getAnalysisJson() != null)
+                .reduce((x, y) -> y);
+        if (doc.isEmpty()) return false;
+        AaStatement s = statementToBankData(doc.get().getAnalysisJson());
+        if (s == null || s.months() == 0) return false;
+        snapshots.save(new DataSnapshot(a.getId(), "AA", STATEMENT_VENDOR, Json.write(s)));
+        audit.record(by, "data.bank_from_statement", "DOCUMENT", String.valueOf(doc.get().getId()), a.getId(),
+                s.months() + " months from the uploaded statement " + s.maskedAccount() + (s.gambling() > 0 ? " · " + s.gambling() + " betting transaction(s)" : ""));
+        return true;
+    }
+
+    static AaStatement statementToBankData(String analysisJson) {
+        try {
+            var n = Json.MAPPER.readTree(analysisJson);
+            var in = new java.util.ArrayList<Double>();
+            var out = new java.util.ArrayList<Double>();
+            n.path("monthly").forEach(m -> { in.add(m.path("inflow").asDouble()); out.add(m.path("outflow").asDouble()); });
+            var s = n.path("summary");
+            String bank = n.path("bank").asText("");
+            return new AaStatement((bank.isBlank() ? "Bank" : bank) + " (statement read by AI)", n.path("accountNumberMasked").asText(""),
+                    in.size(), in, out, s.path("avgBalance").asDouble(0), s.path("bounces").asInt(0), s.path("detectedEmi").asDouble(0),
+                    s.path("gamblingCount").asInt(0));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private boolean fetchAa(LoanApplication a, Long retryOf) {

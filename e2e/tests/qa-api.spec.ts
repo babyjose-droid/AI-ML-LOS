@@ -146,6 +146,7 @@ test('injection and script text are stored as plain text and never executed', as
   await page.getByLabel('Username').fill('sales1')
   await page.getByLabel('Password').fill('Rhythm@123')
   await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
   await page.goto(`/applications/${id}`)
   await expect(page.getByText('<script>alert(2)</script>')).toBeVisible()
   expect(dialog).toBe(false)

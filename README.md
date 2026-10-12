@@ -72,7 +72,7 @@ docker compose pull
 BACKEND_PORT=8091 docker compose up
 ```
 
-`RHYTHM_TAG=<commit>` runs a specific build. Publishing needs two repository secrets: `DOCKERHUB_USERNAME` (`rhythmconsultancy`) and `DOCKERHUB_TOKEN` (a Docker Hub access token with Read & Write).
+`RHYTHM_TAG=<commit>` runs a specific build. Publishing needs one repository secret, `DOCKERHUB_TOKEN`: a Docker Hub access token (Read & Write) for the `rhythmconsultancy` account.
 
 ## Mock vendor scenarios
 

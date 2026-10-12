@@ -135,15 +135,15 @@ jobs:
           npx playwright install --with-deps chromium
           npx playwright test 2>&1 | tee ../e2e.log
       - name: Publish images to Docker Hub (rhythmconsultancy)
-        # only after every browser test passed on main; needs repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+        # only after every browser test passed on main; needs the repository secret DOCKERHUB_TOKEN (account rhythmconsultancy)
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || 'rhythmconsultancy' }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         shell: bash
         run: |
-          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "docker-hub: skipped (add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets)" | tee docker-publish.txt
+          if [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "docker-hub: skipped (add the DOCKERHUB_TOKEN repository secret)" | tee docker-publish.txt
             exit 0
           fi
           echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin

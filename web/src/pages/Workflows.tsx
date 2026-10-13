@@ -66,8 +66,9 @@ export default function Workflows() {
       )}
       {product && product.versions.length > 0 && (
         <div className="panel flush">
-          <Table head={['Version', 'Status', 'Stages', 'Made by', 'Approved by', 'Change']} onRow={i => pick(product.productCode, product.versions[i].id)} rows={product.versions.map(v => [
-            <b className={v.id === versionId ? '' : 'muted'}>v{v.version}</b>, <Pill s={v.status} />, v.stageCount, <span className="small">{v.createdBy} {when(v.createdAt)}</span>,
+          <Table head={['Version', 'Status', 'Stages', 'Applications on it', 'Made by', 'Approved by', 'Change']} onRow={i => pick(product.productCode, product.versions[i].id)} rows={product.versions.map(v => [
+            <b className={v.id === versionId ? '' : 'muted'}>v{v.version}</b>, <Pill s={v.status} />, v.stageCount,
+            <span className="small" data-wf-usage={v.version}>{v.applications ?? 0}{v.inFlight ? ` · ${v.inFlight} in progress` : ''}</span>, <span className="small">{v.createdBy} {when(v.createdAt)}</span>,
             <span className="small">{v.approvedBy ? `${v.approvedBy} ${when(v.approvedAt)}` : '—'}</span>, <span className="small">{v.notes ?? ''}</span>,
           ])} />
         </div>
@@ -174,7 +175,8 @@ function VersionEditor({ id, product, lib, onChange }: { id: number; product: Pr
             {v.approvedBy && <> · {v.status === 'REJECTED' ? 'rejected' : 'approved'} by {v.approvedBy} {when(v.approvedAt)}{v.decisionNote ? `: ${v.decisionNote}` : ''}</>}
           </span>
         </div>
-        {v.status === 'PUBLISHED' && <p className="small muted" style={{ marginBottom: 0 }}>In use for new {product.productCode} applications. Applications started on earlier versions keep theirs.</p>}
+        {v.status === 'PUBLISHED' && <p className="small muted" style={{ marginBottom: 0 }}>Every new {product.productCode} application is fixed to this version when it is created. Applications created on earlier versions keep following those versions until they close.</p>}
+        {v.status === 'RETIRED' && <p className="small muted" style={{ marginBottom: 0 }}>No longer used for new applications. {v.inFlight ? `${v.inFlight} application(s) created on it are still in progress and keep following it.` : ''}</p>}
         {v.status === 'PENDING_APPROVAL' && <p className="small muted" style={{ marginBottom: 0 }}>Waiting for the CRO. Change described as: {v.notes}</p>}
       </div>
 

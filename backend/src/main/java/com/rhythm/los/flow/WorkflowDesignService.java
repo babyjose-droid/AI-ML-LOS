@@ -26,8 +26,11 @@ public class WorkflowDesignService {
     private final WorkflowVersionRepository repo;
     private final ProductRepository products;
     private final AuditService audit;
+    private final com.rhythm.los.application.LoanApplicationRepository apps;
 
-    public WorkflowDesignService(WorkflowVersionRepository repo, ProductRepository products, AuditService audit) {
+    public WorkflowDesignService(WorkflowVersionRepository repo, ProductRepository products, AuditService audit,
+                                 com.rhythm.los.application.LoanApplicationRepository apps) {
+        this.apps = apps;
         this.repo = repo;
         this.products = products;
         this.audit = audit;
@@ -37,6 +40,9 @@ public class WorkflowDesignService {
 
     public List<Map<String, Object>> overview() {
         List<Map<String, Object>> out = new ArrayList<>();
+        Map<String, long[]> usage = new HashMap<>();
+        for (Object[] r : apps.countByWorkflowVersion())
+            usage.put(r[0] + "#" + r[1], new long[]{((Number) r[2]).longValue(), r[3] == null ? 0 : ((Number) r[3]).longValue()});
         Map<String, List<WorkflowVersion>> byProduct = new LinkedHashMap<>();
         for (WorkflowVersion v : repo.findAllByOrderByProductCodeAscVersionDesc()) byProduct.computeIfAbsent(v.getProductCode(), k -> new ArrayList<>()).add(v);
         for (var p : products.findAll()) {
@@ -46,7 +52,17 @@ public class WorkflowDesignService {
             m.put("productName", p.getName());
             m.put("segment", p.getSegment());
             m.put("published", vs.stream().filter(v -> "PUBLISHED".equals(v.getStatus())).findFirst().map(this::summary).orElse(null));
-            m.put("versions", vs.stream().map(this::summary).toList());
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (WorkflowVersion v : vs) {
+                Map<String, Object> x = summary(v);
+                long[] u = usage.getOrDefault(v.getProductCode() + "#" + v.getVersion(), new long[]{0, 0});
+                x.put("applications", u[0]);
+                x.put("inFlight", u[1]);
+                list.add(x);
+            }
+            m.put("versions", list);
+            long[] none = usage.getOrDefault(p.getCode() + "#null", new long[]{0, 0});
+            m.put("defaultApplications", none[0]);
             out.add(m);
         }
         out.sort(Comparator.comparing(m -> (String) m.get("productCode")));
@@ -76,6 +92,12 @@ public class WorkflowDesignService {
         m.put("issues", validate(stages));
         m.put("submittedAt", v.getSubmittedAt());
         m.put("decisionNote", v.getDecisionNote());
+        for (Object[] r : apps.countByWorkflowVersion()) {
+            if (v.getProductCode().equals(r[0]) && r[1] != null && ((Number) r[1]).intValue() == v.getVersion()) {
+                m.put("applications", ((Number) r[2]).longValue());
+                m.put("inFlight", r[3] == null ? 0 : ((Number) r[3]).longValue());
+            }
+        }
         repo.findFirstByProductCodeAndStatusOrderByVersionDesc(v.getProductCode(), "PUBLISHED")
                 .filter(p -> !p.getId().equals(v.getId()))
                 .ifPresent(p -> m.put("changes", diff(WorkflowDefinitions.parse(p.getStagesJson()), stages)));

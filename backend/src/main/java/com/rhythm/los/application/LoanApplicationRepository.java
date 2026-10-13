@@ -20,6 +20,9 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
     @Query("select count(a) from LoanApplication a where upper(a.pan) = upper(:pan) and a.id <> :id and a.appState = 'DISBURSED'")
     long countDisbursedByPanExcluding(@Param("pan") String pan, @Param("id") Long id);
 
+    @Query("select a.productCode, a.workflowVersion, count(a), sum(case when a.appState in ('REJECTED','WITHDRAWN','DISBURSED') then 0 else 1 end) from LoanApplication a group by a.productCode, a.workflowVersion")
+    List<Object[]> countByWorkflowVersion();
+
     @Query("select count(a) from LoanApplication a where a.pan = :pan and a.createdAt > :since")
     long countByPanSince(@Param("pan") String pan, @Param("since") Instant since);
 }

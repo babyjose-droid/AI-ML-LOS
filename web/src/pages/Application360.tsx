@@ -93,7 +93,7 @@ export default function Application360() {
 
   return (
     <>
-      <Head title={`${a.applicantName} · ${a.appNo}`} sub={`${v.product.name} · ${inr(a.loanAmount)} for ${a.tenureMonths} months · ${a.city ?? ''} · created by ${a.createdBy} ${when(a.createdAt)}`} />
+      <Head title={`${a.applicantName} · ${a.appNo}`} sub={`${v.product.name} · workflow ${a.workflowVersion ? 'v' + a.workflowVersion : 'default'} · ${inr(a.loanAmount)} for ${a.tenureMonths} months · ${a.city ?? ''} · created by ${a.createdBy} ${when(a.createdAt)}`} />
       <ErrorBox error={error} />
       {msg && <div className="alert ok" role="status">{msg}</div>}
       {a.rejectionReason && <div className="alert bad">{a.rejectionReason}</div>}

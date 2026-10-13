@@ -23,17 +23,20 @@ public class WorkflowDefinitions {
         return versions.findFirstByProductCodeAndStatusOrderByVersionDesc(productCode, "PUBLISHED");
     }
 
-    /** The stages an application follows: the version it started on, else the published one, else the default. */
+    /**
+     * The stages an application follows: always the version pinned when it was created, so publishing a new version
+     * never changes applications already in flight. An application created before its product had any published
+     * workflow follows the built-in default sequence (it is never moved onto a later version).
+     */
     public List<Stage> stages(LoanApplication a) {
         Integer v = a.getWorkflowVersion();
-        String key = a.getProductCode() + "#" + (v == null ? "published" : v);
-        if (v != null) {
-            List<Stage> hit = cache.get(key);
-            if (hit != null) return hit;
-        }
-        Optional<WorkflowVersion> wv = v != null ? versions.findByProductCodeAndVersion(a.getProductCode(), v) : published(a.getProductCode());
-        List<Stage> s = wv.map(x -> parse(x.getStagesJson())).orElseGet(() -> DEFAULT.stream().map(StageLibrary::defaults).toList());
-        if (v != null) cache.put(key, s);
+        if (v == null) return DEFAULT.stream().map(StageLibrary::defaults).toList();
+        String key = a.getProductCode() + "#" + v;
+        List<Stage> hit = cache.get(key);
+        if (hit != null) return hit;
+        List<Stage> s = versions.findByProductCodeAndVersion(a.getProductCode(), v).map(x -> parse(x.getStagesJson()))
+                .orElseGet(() -> DEFAULT.stream().map(StageLibrary::defaults).toList());
+        cache.put(key, s);
         return s;
     }
 

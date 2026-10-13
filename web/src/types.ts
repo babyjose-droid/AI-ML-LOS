@@ -5,12 +5,12 @@ export interface User { username: string; name: string; role: Role; branchId: nu
 export type States = Record<'APP' | 'KYC' | 'DATA' | 'DOCS' | 'FIELD' | 'DECISION' | 'FRAUD' | 'SANCTION' | 'DISB', string>
 
 export interface AppSummary {
-  id: number; appNo: string; applicantName: string; pan: string; productCode: string; segment: string
+  id: number; appNo: string; applicantName: string; pan: string; productCode: string; segment: string; workflowVersion?: number
   loanAmount: number; tenureMonths: number; city?: string; states: States; createdBy: string; createdAt: string; updatedAt: string
 }
 
 export interface LoanApplication {
-  id: number; appNo: string; productCode: string; applicantName: string; pan: string; mobile: string; email?: string
+  id: number; appNo: string; productCode: string; workflowVersion?: number; applicantName: string; pan: string; mobile: string; email?: string
   dob: string; gender?: string; address?: string; city?: string; pincode?: string; segment: string; businessName?: string
   businessVintageYears: number; declaredMonthlyIncome: number; essentialExpenses: number; loanAmount: number; tenureMonths: number
   purpose?: string; bankAccountNo?: string; bankIfsc?: string; consentBureau: boolean; consentAa: boolean; consentKyc: boolean; channel?: string
@@ -85,7 +85,7 @@ export interface AppUser { id: number; username: string; fullName: string; role:
 // Workflow designer
 export interface Stage { key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; integrations: string[] }
 export interface LibraryStage { key: string; name: string; role: string; sla: number; mode: string; modes: string[]; kind: 'STATE' | 'RECORDED'; integrations: string[]; dataFields: string[]; help: string; mandatory: boolean }
-export interface WorkflowSummary { id: number; version: number; status: string; stageCount: number; createdBy: string; createdAt: string; approvedBy?: string; approvedAt?: string; notes?: string }
+export interface WorkflowSummary { id: number; version: number; status: string; stageCount: number; createdBy: string; createdAt: string; approvedBy?: string; approvedAt?: string; notes?: string; applications?: number; inFlight?: number }
 export interface ProductWorkflows { productCode: string; productName: string; segment: string; published?: WorkflowSummary; versions: WorkflowSummary[] }
 export interface WorkflowDetail extends WorkflowSummary { productCode: string; stages: Stage[]; issues: string[]; changes?: string[]; submittedAt?: string; decisionNote?: string }
 export interface AppStage {

@@ -276,4 +276,45 @@ class WorkflowIT {
         assertThat(ok(get("/api/applications/" + id), sales, null).body().get("states").get("KYC").asText()).isNotEqualTo("NOT_STARTED");
         assertThat(stage(id, sales, "kyc").get("role").asText()).isEqualTo("SALES");
     }
+
+    @Test
+    void everyApplicationKeepsTheVersionItWasCreatedOn() throws Exception {
+        String admin = staff("admin"), cro = staff("cro1"), sales = staff("sales1");
+        // a draft on GL v1, then GL v2 is published
+        long oldApp = ok(post("/api/applications"), sales, application("GL", "Old Gold", "OLDPG7777O", "9811190007", 100000, 6)).body().get("id").asLong();
+        ok(post("/api/applications/" + oldApp + "/submit"), sales, null);
+        JsonNode draft = ok(post("/api/workflows/drafts"), admin, Map.of("productCode", "GL")).body();
+        long vid = draft.get("id").asLong();
+        List<Map<String, Object>> stages = Json.MAPPER.convertValue(draft.get("stages"), List.class);
+        stages.forEach(s -> { if ("gold".equals(s.get("key"))) s.put("sla", 3); });
+        ok(put("/api/workflows/" + vid), admin, Map.of("stages", stages, "notes", "Gold appraisal SLA 3 hours"));
+        ok(post("/api/workflows/" + vid + "/submit"), admin, null);
+        ok(post("/api/workflows/" + vid + "/decision"), cro, Map.of("approve", true, "note", "Three hours is realistic"));
+
+        long newApp = ok(post("/api/applications"), sales, application("GL", "New Gold", "NEWPG8888N", "9811190008", 100000, 6)).body().get("id").asLong();
+        assertThat(ok(get("/api/applications/" + oldApp), sales, null).body().get("application").get("workflowVersion").asInt()).isEqualTo(1);
+        assertThat(ok(get("/api/applications/" + newApp), sales, null).body().get("application").get("workflowVersion").asInt()).isEqualTo(2);
+        assertThat(stage(oldApp, sales, "gold").get("sla").asInt()).isEqualTo(1);
+        assertThat(stage(newApp, sales, "gold").get("sla").asInt()).isEqualTo(3);
+        for (JsonNode p : ok(get("/api/workflows"), sales, null).body())
+            if ("GL".equals(p.get("productCode").asText()))
+                for (JsonNode v : p.get("versions")) {
+                    if (v.get("version").asInt() == 1) assertThat(v.get("inFlight").asLong()).isGreaterThanOrEqualTo(1);
+                    if (v.get("version").asInt() == 2) assertThat(v.get("applications").asLong()).isGreaterThanOrEqualTo(1);
+                }
+
+        // the database refuses to move a submitted application to another version
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update("update loan_application set workflow_version = 2 where id = ?", oldApp))
+                .hasStackTraceContaining("fixed at 1");
+
+        // a draft switched to another product takes that product's published version
+        Map<String, Object> body = application("BL-UNS", "New Gold", "NEWPG8888N", "9811190008", 100000, 12);
+        ok(put("/api/applications/" + newApp), sales, body);
+        JsonNode moved = ok(get("/api/applications/" + newApp), sales, null).body().get("application");
+        assertThat(moved.get("productCode").asText()).isEqualTo("BL-UNS");
+        int blPublished = 0;
+        for (JsonNode p : ok(get("/api/workflows"), sales, null).body())
+            if ("BL-UNS".equals(p.get("productCode").asText())) blPublished = p.get("published").get("version").asInt();
+        assertThat(moved.get("workflowVersion").asInt()).isEqualTo(blPublished);
+    }
 }

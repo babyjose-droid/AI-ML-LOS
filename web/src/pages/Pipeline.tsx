@@ -44,7 +44,7 @@ export default function Pipeline() {
         <Table
           head={['Application', 'Applicant', 'Product', 'Amount', 'Stage', 'KYC', 'Data', 'Docs', 'Decision', 'Sanction', 'Updated']}
           rows={apps.map(a => [
-            <b>{a.appNo}</b>, a.applicantName, a.productCode, <span className="num">{inr(a.loanAmount)}</span>,
+            <b>{a.appNo}</b>, a.applicantName, <span>{a.productCode} <span className="small muted" data-wf-pin>{a.workflowVersion ? `v${a.workflowVersion}` : 'default'}</span></span>, <span className="num">{inr(a.loanAmount)}</span>,
             <Pill s={a.states.APP} />, <Pill s={a.states.KYC} />, <Pill s={a.states.DATA} />, <Pill s={a.states.DOCS} />,
             <Pill s={a.states.DECISION} />, <Pill s={a.states.SANCTION} />, <span className="small muted">{when(a.updatedAt)}</span>,
           ])}

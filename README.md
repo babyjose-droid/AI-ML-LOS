@@ -190,7 +190,7 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Checks before approval: starts with Lead, ends with Disbursement, KYC and Sanction mandatory, KYC before Underwriting before Sanction, valid SLAs and rules.
 - The role on each stage decides who acts: the Run automated checks, KYC, document review, field visit and disbursement buttons, the API permission and the My work task all follow it (an admin can always act; video KYC stays with operations, as RBI V-CIP needs a trained official).
 - Stages a person records (JLG group formation and GRT, vehicle valuation, gold appraisal, legal) hold the decision, sanction and disbursement until done. A failed GRT rejects the application.
-- Every application shows its stages (strip above the tabs, **Workflow** tab). New applications follow the published version; earlier ones keep theirs.
+- Every application is fixed to the workflow version published when it was created (shown in the pipeline and the application header). Publishing a new version affects only applications created afterwards; older ones finish on their own version. The database refuses any change of version once an application is submitted. The designer shows how many applications are on each version and how many are still in progress.
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 

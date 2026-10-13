@@ -84,7 +84,10 @@ public class ApplicationService {
         LoanApplication a = get(id);
         if (!"DRAFT".equals(a.getAppState())) throw ApiException.conflict("NOT_EDITABLE", "Only draft applications can be edited");
         Product p = products.findByCode(r.productCode()).orElseThrow(() -> ApiException.notFound("Product"));
+        boolean productChanged = !p.getCode().equals(a.getProductCode());
         apply(a, r, p);
+        // a draft moved to another product takes that product's published workflow; nothing has started yet
+        if (productChanged) a.setWorkflowVersion(workflows.published(p.getCode()).map(w -> w.getVersion()).orElse(null));
         if (apps.countActiveByPanExcluding(a.getPan(), a.getId()) > 0) {
             throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + a.getPan());
         }

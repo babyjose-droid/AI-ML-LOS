@@ -292,6 +292,7 @@ public class ApplicationController {
         m.put("applicantName", a.getApplicantName());
         m.put("pan", a.getPan());
         m.put("productCode", a.getProductCode());
+        m.put("workflowVersion", a.getWorkflowVersion());
         m.put("segment", a.getSegment());
         m.put("loanAmount", a.getLoanAmount());
         m.put("tenureMonths", a.getTenureMonths());

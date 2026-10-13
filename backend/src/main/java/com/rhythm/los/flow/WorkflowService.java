@@ -15,6 +15,7 @@ import com.rhythm.los.security.CurrentUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,9 +42,11 @@ public class WorkflowService {
     private final DecisionRecordRepository decisions;
     private final DataSnapshotRepository snapshots;
     private final AuditService audit;
+    private final JdbcTemplate jdbc;
 
     public WorkflowService(WorkflowDefinitions defs, AppStageRepository rows, LoanApplicationRepository appRepo, ApplicationService apps,
-                           DecisionRecordRepository decisions, DataSnapshotRepository snapshots, AuditService audit) {
+                           DecisionRecordRepository decisions, DataSnapshotRepository snapshots, AuditService audit, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.defs = defs;
         this.rows = rows;
         this.appRepo = appRepo;
@@ -74,6 +77,10 @@ public class WorkflowService {
 
     private void doRefresh(LoanApplication a) {
         List<Stage> stages = defs.stages(a);
+        // create missing rows first; two requests on the same application at once must not both insert
+        for (Stage s : stages)
+            jdbc.update("insert into app_stage (application_id, stage_key, status) values (?, ?, 'PENDING') on conflict (application_id, stage_key) do nothing",
+                    a.getId(), s.key());
         Map<String, AppStage> byKey = new HashMap<>();
         for (AppStage r : rows.findByApplicationId(a.getId())) byKey.put(r.getStageKey(), r);
         boolean closed = Set.of("REJECTED", "WITHDRAWN").contains(a.getAppState());

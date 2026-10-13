@@ -2,7 +2,7 @@
 
 Rhythm is a loan origination system (LOS) with a built-in AI decision engine. It is for NBFCs that do not yet use credit risk models or rely only on the bureau. It takes an application from lead to disbursement: KYC, bank cash-flow analysis, bureau, documents, an explainable decision, credit memo, sanction by delegation, Key Fact Statement and disbursement. Every step has an audit trail.
 
-**Status: Phase 5 (policy studio, risk models, borrower portal, reports).**
+**Status: Phase 5 (policy studio, risk models, borrower portal, reports, workflow designer).**
 
 - **Credit policy studio** (Admin → Credit policy studio):
   - A credit manager drafts changes to any policy parameter, with ranges and consistency checks.
@@ -79,6 +79,7 @@ Open http://localhost:3000. Every demo user has the password `Rhythm@123`.
 | `co1` | Credit officer: sanctions L1 cases (up to ₹2 lakh, bands A–C, no deviations) |
 | `cm1` | Credit manager: sanctions L2 cases (up to ₹10 lakh, band D or one deviation) |
 | `cro1` | CRO: sanctions L3 cases (above ₹10 lakh, band E, two or more deviations, fraud flags) |
+| `field1` | Field officer: field visits, JLG group formation (CGT), vehicle valuation |
 | `fraud1` | Fraud analyst: clears or confirms fraud referrals |
 | `comp1` | Compliance: audit trail and integration logs (read-only) |
 | `admin` | Tenant admin: branches, users, products |
@@ -181,6 +182,17 @@ cd web && npm install && npm run dev
 
 Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with the stack running, `cd e2e && npm ci && npx playwright install chromium && npx playwright test`.
 
+## Workflow designer
+
+Admin → **Workflow designer** (admin or credit manager edits, the CRO approves; the maker cannot approve).
+
+- Each product has a stage sequence. Per stage: who does it, SLA in hours, mode (automatic, automatic with a person confirming, manual), what happens on failure or SLA breach (send to queue, escalate, reject, pause and notify borrower) and a skip rule such as `segment = SALARIED AND amount <= 5,00,000 AND incomeVerifiedViaAA = true`.
+- Checks before approval: starts with Lead, ends with Disbursement, KYC and Sanction mandatory, KYC before Underwriting before Sanction, valid SLAs and rules.
+- Stages a person records (JLG group formation and GRT, vehicle valuation, gold appraisal, legal) hold the decision, sanction and disbursement until done. A failed GRT rejects the application.
+- Every application shows its stages (strip above the tabs, **Workflow** tab). New applications follow the published version; earlier ones keep theirs.
+- Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
+- SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
+
 ## Roadmap
 
 | Phase | Scope |
@@ -189,7 +201,7 @@ Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with 
 | 2 (done) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
 | 3 (done) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
 | 4 (done) | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
-| 5 (this) | Policy studio with simulation and maker-checker, trained PD model with champion/challenger, workflow per product, borrower portal, reports. Still to come: import of the NBFC's loan history, a trained fraud model, field officer app |
+| 5 (this) | Policy studio with simulation and maker-checker, trained PD model with champion/challenger, workflow per product, borrower portal, reports, **workflow designer** (per-product stages with role, SLA, mode, failure action, skip rules; CRO publishes versions; in-flight applications keep theirs; SLA breaches escalate). Still to come: import of the NBFC's loan history, a trained fraud model, field officer app |
 | 6 | **Third-party integrations:** online PAN, Aadhaar and CKYC validation, Account Aggregator, bureaus, eSign and eStamp, eNACH and UPI Autopay, penny drop, payouts, WhatsApp and SMS. Replaces the mocks through the existing vendor ports |
 | 7 | Production hardening: multi-tenant, security audit and VAPT, monitoring, Kubernetes, DR |
 

@@ -185,8 +185,8 @@ public class VkycService {
                 fparts.add(new DocumentReader.Part(f.get("step") + "-" + (++i) + ".jpg", storage.read(f.get("path")), f.get("contentType")));
             List<DocumentReader.Part> ids = new ArrayList<>();
             for (AppDocument d : documents.list(a.getId())) {
-                boolean id = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "PHOTO").contains(d.getDocType());
-                if (id && !"REJECTED".equals(d.getStatus()) && d.getContentType().startsWith("image/"))
+                boolean idDoc = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "PHOTO").contains(d.getDocType());
+                if (idDoc && !"REJECTED".equals(d.getStatus()) && d.getContentType().startsWith("image/"))
                     ids.add(new DocumentReader.Part(d.getDocType() + ".img", documents.content(d), d.getContentType()));
             }
             var out = gateway.call(a.getId(), reader.name(), "vkyc.analyze", () -> reader.analyzeVideoKyc(fparts, ids, a.getPan()),

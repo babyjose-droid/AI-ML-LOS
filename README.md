@@ -2,7 +2,25 @@
 
 Rhythm is a loan origination system (LOS) with a built-in AI decision engine. It is for NBFCs that do not yet use credit risk models or rely only on the bureau. It takes an application from lead to disbursement: KYC, bank cash-flow analysis, bureau, documents, an explainable decision, credit memo, sanction by delegation, Key Fact Statement and disbursement. Every step has an audit trail.
 
-**Status: Phase 3 (AI bank statement analysis).** Bank statements are analysed in-house, with no statement-analysis vendor:
+**Status: Phase 4 (video KYC with AI).** An official of the lender runs a live video call (V-CIP) with the customer. The AI assists with these checks; the official decides:
+
+- **One-time customer link:** valid for 24 hours, and only its hash is stored. The customer gives consent and their location, and joins from a phone or computer browser. No app or login is needed.
+- **Live call (WebRTC):** signalled through the LOS API and recorded (customer video plus both voices). The recording's SHA-256 is kept.
+- **Challenges** the official triggers: face the camera, turn the head left and right, read a random 4-digit code aloud, and show the original PAN card. Frames are captured for each one.
+- **AI checks:**
+  - face match with the photo on the PAN or Aadhaar on file (SFace)
+  - liveness: face visible, only one person, a real head turn each way, natural movement (catches a held-up photo or frozen video)
+  - PAN number read from the card on camera
+  - customer location inside India
+- **Official's decision with V-CIP guards:**
+  - Approval is refused if the customer was outside India, if the code was not confirmed, or if the recording is missing.
+  - If the AI checks did not pass, approval needs a reason of at least 30 characters and is flagged as an override in the audit trail.
+  - A rejection fails KYC.
+- **Models:** YuNet face detection (MIT) and SFace face recognition (Apache 2.0) from OpenCV Zoo. They are downloaded and SHA-256-checked when the image is built.
+
+Camera access in browsers needs `https://` (or `localhost`). Calls between devices on different networks need a TURN server (`VKYC_ICE_SERVERS`); RBI expects it to be hosted in India.
+
+Phase 3 added **AI bank statement analysis**. Bank statements are analysed in-house, with no statement-analysis vendor:
 
 - **Any bank, text or scanned:** the transaction table is found by its column headers, so new bank layouts need no template. Text PDFs are read from the text layer; scanned PDFs and photos are deskewed and read with OCR. Claude can be enabled as a fallback for pages OCR cannot read (`STATEMENT_LLM_FALLBACK=true`).
 - **Password-protected PDFs:** the password is used once at upload to unlock the file. Only the unlocked copy is stored, and the password is neither saved nor logged.
@@ -147,8 +165,8 @@ Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with 
 |---|---|
 | 1 (done) | Core LOS, decision engine, sanction, KFS, disbursement, admin, mock vendors |
 | 2 (done) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
-| 3 (this) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
-| 4 | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
+| 3 (done) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
+| 4 (this) | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
 | 5 | Policy studio with simulation and maker-checker, trained PD and fraud models, workflow per product, borrower and field apps |
 | 6 | **Third-party integrations:** online PAN, Aadhaar and CKYC validation, Account Aggregator, bureaus, eSign and eStamp, eNACH and UPI Autopay, penny drop, payouts, WhatsApp and SMS. Replaces the mocks through the existing vendor ports |
 | 7 | Production hardening: multi-tenant, security audit and VAPT, monitoring, Kubernetes, DR |

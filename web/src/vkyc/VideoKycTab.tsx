@@ -296,7 +296,7 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
       {canRun && s.status === 'COMPLETED' && (
         <div className="form" style={{ gridTemplateColumns: '1fr', marginTop: 12 }}>
           <ErrorBox error={error} />
-          <label className="small"><input type="checkbox" checked={codeHeard} onChange={e => setCodeHeard(e.target.checked)} name="codeHeard" />
+          <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto' }} checked={codeHeard} onChange={e => setCodeHeard(e.target.checked)} name="codeHeard" />
             {' '}The customer read out the random code {d.data.challengeCode && <b className="mono">{d.data.challengeCode}</b>} correctly</label>
           <label className="fld">Your decision note (required{s.aiStatus !== 'PASS' ? '; at least 30 characters to approve when AI checks did not pass' : ''})
             <textarea name="vkycNote" rows={3} value={note} onChange={e => setNote(e.target.value)} />

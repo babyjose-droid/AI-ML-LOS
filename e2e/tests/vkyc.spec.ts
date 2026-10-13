@@ -61,7 +61,7 @@ test('video KYC: customer joins by link, the official runs the call, AI checks, 
 
   // approving against the AI needs the code confirmed and a reasoned override
   await officer.locator('input[name=codeHeard]').check()
-  await officer.locator('textarea[name=vkycNote]').fill('Looks ok')
+  await officer.locator('textarea[name=vkycNote]').fill('Looks okay to me')
   await officer.locator('[data-vkyc=approve]').click()
   await expect(officer.getByRole('alert')).toContainText('30 characters')
   await officer.locator('textarea[name=vkycNote]').fill('Test camera without a face; identity confirmed against PAN by the official on the call')

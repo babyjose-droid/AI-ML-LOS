@@ -2,7 +2,29 @@
 
 Rhythm is a loan origination system (LOS) with a built-in AI decision engine. It is for NBFCs that do not yet use credit risk models or rely only on the bureau. It takes an application from lead to disbursement: KYC, bank cash-flow analysis, bureau, documents, an explainable decision, credit memo, sanction by delegation, Key Fact Statement and disbursement. Every step has an audit trail.
 
-**Status: Phase 4 (video KYC with AI).** An official of the lender runs a live video call (V-CIP) with the customer. The AI assists with these checks; the official decides:
+**Status: Phase 5 (policy studio, risk models, borrower portal, reports).**
+
+- **Credit policy studio** (Admin → Credit policy studio):
+  - A credit manager drafts changes to any policy parameter, with ranges and consistency checks.
+  - The draft is simulated on 2,000 past loans with known outcomes and on recent applications. The simulation shows approval, referral and decline rates, the amount approved, expected loss, the actual bad rate, swap-ins and swap-outs, results by segment, and which applications would change.
+  - The CRO, never the drafter, approves the draft before it goes live.
+- **Risk models** (Admin → Risk models):
+  - The AI service trains a probability-of-default model (regularised logistic regression on 17 engine features) on the loan book.
+  - It is compared with the model in use on hold-out loans: AUC, Gini, KS, Brier score, deciles, population stability (PSI), and effects in an unexpected direction.
+  - The CRO approves it as champion, and can go back to the built-in model at any time. Decisions stay explainable feature by feature.
+- **Workflow per product** (Admin → Products):
+  - Video KYC: only when KYC needs review, always, or above an amount.
+  - Bank data: statement or AA, statement only, or AA only.
+  - Auto-sanction limit for clean engine approvals. Microfinance loans up to ₹50,000 are auto-sanctioned in the demo.
+- **Borrower portal** at `/apply`:
+  - The borrower signs in with mobile OTP (demo OTP 123456).
+  - They can apply, upload documents (a password-protected statement works), follow plain-language progress, and accept the Key Fact Statement.
+  - A borrower token sees only that borrower's own applications and reaches nothing in the staff API.
+- **Reports**: funnel, product and branch mix, decision mix and risk bands, turnaround times, document AI and video KYC results, vendor reliability, control indicators, and a CSV export.
+
+The 2,000-loan book is **synthetic** and labelled as such. Policy simulation and model training should be repeated on the NBFC's own loan history before real use.
+
+Phase 4 added **video KYC with AI**. An official of the lender runs a live video call (V-CIP) with the customer. The AI assists with these checks; the official decides:
 
 - **One-time customer link:** valid for 24 hours, and only its hash is stored. The customer gives consent and their location, and joins from a phone or computer browser. No app or login is needed.
 - **Live call (WebRTC):** signalled through the LOS API and recorded (customer video plus both voices). The recording's SHA-256 is kept.
@@ -166,8 +188,8 @@ Tests: `cd backend && mvn verify` (needs Docker for Testcontainers). Then, with 
 | 1 (done) | Core LOS, decision engine, sanction, KFS, disbursement, admin, mock vendors |
 | 2 (done) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
 | 3 (done) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
-| 4 (this) | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
-| 5 | Policy studio with simulation and maker-checker, trained PD and fraud models, workflow per product, borrower and field apps |
+| 4 (done) | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
+| 5 (this) | Policy studio with simulation and maker-checker, trained PD model with champion/challenger, workflow per product, borrower portal, reports. Still to come: import of the NBFC's loan history, a trained fraud model, field officer app |
 | 6 | **Third-party integrations:** online PAN, Aadhaar and CKYC validation, Account Aggregator, bureaus, eSign and eStamp, eNACH and UPI Autopay, penny drop, payouts, WhatsApp and SMS. Replaces the mocks through the existing vendor ports |
 | 7 | Production hardening: multi-tenant, security audit and VAPT, monitoring, Kubernetes, DR |
 

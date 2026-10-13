@@ -31,9 +31,9 @@ public final class ActionPolicy {
         if ("DRAFT".equals(app) && front) { out.add("edit"); out.add("submit"); out.add("withdraw"); }
         if ("SUBMITTED".equals(app) && front) out.add("withdraw");
         if (Set.of("DRAFT", "SUBMITTED", "UNDERWRITING").contains(app) && front) out.add("uploadDocument");
-        boolean intake = access.canAny(a, u, "kyc", "docs", "uw");
-        if (active && intake) {
-            out.add("process");
+        boolean intake = access.canAny(a, u, "kyc", "docs");
+        if (active && intake) out.add("process");
+        if (active && (intake || access.can(a, "uw", u))) {
             if ("NOT_STARTED".equals(a.getKycState()) && access.can(a, "kyc", u)) out.add("runKyc");
             if (!"FETCHED".equals(a.getDataState())) out.add("fetchData");
             if (!"COMPLETE".equals(a.getDocsState()) && access.can(a, "docs", u)) out.add("verifyDocuments");

@@ -192,7 +192,7 @@ public class ApplicationController {
     @PostMapping("/{id}/process")
     @PreAuthorize(STAFF)
     public Map<String, Object> process(@PathVariable Long id) {
-        access.require(apps.get(id), CurrentUser.get(), "kyc", "docs", "uw");
+        access.require(apps.get(id), CurrentUser.get(), "kyc", "docs");
         var steps = process.process(id, CurrentUser.get());
         return Map.of("steps", steps, "view", view(id));
     }

@@ -63,7 +63,7 @@ public class MyWorkService {
             }
             // processing tasks go to the role the product's workflow assigns to each stage
             if (List.of("SUBMITTED", "UNDERWRITING").contains(st) || "READY".equals(a.getDisbState()) || "FAILED".equals(a.getDisbState())) {
-                boolean intake = access.canAny(a, u, "kyc", "docs", "uw");
+                boolean intake = access.canAny(a, u, "kyc", "docs");
                 if ("SUBMITTED".equals(st) && intake) add(out, a, "Run automated checks", "process", 4);
                 if ("REVIEW".equals(a.getKycState()) && access.can(a, "kyc", u)) add(out, a, "KYC review: do video KYC and resolve", "resolveKyc", 8);
                 if (List.of("FAILED", "PARTIAL").contains(a.getDataState()) && intake) add(out, a, "Data fetch failed: retry from integration log", "fetchData", 4);

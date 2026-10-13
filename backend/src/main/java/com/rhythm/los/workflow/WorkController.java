@@ -21,6 +21,14 @@ public class WorkController {
     private final LoanApplicationRepository apps;
     private final IntegrationLogRepository logs;
     private final DataFetchService data;
+    private ReviewQueueService review;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setReview(ReviewQueueService r) { this.review = r; }
+
+    @GetMapping("/review-queue")
+    @PreAuthorize("hasAnyRole('CREDIT_OFFICER','CREDIT_MANAGER','CRO','ADMIN','COMPLIANCE')")
+    public List<ReviewQueueService.Card> reviewQueue() { return review.queue(CurrentUser.get()); }
 
     public WorkController(MyWorkService work, LoanApplicationRepository apps, IntegrationLogRepository logs, DataFetchService data) {
         this.work = work;

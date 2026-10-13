@@ -38,6 +38,10 @@ public class PolicyStudioService {
     private final DecisionRecordRepository decisions;
     private final AuditService audit;
     private final com.rhythm.los.model.ModelService models;
+    private LiveBook liveBook;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setLiveBook(LiveBook b) { this.liveBook = b; }
 
     public PolicyStudioService(PolicyRepository repo, PolicyService policy, HistoricalLoanRepository book, DecisionRecordRepository decisions, AuditService audit,
                                com.rhythm.los.model.ModelService models) {
@@ -54,13 +58,13 @@ public class PolicyStudioService {
     public PolicyParams params(PolicyVersion v) { return Json.read(v.getParamsJson(), PolicyParams.class); }
 
     public PolicyVersion live() {
-        return repo.findFirstByStatusOrderByIdDesc("LIVE").orElseThrow(() -> ApiException.conflict("NO_LIVE_POLICY", "No live policy"));
+        return policy.current().orElseThrow(() -> ApiException.conflict("NO_LIVE_POLICY", "No live policy"));
     }
 
     @Transactional
     public PolicyVersion createDraft(String notes, CurrentUser by) {
         requireMaker(by);
-        repo.findAllByOrderByIdDesc().stream().filter(v -> Set.of("DRAFT", "PENDING_APPROVAL").contains(v.getStatus())).findFirst().ifPresent(v -> {
+        repo.findAllByOrderByIdDesc().stream().filter(v -> Set.of("DRAFT", "PENDING_APPROVAL", "APPROVED").contains(v.getStatus())).findFirst().ifPresent(v -> {
             throw ApiException.conflict("DRAFT_EXISTS", "Policy " + v.getVersion() + " is already " + v.getStatus().toLowerCase().replace('_', ' ') + "; finish or discard it first");
         });
         PolicyVersion base = live();
@@ -70,6 +74,7 @@ public class PolicyStudioService {
         d.setVersion(version);
         d.setStatus("DRAFT");
         d.setParamsJson(Json.write(p));
+        d.setOverridesJson(base.getOverridesJson());
         d.setNotes(notes == null || notes.isBlank() ? "Draft based on " + base.getVersion() : notes.trim());
         d.setCreatedBy(by.username());
         d.setBasedOn(base.getVersion());
@@ -80,6 +85,18 @@ public class PolicyStudioService {
 
     @Transactional
     public PolicyVersion update(Long id, Map<String, Object> changes, String notes, CurrentUser by) {
+        return update(id, changes, notes, null, null, false, by);
+    }
+
+    static final java.util.regex.Pattern SCOPE = java.util.regex.Pattern.compile("^(segment|product):[A-Z0-9_-]{2,30}$");
+
+    /**
+     * Saves a draft. overrides (FR-POL-02) maps "segment:MSME" or "product:BL-UNS" to the parameters that differ for it;
+     * effectiveFrom is the date the policy takes effect after approval (null = as soon as it is approved).
+     */
+    @Transactional
+    public PolicyVersion update(Long id, Map<String, Object> changes, String notes, Map<String, Map<String, Object>> overrides,
+                                String effectiveFrom, boolean setEffective, CurrentUser by) {
         PolicyVersion d = get(id);
         requireDraftOwner(d, by);
         Map<String, Object> m = PolicyFields.asMap(params(d));
@@ -94,6 +111,35 @@ public class PolicyStudioService {
         List<String> errors = PolicyFields.validate(p);
         if (!errors.isEmpty()) throw ApiException.unprocessable("INVALID_POLICY", String.join("; ", errors));
         d.setParamsJson(Json.write(p));
+        if (overrides != null) {
+            Map<String, Map<String, Number>> clean = new TreeMap<>();
+            for (var e : overrides.entrySet()) {
+                if (!SCOPE.matcher(e.getKey()).matches()) throw ApiException.unprocessable("BAD_SCOPE", "Override scope must be segment:<SEGMENT> or product:<CODE>, not " + e.getKey());
+                Map<String, Number> vals = new TreeMap<>();
+                if (e.getValue() != null) for (var v : e.getValue().entrySet()) {
+                    if (!keys.contains(v.getKey())) throw ApiException.unprocessable("UNKNOWN_FIELD", "Unknown policy parameter " + v.getKey());
+                    if (!(v.getValue() instanceof Number n)) throw ApiException.unprocessable("NOT_A_NUMBER", v.getKey() + " must be a number");
+                    vals.put(v.getKey(), n);
+                }
+                if (vals.isEmpty()) continue;
+                String[] sc = e.getKey().split(":");
+                PolicyParams merged = PolicyService.apply(p, Json.write(Map.of(e.getKey(), vals)), "product".equals(sc[0]) ? sc[1] : null, "segment".equals(sc[0]) ? sc[1] : null);
+                List<String> errs = PolicyFields.validate(merged);
+                if (!errs.isEmpty()) throw ApiException.unprocessable("INVALID_OVERRIDE", e.getKey() + ": " + String.join("; ", errs));
+                clean.put(e.getKey(), vals);
+            }
+            d.setOverridesJson(clean.isEmpty() ? null : Json.write(clean));
+        }
+        if (setEffective) {
+            if (effectiveFrom == null || effectiveFrom.isBlank()) d.setEffectiveFrom(null);
+            else {
+                Instant t;
+                try { t = java.time.LocalDate.parse(effectiveFrom).atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant(); }
+                catch (Exception ex) { throw ApiException.unprocessable("BAD_DATE", "Effective date must be YYYY-MM-DD"); }
+                if (t.isBefore(Instant.now().minus(java.time.Duration.ofDays(1)))) throw ApiException.unprocessable("DATE_IN_PAST", "The effective date cannot be in the past");
+                d.setEffectiveFrom(t);
+            }
+        }
         if (notes != null && !notes.isBlank()) d.setNotes(notes.trim().length() > 500 ? notes.trim().substring(0, 500) : notes.trim());
         d.setSimulationJson(null); // parameters changed: the old simulation no longer applies
         repo.save(d);
@@ -104,7 +150,8 @@ public class PolicyStudioService {
     public Map<String, Object> simulate(Long id, CurrentUser by) {
         PolicyVersion d = get(id);
         if (!Set.of("DRAFT", "PENDING_APPROVAL").contains(d.getStatus())) throw ApiException.conflict("NOT_A_DRAFT", "Only drafts are simulated");
-        Map<String, Object> result = simulation(params(live()), params(d));
+        PolicyVersion lv = live();
+        Map<String, Object> result = simulation(params(lv), params(d), lv.getOverridesJson(), d.getOverridesJson());
         result.put("simulatedAt", Instant.now().toString());
         result.put("simulatedBy", by.username());
         if ("DRAFT".equals(d.getStatus())) {
@@ -118,7 +165,7 @@ public class PolicyStudioService {
     public PolicyVersion submit(Long id, CurrentUser by) {
         PolicyVersion d = get(id);
         requireDraftOwner(d, by);
-        if (PolicyFields.diff(params(live()), params(d)).isEmpty()) throw ApiException.unprocessable("NO_CHANGES", "The draft is the same as the live policy");
+        if (PolicyFields.diff(params(live()), params(d)).isEmpty() && Objects.equals(norm(live().getOverridesJson()), norm(d.getOverridesJson()))) throw ApiException.unprocessable("NO_CHANGES", "The draft is the same as the live policy");
         if (d.getSimulationJson() == null) throw ApiException.unprocessable("SIMULATE_FIRST", "Run the simulation on the latest parameters before sending for approval");
         d.setStatus("PENDING_APPROVAL");
         d.setSubmittedAt(Instant.now());
@@ -140,7 +187,10 @@ public class PolicyStudioService {
         d.setChecker(by.username());
         d.setDecidedAt(Instant.now());
         d.setDecisionNote(note.length() > 1000 ? note.substring(0, 1000) : note);
-        if (req.approve()) {
+        if (req.approve() && d.getEffectiveFrom() != null && d.getEffectiveFrom().isAfter(Instant.now())) {
+            d.setStatus("APPROVED");
+            audit.record(by, "policy.approved_scheduled", "POLICY", d.getVersion(), null, "Takes effect " + d.getEffectiveFrom() + " · " + changeText(d) + " · " + note);
+        } else if (req.approve()) {
             PolicyVersion old = live();
             old.setStatus("RETIRED");
             old.setRetiredAt(Instant.now());
@@ -156,6 +206,57 @@ public class PolicyStudioService {
         repo.save(d);
         return d;
     }
+
+    /**
+     * Rollback (FR-POL-05): the CRO puts an earlier version's parameters and overrides back in force at once, as a new
+     * version, with a written reason. The current live version is retired. Pending drafts are left as they are.
+     */
+    @Transactional
+    public PolicyVersion rollback(Long targetId, String note, CurrentUser by) {
+        if (!CHECKERS.contains(by.role())) throw ApiException.forbidden("NOT_CHECKER", "Only the CRO can roll back the credit policy");
+        PolicyVersion t = get(targetId);
+        if (!"RETIRED".equals(t.getStatus())) throw ApiException.conflict("NOT_RETIRED", "Only a retired (previously live) version can be restored");
+        String n = note == null ? "" : note.trim();
+        if (n.length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
+        PolicyVersion old = live();
+        String version = nextVersion();
+        PolicyVersion v = new PolicyVersion();
+        v.setVersion(version);
+        v.setParamsJson(Json.write(withVersion(params(t), version)));
+        v.setOverridesJson(t.getOverridesJson());
+        v.setNotes("Rollback to " + t.getVersion() + ": " + (n.length() > 400 ? n.substring(0, 400) : n));
+        v.setCreatedBy(by.username());
+        v.setBasedOn(old.getVersion());
+        v.setRollbackOf(t.getVersion());
+        v.setChecker(by.username());
+        v.setDecidedAt(Instant.now());
+        v.setDecisionNote(n.length() > 1000 ? n.substring(0, 1000) : n);
+        v.setStatus("LIVE");
+        v.setLiveFrom(Instant.now());
+        old.setStatus("RETIRED");
+        old.setRetiredAt(Instant.now());
+        repo.save(old);
+        repo.save(v);
+        audit.record(by, "policy.rolled_back", "POLICY", version, null, "Restores " + t.getVersion() + " in place of " + old.getVersion() + " · " + n);
+        return v;
+    }
+
+    /** The CRO cancels an approved version that has not reached its effective date yet. */
+    @Transactional
+    public PolicyVersion cancelScheduled(Long id, String note, CurrentUser by) {
+        if (!CHECKERS.contains(by.role())) throw ApiException.forbidden("NOT_CHECKER", "Only the CRO can cancel a scheduled policy");
+        PolicyVersion d = get(id);
+        if (!"APPROVED".equals(d.getStatus())) throw ApiException.conflict("NOT_SCHEDULED", "Policy is " + d.getStatus());
+        String n = note == null ? "" : note.trim();
+        if (n.length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
+        d.setStatus("REJECTED");
+        d.setDecisionNote("Cancelled before its effective date: " + n);
+        repo.save(d);
+        audit.record(by, "policy.cancelled", "POLICY", d.getVersion(), null, n);
+        return d;
+    }
+
+    private static String norm(String json) { return PolicyService.overrides(json).isEmpty() ? null : Json.write(PolicyService.overrides(json)); }
 
     @Transactional
     public void discard(Long id, CurrentUser by) {
@@ -177,7 +278,10 @@ public class PolicyStudioService {
     // ---------------------------------------------------------------- simulation
 
     /** Runs the decision engine with the live and the draft policy on the loan book and on recent applications. */
-    public Map<String, Object> simulation(PolicyParams live, PolicyParams draft) {
+    public Map<String, Object> simulation(PolicyParams live, PolicyParams draft) { return simulation(live, draft, null, null); }
+
+    /** As above, with each policy's per-segment and per-product overrides applied to every case. */
+    public Map<String, Object> simulation(PolicyParams live, PolicyParams draft, String liveOv, String draftOv) {
         Agg hl = new Agg(), hd = new Agg(), rl = new Agg(), rd = new Agg();
         int swapIn = 0, swapInBad = 0, swapOut = 0, swapOutBad = 0;
         Map<String, int[]> ruleHits = new TreeMap<>();
@@ -185,9 +289,10 @@ public class PolicyStudioService {
         for (HistoricalLoan h : book.findAllByOrderByIdAsc()) {
             EngineInput in = Json.read(h.getInputJson(), EngineInput.class);
             com.rhythm.los.decision.engine.PdModel pd = models.modelFor(in);
-            EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
-            hl.add(a, in, live, h.isOutcomeBad());
-            hd.add(b, in, draft, h.isOutcomeBad());
+            PolicyParams pl = PolicyService.apply(live, liveOv, h.getProductCode(), h.getSegment()), pdr = PolicyService.apply(draft, draftOv, h.getProductCode(), h.getSegment());
+            EngineResult a = UnderwritingEngine.underwrite(in, pl, pd), b = UnderwritingEngine.underwrite(in, pdr, pd);
+            hl.add(a, in, pl, h.isOutcomeBad());
+            hd.add(b, in, pdr, h.isOutcomeBad());
             boolean ia = approved(a), ib = approved(b);
             if (!ia && ib) { swapIn++; if (h.isOutcomeBad()) swapInBad++; }
             if (ia && !ib) { swapOut++; if (h.isOutcomeBad()) swapOutBad++; }
@@ -207,9 +312,11 @@ public class PolicyStudioService {
             EngineInput in;
             try { in = Json.read(r.getInputJson(), EngineInput.class); } catch (Exception e) { continue; }
             com.rhythm.los.decision.engine.PdModel pd = models.modelFor(in);
-            EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
-            rl.add(a, in, live, null);
-            rd.add(b, in, draft, null);
+            String prod = in.eligibility() == null ? null : in.eligibility().product();
+            PolicyParams pl = PolicyService.apply(live, liveOv, prod, in.segment()), pdr = PolicyService.apply(draft, draftOv, prod, in.segment());
+            EngineResult a = UnderwritingEngine.underwrite(in, pl, pd), b = UnderwritingEngine.underwrite(in, pdr, pd);
+            rl.add(a, in, pl, null);
+            rd.add(b, in, pdr, null);
             if (!a.decision().equals(b.decision()) || Math.abs(a.recAmt() - b.recAmt()) >= 1 || Math.abs(a.rate() - b.rate()) >= 0.01) {
                 if (changed.size() < 50) changed.add(Map.of("applicationId", r.getApplicationId(), "appNo", in.id(), "name", in.name(),
                         "live", a.decision(), "draft", b.decision(), "liveAmount", a.recAmt(), "draftAmount", b.recAmt(),
@@ -227,6 +334,11 @@ public class PolicyStudioService {
         out.put("segments", segments);
         out.put("recent", Map.of("applications", rl.n, "live", rl.view(), "draft", rd.view(), "changed", changed));
         out.put("ruleHits", rules);
+        out.put("overrides", Map.of("live", PolicyService.overrides(liveOv), "draft", PolicyService.overrides(draftOv)));
+        if (liveBook != null) out.put("liveBook", liveBook.simulate(
+                l -> PolicyService.apply(live, liveOv, l.product(), l.segment()),
+                l -> PolicyService.apply(draft, draftOv, l.product(), l.segment()),
+                models::modelFor));
         return out;
     }
 

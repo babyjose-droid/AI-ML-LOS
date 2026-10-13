@@ -17,11 +17,13 @@ import Reports from './pages/Reports'
 import Models from './pages/Models'
 import Workflows from './pages/Workflows'
 import StateMachinePage from './pages/StateMachine'
+import ReviewQueue from './pages/ReviewQueue'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
   ['Work', [
     { to: '/my-work', label: 'My work' },
+    { to: '/review-queue', label: 'Review queue', roles: ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
     { to: '/applications', label: 'Pipeline' },
     { to: '/applications/new', label: 'New application', roles: ['SALES', 'OPERATIONS', 'ADMIN'] },
   ]],
@@ -84,6 +86,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/my-work" replace />} />
             <Route path="/my-work" element={<MyWork />} />
+            <Route path="/review-queue" element={<ReviewQueue />} />
             <Route path="/applications" element={<Pipeline />} />
             <Route path="/applications/new" element={<NewApplication />} />
             <Route path="/applications/:id/edit" element={<NewApplication />} />

@@ -35,10 +35,13 @@ public class DataFetchService {
     private final Vendors.GstProvider gst;
     private final com.rhythm.los.document.AppDocumentRepository documents;
 
+    private final com.rhythm.los.consent.ConsentService consents;
+
     public DataFetchService(ApplicationService apps, IntegrationGateway gateway, DataSnapshotRepository snapshots,
                             IntegrationLogRepository logs, PolicyService policy, AuditService audit,
                             Vendors.KycProvider kyc, Vendors.AccountAggregator aa, Vendors.CreditBureau bureau, Vendors.GstProvider gst,
-                            com.rhythm.los.document.AppDocumentRepository documents) {
+                            com.rhythm.los.document.AppDocumentRepository documents, com.rhythm.los.consent.ConsentService consents) {
+        this.consents = consents;
         this.documents = documents;
         this.apps = apps;
         this.gateway = gateway;
@@ -66,6 +69,7 @@ public class DataFetchService {
     public LoanApplication runKyc(Long id, CurrentUser by) {
         LoanApplication a = requireActive(id);
         if (!"NOT_STARTED".equals(a.getKycState())) throw ApiException.conflict("ALREADY_DONE", "KYC already run: " + a.getKycState());
+        if (!consents.allows(a, "KYC")) throw ApiException.conflict("CONSENT_WITHDRAWN", "The borrower's KYC consent is not active: identity checks cannot run");
         if (kyc.needsVerifiedDocuments() && !"COMPLETE".equals(a.getDocsState()))
             throw ApiException.conflict("DOCUMENTS_FIRST", "KYC is read from the documents: verify the documents first (now " + a.getDocsState() + ")");
         var out = gateway.call(a.getId(), kyc.name(), OP_KYC, () -> kyc.verify(a),
@@ -74,7 +78,7 @@ public class DataFetchService {
         KycBundle k = out.value();
         snapshots.save(new DataSnapshot(a.getId(), "KYC", kyc.name(), Json.write(k)));
         double s = idScore(k);
-        var p = policy.live();
+        var p = policy.liveFor(a.getProductCode(), a.getSegment());
         String to = s < p.kycFail() ? "FAILED" : s < p.kycReview() ? "REVIEW" : "VERIFIED";
         String note = "Identity match " + Math.round(s * 100) + "%";
         if (panMismatch(k, a)) {
@@ -197,6 +201,10 @@ public class DataFetchService {
     }
 
     private boolean fetchAa(LoanApplication a, Long retryOf) {
+        if (!consents.allows(a, "AA")) {
+            audit.record(com.rhythm.los.security.CurrentUser.SYSTEM, "data.pull_skipped", "APPLICATION", a.getAppNo(), a.getId(), "Account Aggregator: consent not active");
+            return false;
+        }
         var out = gateway.call(a.getId(), aa.name(), OP_AA, () -> aa.fetchStatements(a, 12),
                 s -> s.months() + " months from " + s.fipName() + " " + s.maskedAccount(), retryOf);
         if (out.ok()) snapshots.save(new DataSnapshot(a.getId(), "AA", aa.name(), Json.write(out.value())));
@@ -204,6 +212,10 @@ public class DataFetchService {
     }
 
     private boolean fetchBureau(LoanApplication a, Long retryOf) {
+        if (!consents.allows(a, "BUREAU")) {
+            audit.record(com.rhythm.los.security.CurrentUser.SYSTEM, "data.pull_skipped", "APPLICATION", a.getAppNo(), a.getId(), "Bureau: consent not active");
+            return false;
+        }
         var out = gateway.call(a.getId(), bureau.name(), OP_BUREAU, () -> bureau.pull(a),
                 b -> b.hit() ? b.bureau() + " score " + b.score() : b.bureau() + " no hit (thin file)", retryOf);
         if (out.ok()) snapshots.save(new DataSnapshot(a.getId(), "BUREAU", bureau.name(), Json.write(out.value())));
@@ -211,6 +223,7 @@ public class DataFetchService {
     }
 
     private boolean fetchGst(LoanApplication a, Long retryOf) {
+        if (!consents.allows(a, "GST")) return false;
         var out = gateway.call(a.getId(), gst.name(), OP_GST, () -> Optional.ofNullable(gst.profile(a)),
                 g -> g.map(x -> "GSTIN " + x.gstin()).orElse("No GST registration"), retryOf);
         if (out.ok() && out.value().isPresent()) snapshots.save(new DataSnapshot(a.getId(), "GST", gst.name(), Json.write(out.value().get())));

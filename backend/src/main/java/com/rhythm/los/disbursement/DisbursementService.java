@@ -36,11 +36,27 @@ public class DisbursementService {
     private final Vendors.BankVerification bank;
     private final Vendors.PayoutProvider payout;
     private final com.rhythm.los.flow.WorkflowService workflow;
+    private final com.rhythm.los.consent.ConsentService consents;
+    private final com.rhythm.los.application.LoanApplicationRepository appRepo;
+    private final com.rhythm.los.decision.DecisionRecordRepository decisions;
+
+    /** Other PANs now sharing this mobile number, compared with the count the decision saw. */
+    List<String> newLinksSinceDecision(LoanApplication a) {
+        long now = appRepo.countOtherPansWithMobile(a.getMobile(), a.getPan());
+        long then = decisions.findFirstByApplicationIdOrderByIdDesc(a.getId())
+                .map(d -> { try { return com.rhythm.los.common.Json.MAPPER.readTree(d.getInputJson()).path("fraud").path("dupLinks").asLong(0); } catch (Exception e) { return 0L; } })
+                .orElse(0L);
+        return now > then ? List.of("the mobile number is now also used by " + (now - then) + " more applicant(s); send back to credit") : List.of();
+    }
 
     public DisbursementService(ApplicationService apps, SanctionService sanctions, DisbursementRepository repo,
                                IntegrationGateway gateway, Vendors.BankVerification bank, Vendors.PayoutProvider payout,
-                               com.rhythm.los.flow.WorkflowService workflow) {
+                               com.rhythm.los.flow.WorkflowService workflow, com.rhythm.los.consent.ConsentService consents,
+                               com.rhythm.los.application.LoanApplicationRepository appRepo, com.rhythm.los.decision.DecisionRecordRepository decisions) {
         this.workflow = workflow;
+        this.consents = consents;
+        this.appRepo = appRepo;
+        this.decisions = decisions;
         this.apps = apps;
         this.sanctions = sanctions;
         this.repo = repo;
@@ -56,6 +72,10 @@ public class DisbursementService {
         LoanApplication a = apps.get(appId);
         if (!"READY".equals(a.getDisbState())) throw ApiException.conflict("NOT_READY", "Disbursement is " + a.getDisbState());
         workflow.requireNothingPendingBefore(a, "disb");
+        // pre-disbursal re-check (FR-DIS-04): consents still valid and no new links to other applicants since the decision
+        List<String> recheck = new java.util.ArrayList<>(consents.invalidForDisbursement(a));
+        recheck.addAll(newLinksSinceDecision(a));
+        if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
 
         Disbursement d = new Disbursement();

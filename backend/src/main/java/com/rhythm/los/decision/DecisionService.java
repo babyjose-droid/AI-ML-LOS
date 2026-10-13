@@ -79,30 +79,13 @@ public class DecisionService {
     }
 
     @Transactional
-    public DecisionRecord run(Long appId, CurrentUser by) {
-        LoanApplication a = apps.get(appId);
-        List<String> blockers = blockers(a);
-        if (!blockers.isEmpty()) throw ApiException.conflict("PRECONDITION_FAILED", "Cannot decide yet: " + String.join("; ", blockers));
+    public java.util.Optional<java.time.Instant> latestCreatedAt(Long appId) {
+        return decisions.findFirstByApplicationIdOrderByIdDesc(appId).map(DecisionRecord::getCreatedAt);
+    }
 
-        Product p = apps.product(a);
-        PolicyParams pol = policy.live();
-        EngineInput in = buildInput(a, p, pol);
-        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
-        Delegation.Level lvl = Delegation.of(r);
-        String hash = sha256(Json.write(in) + "|" + Json.write(pol));
-        DecisionRecord prev = latest(appId).orElse(null);
-        // nothing new since the last INCOMPLETE: do not record the same answer again
-        if ("INCOMPLETE".equals(r.decision()) && prev != null && "INCOMPLETE".equals(prev.getDecision()) && hash.equals(prev.getInputHash())) return prev;
-        boolean decided = !"REJECT".equals(r.decision()) && !"INCOMPLETE".equals(r.decision());
-        // new to credit (no bureau record): the field visit becomes mandatory (FSD 13.2), unless the product never visits
-        boolean needFieldNtc = decided && in.bureau() == null && "NOT_REQUIRED".equals(a.getFieldState())
-                && !"NEVER".equals(p.getFieldVisitRule()) && defs.stages(a).stream().anyMatch(x -> "field".equals(x.key()));
-        boolean provisional = decided && ("REQUIRED".equals(a.getFieldState()) || needFieldNtc);
-        List<String> conditions = new ArrayList<>(r.conditions());
-        if (provisional) conditions.add(0, "Provisional: field visit pending. Sanction is blocked until the visit is submitted");
-
+    /** The decision fields of an engine result, exactly as stored and as returned by the stateless Decision API (FR-UW-07). */
+    public static DecisionRecord toRecord(EngineResult r, Delegation.Level lvl, List<String> conditions) {
         DecisionRecord d = new DecisionRecord();
-        d.setApplicationId(a.getId());
         d.setDecision(r.decision());
         d.setPd(bd(r.pd(), 6));
         d.setScore(r.score());
@@ -126,9 +109,66 @@ public class DecisionService {
         d.setReasonCodes(String.join(",", r.reasonCodes()));
         d.setConditionsJson(Json.write(conditions));
         d.setNarrative(r.narrative().length() > 2000 ? r.narrative().substring(0, 2000) : r.narrative());
-        d.setCreditMemo(CreditMemoWriter.write(a, p, in, r, lvl));
         d.setModelVersion(r.modelVersion());
         d.setPolicyVersion(r.policyVersion());
+        return d;
+    }
+
+    /**
+     * Stateless decision (Decision API, FSD 15): runs the same engine with the live policy and champion model on a
+     * caller-supplied input; nothing is stored. When a product code is given, its eligibility and price band apply.
+     */
+    public DecisionRecord evaluate(EngineInput in, String productCode) {
+        if (in == null || in.loan() == null) throw ApiException.unprocessable("BAD_INPUT", "Input and loan (amount, tenure) are required");
+        if (productCode != null && !productCode.isBlank()) {
+            Product p = productLookup.apply(productCode);
+            in = new EngineInput(in.id(), in.name(), in.segment(), in.age(), in.vintage(), in.kyc(), in.declaredIncome(), in.essential(), in.bank(),
+                    in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan(),
+                    new EngineInput.Eligibility(p.getCode(), p.getMinAge(), p.getMaxAge(),
+                            p.getMinVintageYears() == null ? 0 : p.getMinVintageYears().doubleValue(),
+                            p.getMinMonthlyIncome() == null ? 0 : p.getMinMonthlyIncome().doubleValue(), null,
+                            p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()));
+        }
+        PolicyParams pol = policy.liveFor(in.eligibility() == null ? null : in.eligibility().product(), in.segment());
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
+        Delegation.Level lvl = Delegation.of(r);
+        DecisionRecord d = toRecord(r, lvl, new ArrayList<>(r.conditions()));
+        d.setInputJson(Json.write(in));
+        d.setInputHash(sha256(Json.write(in) + "|" + Json.write(pol)));
+        d.setCreatedBy("api");
+        return d;
+    }
+
+    private java.util.function.Function<String, Product> productLookup = c -> { throw ApiException.notFound("Product " + c); };
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setProducts(com.rhythm.los.product.ProductService products) { this.productLookup = c -> products.definition(c, null); }
+
+    public DecisionRecord run(Long appId, CurrentUser by) {
+        LoanApplication a = apps.get(appId);
+        List<String> blockers = blockers(a);
+        if (!blockers.isEmpty()) throw ApiException.conflict("PRECONDITION_FAILED", "Cannot decide yet: " + String.join("; ", blockers));
+
+        Product p = apps.product(a);
+        PolicyParams pol = policy.liveFor(p.getCode(), a.getSegment());
+        EngineInput in = buildInput(a, p, pol);
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
+        Delegation.Level lvl = Delegation.of(r);
+        String hash = sha256(Json.write(in) + "|" + Json.write(pol));
+        DecisionRecord prev = latest(appId).orElse(null);
+        // nothing new since the last INCOMPLETE: do not record the same answer again
+        if ("INCOMPLETE".equals(r.decision()) && prev != null && "INCOMPLETE".equals(prev.getDecision()) && hash.equals(prev.getInputHash())) return prev;
+        boolean decided = !"REJECT".equals(r.decision()) && !"INCOMPLETE".equals(r.decision());
+        // new to credit (no bureau record): the field visit becomes mandatory (FSD 13.2), unless the product never visits
+        boolean needFieldNtc = decided && in.bureau() == null && "NOT_REQUIRED".equals(a.getFieldState())
+                && !"NEVER".equals(p.getFieldVisitRule()) && defs.stages(a).stream().anyMatch(x -> "field".equals(x.key()));
+        boolean provisional = decided && ("REQUIRED".equals(a.getFieldState()) || needFieldNtc);
+        List<String> conditions = new ArrayList<>(r.conditions());
+        if (provisional) conditions.add(0, "Provisional: field visit pending. Sanction is blocked until the visit is submitted");
+
+        DecisionRecord d = toRecord(r, lvl, conditions);
+        d.setApplicationId(a.getId());
+        d.setCreditMemo(CreditMemoWriter.write(a, p, in, r, lvl));
         String inputJson = Json.write(in);
         d.setInputJson(inputJson);
         d.setInputHash(hash);

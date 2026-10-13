@@ -5,19 +5,21 @@ import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../comp
 import { REASON, inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
 import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
+import { ConsentPanel, CreditMemoPanel } from '../flow/CasePanels'
 import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
 const TABS = ['Overview', 'Workflow', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
-type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice')[]; choices?: [string, string][]; hint?: string }
+type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string }
 
 const DIALOGS: Record<string, Dialog> = {
   withdraw: { kind: 'withdraw', title: 'Withdraw application', fields: ['note'] },
   resolveKyc: { kind: 'resolveKyc', title: 'Resolve KYC review', fields: ['choice', 'note'], choices: [['true', 'Verified (video KYC done)'], ['false', 'Failed']] },
   fieldVisit: { kind: 'fieldVisit', title: 'Record field visit', fields: ['note'], hint: 'What you saw: business running, stock, premises, neighbour check.' },
   fraudDisposition: { kind: 'fraudDisposition', title: 'Fraud review outcome', fields: ['choice', 'note'], choices: [['true', 'Clear: no fraud'], ['false', 'Confirm fraud and reject']] },
-  sanction: { kind: 'sanction', title: 'Sanction', fields: ['amount', 'note'], hint: 'Leave the amount empty to sanction the recommended amount. A reason is required for a referred case or a higher amount.' },
+  sanction: { kind: 'sanction', title: 'Sanction', fields: ['amount', 'conditions', 'note'], hint: 'Leave the amount empty to sanction the recommended amount. A reason is required for a referred case or a higher amount. Add any conditions of your own, one per line (approve with conditions).' },
+  sendBack: { kind: 'sendBack', title: 'Send back to credit', fields: ['note'], hint: 'The decision is re-opened and the credit officer re-assesses the case. Say what needs another look (at least 10 characters).' },
   decline: { kind: 'decline', title: 'Decline', fields: ['note'] },
   escalate: { kind: 'escalate', title: 'Escalate to next level', fields: ['note'] },
   acceptKfs: { kind: 'acceptKfs', title: 'Borrower accepts the Key Fact Statement', fields: ['otp'], hint: 'In this build the OTP is 123456. The integrations phase sends it to the borrower by SMS.' },
@@ -26,7 +28,7 @@ const DIALOGS: Record<string, Dialog> = {
 const ACTION_LABEL: Record<string, string> = {
   edit: 'Edit draft', submit: 'Submit', withdraw: 'Withdraw', process: 'Run automated checks', runKyc: 'Run KYC', fetchData: 'Fetch bank, bureau and GST data',
   verifyDocuments: 'Verify documents', runDecision: 'Run decision engine', resolveKyc: 'Resolve KYC review', fieldVisit: 'Record field visit',
-  fraudDisposition: 'Fraud review outcome', sanction: 'Sanction', decline: 'Decline', escalate: 'Escalate', acceptKfs: 'Borrower accepts KFS',
+  fraudDisposition: 'Fraud review outcome', sanction: 'Sanction', decline: 'Decline', sendBack: 'Send back', escalate: 'Escalate', acceptKfs: 'Borrower accepts KFS',
   disburse: 'Disburse', retryDisbursement: 'Retry disbursement', uploadDocument: 'Upload document', reviewDocuments: 'Review documents', videoKyc: 'Video KYC',
 }
 
@@ -63,7 +65,8 @@ export default function Application360() {
         case 'resolveKyc': await api.post(base + '/kyc/resolve', { verified: body?.choice === 'true', note: body?.note }); break
         case 'fieldVisit': await api.post(base + '/field-visit', body); break
         case 'fraudDisposition': await api.post(base + '/fraud/disposition', { clear: body?.choice === 'true', note: body?.note }); break
-        case 'sanction': await api.post(base + '/sanction', { amount: body?.amount ? Number(body.amount) : null, note: body?.note || null }); break
+        case 'sanction': await api.post(base + '/sanction', { amount: body?.amount ? Number(body.amount) : null, note: body?.note || null, conditions: String(body?.conditions ?? '').split('\n').map(x => x.trim()).filter(Boolean) }); break
+        case 'sendBack': await api.post(base + '/sanction/send-back', body); break
         case 'decline': await api.post(base + '/sanction/decline', body); break
         case 'escalate': await api.post(base + '/sanction/escalate', body); break
         case 'acceptKfs': await api.post(base + '/kfs/accept', body); break
@@ -104,14 +107,14 @@ export default function Application360() {
           <div className="tabs" role="tablist">
             {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
           </div>
-          {tab === 'Overview' && <Overview v={v} />}
+          {tab === 'Overview' && <Overview v={v} rev={rev} onChange={refresh} />}
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}
           {tab === 'Video KYC' && <VideoKycTab id={id!} rev={rev} canRun={v.actions.includes('videoKyc')} onChange={refresh} />}
           {tab === 'Data' && <DataTab id={id!} rev={rev} />}
           {tab === 'Decision' && <DecisionTab id={id!} rev={rev} />}
-          {tab === 'Credit memo' && <MemoTab id={id!} rev={rev} />}
+          {tab === 'Credit memo' && <MemoTab id={id!} rev={rev} onChange={refresh} />}
           {tab === 'Sanction & KFS' && <SanctionTab id={id!} rev={rev} sanctioned={['SANCTIONED', 'KFS_ACCEPTED'].includes(v.states.SANCTION)} />}
           {tab === 'Disbursement' && <DisbTab id={id!} rev={rev} />}
           {tab === 'History' && <HistoryTab id={id!} rev={rev} />}
@@ -153,6 +156,7 @@ function ActionDialog({ d, busy, error, onClose, onSubmit }: { d: Dialog; busy: 
         )}
         {d.fields.includes('amount') && <label className="fld">Amount (₹)<input name="amount" type="number" value={b.amount ?? ''} onChange={e => setB({ ...b, amount: e.target.value })} /></label>}
         {d.fields.includes('otp') && <label className="fld">OTP<input name="otp" inputMode="numeric" maxLength={6} value={b.otp ?? ''} onChange={e => setB({ ...b, otp: e.target.value })} /></label>}
+        {d.fields.includes('conditions') && <label className="fld">Conditions (optional, one per line)<textarea name="conditions" rows={2} value={b.conditions ?? ''} onChange={e => setB({ ...b, conditions: e.target.value })} /></label>}
         {d.fields.includes('note') && <label className="fld">Reason / notes<textarea name="note" rows={3} value={b.note ?? ''} onChange={e => setB({ ...b, note: e.target.value })} /></label>}
         <button className="btn primary" disabled={busy} onClick={() => onSubmit(b)}>Confirm</button>
       </div>
@@ -160,9 +164,10 @@ function ActionDialog({ d, busy, error, onClose, onSubmit }: { d: Dialog; busy: 
   )
 }
 
-function Overview({ v }: { v: AppView }) {
+function Overview({ v, rev, onChange }: { v: AppView; rev: number; onChange: () => void }) {
   const a = v.application
   return (
+    <>
     <div className="grid2">
       <div className="panel">
         <h3>Applicant</h3>
@@ -184,6 +189,8 @@ function Overview({ v }: { v: AppView }) {
         </dl>
       </div>
     </div>
+    <ConsentPanel id={String(a.id)} rev={rev} onChange={onChange} />
+    </>
   )
 }
 
@@ -532,10 +539,8 @@ function DecisionTab({ id, rev }: { id: string; rev: number }) {
   )
 }
 
-function MemoTab({ id, rev }: { id: string; rev: number }) {
-  const d = useLoad(() => api.get<Decision | undefined>(`/api/applications/${id}/decision`), [id, rev])
-  if (!d.data) return <div className="panel empty">The credit memo is written when the decision engine runs.</div>
-  return <div className="panel"><pre className="memo">{d.data.creditMemo}</pre></div>
+function MemoTab({ id, rev, onChange }: { id: string; rev: number; onChange: () => void }) {
+  return <CreditMemoPanel id={id} rev={rev} onChange={onChange} />
 }
 
 function SanctionTab({ id, rev, sanctioned }: { id: string; rev: number; sanctioned: boolean }) {
@@ -545,9 +550,10 @@ function SanctionTab({ id, rev, sanctioned }: { id: string; rev: number; sanctio
   return (
     <>
       <div className="panel flush">
-        <Table head={['When', 'Action', 'Level', 'Amount', 'Override', 'By', 'Note']} rows={(recs.data ?? []).map(r => [
+        <Table head={['When', 'Action', 'Level', 'Amount', 'Override', 'By', 'Note', 'Conditions']} rows={(recs.data ?? []).map(r => [
           when(r.createdAt), <Pill s={r.action === 'APPROVED' ? 'SANCTIONED' : r.action} />, r.level, r.amount ? inr(r.amount) : '—',
           r.overrideFlag ? <span className="pill warn">Override</span> : '—', r.actor, <span className="small">{r.note ?? '—'}</span>,
+          r.conditionsJson ? <ul className="small" style={{ margin: 0, paddingLeft: 16 }}>{(JSON.parse(r.conditionsJson) as string[]).map(c => <li key={c}>{c}</li>)}</ul> : '—',
         ])} empty="No sanction action yet." />
       </div>
       {k && (

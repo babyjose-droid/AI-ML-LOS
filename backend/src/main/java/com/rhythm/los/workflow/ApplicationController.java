@@ -57,14 +57,17 @@ public class ApplicationController {
     private final KycCheckRepository kycChecks;
     private final com.rhythm.los.flow.StageAccess access;
     private final com.rhythm.los.org.DataScope scope;
+    private final com.rhythm.los.consent.ConsentService consentService;
+    @org.springframework.beans.factory.annotation.Autowired private DataCaptureService dataCapture;
 
     public ApplicationController(KycCheckRepository kycChecks, ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
                                  DecisionService decisions, FraudReviewService fraud, SanctionService sanctions,
                                  SanctionRecordRepository sanctionRecords, DisbursementService disbursements,
                                  ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs, com.rhythm.los.flow.StageAccess access,
-                                 com.rhythm.los.org.DataScope scope) {
+                                 com.rhythm.los.org.DataScope scope, com.rhythm.los.consent.ConsentService consentService) {
         this.access = access;
         this.scope = scope;
+        this.consentService = consentService;
         this.apps = apps;
         this.repo = repo;
         this.data = data;
@@ -83,7 +86,7 @@ public class ApplicationController {
     public record NoteRequest(String note) {}
     public record ResolveRequest(boolean verified, String note) {}
     public record FraudRequest(boolean clear, String note) {}
-    public record SanctionRequest(BigDecimal amount, String note) {}
+    public record SanctionRequest(BigDecimal amount, String note, List<String> conditions) {}
     public record OtpRequest(String otp) {}
 
     // ---- queries ----
@@ -124,6 +127,20 @@ public class ApplicationController {
         m.put("pan", a.getPan());
         m.put("bankAccountNo", a.getBankAccountNo());
         return m;
+    }
+
+    @GetMapping("/{id}/data-capture")
+    @PreAuthorize(STAFF)
+    public List<DataCaptureService.Item> dataCapture(@PathVariable Long id) { return dataCapture.checklist(id); }
+
+    @GetMapping("/{id}/consents")
+    public List<com.rhythm.los.consent.Consent> consents(@PathVariable Long id) { return consentService.list(id); }
+
+    /** Records the borrower's withdrawal of one consent (FR-KYC-02): further pulls stop and the effect is recorded. */
+    @PostMapping("/{id}/consents/{source}/withdraw")
+    @PreAuthorize(FRONT)
+    public com.rhythm.los.consent.Consent withdrawConsent(@PathVariable Long id, @PathVariable String source, @RequestBody NoteRequest r) {
+        return consentService.withdraw(apps.get(id), source, r.note(), CurrentUser.get());
     }
 
     @GetMapping("/{id}/history")
@@ -273,12 +290,16 @@ public class ApplicationController {
     @PostMapping("/{id}/sanction")
     @PreAuthorize(CREDIT)
     public SanctionRecord sanction(@PathVariable Long id, @RequestBody SanctionRequest r) {
-        return sanctions.approve(id, r.amount(), r.note(), CurrentUser.get());
+        return sanctions.approve(id, r.amount(), r.note(), r.conditions(), CurrentUser.get());
     }
 
     @PostMapping("/{id}/sanction/decline")
     @PreAuthorize(CREDIT)
     public SanctionRecord decline(@PathVariable Long id, @RequestBody NoteRequest r) { return sanctions.decline(id, r.note(), CurrentUser.get()); }
+
+    @PostMapping("/{id}/sanction/send-back")
+    @PreAuthorize(CREDIT)
+    public SanctionRecord sendBack(@PathVariable Long id, @RequestBody NoteRequest r) { return sanctions.sendBack(id, r.note(), CurrentUser.get()); }
 
     @PostMapping("/{id}/sanction/escalate")
     @PreAuthorize(CREDIT)

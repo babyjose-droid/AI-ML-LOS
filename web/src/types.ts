@@ -81,7 +81,7 @@ export interface KycCheck { id: number; checkName: string; result: 'PASS' | 'WAR
 export interface History { id: number; domain: string; fromState: string; toState: string; event: string; actor: string; note?: string; createdAt: string }
 export interface IntegrationLog { id: number; applicationId?: number; vendor: string; operation: string; attempt: number; status: string; latencyMs: number; requestRef: string; responseSummary?: string; errorMessage?: string; retryOf?: number; createdAt: string }
 export interface Snapshot { id: number; kind: string; vendor: string; payloadJson: string; fetchedAt: string }
-export interface SanctionRecord { id: number; action: string; level: string; amount?: number; rate?: number; overrideFlag: boolean; note?: string; actor: string; createdAt: string; kfsAcceptedAt?: string }
+export interface SanctionRecord { id: number; action: string; level: string; amount?: number; rate?: number; overrideFlag: boolean; note?: string; actor: string; createdAt: string; kfsAcceptedAt?: string; conditionsJson?: string }
 export interface Disbursement { id: number; status: string; grossAmount: number; deductions: number; netAmount: number; beneficiaryAccount: string; ifsc: string; nameMatchScore?: number; utr?: string; failureReason?: string; lmsPayload?: string; actor: string; createdAt: string }
 export interface Task { applicationId?: number; appNo?: string; applicant?: string; product?: string; amount: number; task: string; action: string; ageHours: number; slaHours: number }
 export interface AuditEvent { id: number; actor: string; actorRole?: string; action: string; entityType: string; entityId?: string; applicationId?: number; details?: string; createdAt: string }
@@ -100,3 +100,9 @@ export interface AppStage {
   skipReason?: string; breachedAt?: string; breachAction?: string; escalatedTo?: string; reviewedBy?: string; canComplete: boolean; canReview: boolean; assignedToMe?: boolean
 }
 export interface AppStages { product: string; version?: number; stages: AppStage[] }
+
+// Consent ledger and credit memo
+export interface Consent { id: number; source: string; purpose: string; scope: string; channel: string; language: string; status: string; grantedAt: string; validUntil?: string; withdrawnAt?: string; withdrawnBy?: string; effect?: string }
+export interface MemoDeviation { rule: string; description: string; justification: string }
+export interface CreditMemo { id: number; version: number; status: string; body: string; editedBy: string; editedAt: string; signedBy?: string; signerRole?: string; signedAt?: string }
+export interface MemoView { memo?: CreditMemo; deviations: MemoDeviation[]; history: { version: number; status: string; editedBy: string; editedAt: string; signedBy: string }[]; canEdit: boolean; signRequired: boolean; unsourcedNumbers: string[] }

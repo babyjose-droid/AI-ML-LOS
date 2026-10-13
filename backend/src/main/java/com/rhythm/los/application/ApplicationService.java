@@ -23,11 +23,13 @@ public class ApplicationService {
     private final WorkflowDefinitions workflows;
     private final ApplicationEventPublisher events;
     private final com.rhythm.los.product.ProductService productVersions;
+    private final com.rhythm.los.consent.ConsentService consents;
 
     public ApplicationService(LoanApplicationRepository apps, StateHistoryRepository history,
                               ProductRepository products, AuditService audit, WorkflowDefinitions workflows, ApplicationEventPublisher events,
-                              com.rhythm.los.product.ProductService productVersions) {
+                              com.rhythm.los.product.ProductService productVersions, com.rhythm.los.consent.ConsentService consents) {
         this.productVersions = productVersions;
+        this.consents = consents;
         this.apps = apps;
         this.history = history;
         this.products = products;
@@ -112,6 +114,7 @@ public class ApplicationService {
         }
         Product p = product(a);
         transition(a, Domain.APP, "SUBMITTED", "application.submitted", by, null);
+        consents.recordFromApplication(a, by);
         boolean existing = apps.countDisbursedByPanExcluding(a.getPan(), a.getId()) > 0;
         boolean field = p.fieldVisitNeeded(a.getLoanAmount().doubleValue()) && workflows.fieldStageApplies(a, existing);
         transition(a, Domain.FIELD, field ? "REQUIRED" : "NOT_REQUIRED", "field.rule_evaluated", CurrentUser.SYSTEM,
@@ -172,6 +175,7 @@ public class ApplicationService {
         a.setEmail(r.email());
         a.setDob(r.dob());
         a.setGender(gender(r.gender()));
+        if (r.preferredLanguage() != null && !r.preferredLanguage().isBlank()) a.setPreferredLanguage(r.preferredLanguage());
         a.setAddress(r.address());
         a.setCity(r.city());
         a.setPincode(blankToNull(r.pincode()));

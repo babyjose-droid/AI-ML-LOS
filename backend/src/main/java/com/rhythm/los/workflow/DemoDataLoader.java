@@ -131,7 +131,7 @@ public class DemoDataLoader {
         ApplicationRequest r = new ApplicationRequest(product, name, pan, mobile, null,
                 LocalDate.parse(dob), null, "12 Main Road, " + city, city, pin, business,
                 BigDecimal.valueOf(vintage), BigDecimal.valueOf(income), BigDecimal.valueOf(essentials), BigDecimal.valueOf(amount),
-                tenure, purpose, "50100" + mobile.substring(4), "HDFC0001234", true, true, true);
+                tenure, purpose, "50100" + mobile.substring(4), "HDFC0001234", true, true, true, null);
         return apps.create(r, SALES);
     }
 

@@ -287,7 +287,7 @@ class DocumentAiIT {
         assertThat(ok(get("/api/applications/" + id + "/snapshots"), ops, null).body().toString()).contains("STATEMENT-AI");
         assertThat(ok(get("/api/applications/" + id + "/kyc-checks"), ops, null).body().toString()).contains("Account holder on bank statement matches").contains("Salary slip employer matches salary credits in statement");
         String decision = ok(get("/api/applications/" + id + "/decision"), ops, null).body().toString();
-        assertThat(decision).contains("R14").contains("RC-020");
+        assertThat(decision).contains("R14").contains("RC-021");
         assertThat(states(id, ops).get("DECISION").asText()).isEqualTo("REFER");
     }
 }

@@ -19,6 +19,7 @@ public class SanctionRecord {
     @Column(name = "tenure_months") private Integer tenureMonths;
     @Column(name = "override_flag") private boolean overrideFlag;
     private String note;
+    @Column(name = "conditions_json") private String conditionsJson;
     @JsonIgnore @Column(name = "kfs_json") private String kfsJson;
     @Column(name = "kfs_accepted_at") private Instant kfsAcceptedAt;
     private String actor;
@@ -41,6 +42,8 @@ public class SanctionRecord {
     public void setTenureMonths(Integer v) { this.tenureMonths = v; }
     public boolean isOverrideFlag() { return overrideFlag; }
     public void setOverrideFlag(boolean v) { this.overrideFlag = v; }
+    public String getConditionsJson() { return conditionsJson; }
+    public void setConditionsJson(String v) { this.conditionsJson = v; }
     public String getNote() { return note; }
     public void setNote(String v) { this.note = v; }
     public String getKfsJson() { return kfsJson; }

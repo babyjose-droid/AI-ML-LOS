@@ -50,6 +50,7 @@ public final class ActionPolicy {
             if (r.sanctionLevel() >= Delegation.rank(lvl)) {
                 out.add("sanction");
                 out.add("decline");
+                out.add("sendBack");
                 if (!"L3".equals(lvl)) out.add("escalate");
             }
         }

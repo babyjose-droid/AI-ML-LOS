@@ -22,6 +22,16 @@ public class PolicyVersion {
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "simulation_json") private String simulationJson;
     @Column(name = "live_from") private Instant liveFrom;
     @Column(name = "retired_at") private Instant retiredAt;
+    @Column(name = "effective_from") private Instant effectiveFrom;
+    @Column(name = "overrides_json") private String overridesJson;
+    @Column(name = "rollback_of") private String rollbackOf;
+
+    public Instant getEffectiveFrom() { return effectiveFrom; }
+    public void setEffectiveFrom(Instant v) { this.effectiveFrom = v; }
+    public String getOverridesJson() { return overridesJson; }
+    public void setOverridesJson(String v) { this.overridesJson = v; }
+    public String getRollbackOf() { return rollbackOf; }
+    public void setRollbackOf(String v) { this.rollbackOf = v; }
 
     public Long getId() { return id; }
     public String getVersion() { return version; }

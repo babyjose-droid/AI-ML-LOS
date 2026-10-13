@@ -55,6 +55,12 @@ public class SanctionService {
 
     @Transactional
     public SanctionRecord approve(Long appId, BigDecimal amount, String note, CurrentUser by) {
+        return approve(appId, amount, note, null, by);
+    }
+
+    /** Approve, optionally with extra conditions the approver adds (FR-UW-06 "approve with conditions"). */
+    @Transactional
+    public SanctionRecord approve(Long appId, BigDecimal amount, String note, java.util.List<String> extraConditions, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         String level = pendingLevel(a);
         checkAuthority(level, by);
@@ -95,6 +101,10 @@ public class SanctionService {
         s.setNote(note);
         s.setKfsJson(Json.write(kfs));
         s.setActor(by.username());
+        if (extraConditions != null) {
+            java.util.List<String> c = extraConditions.stream().filter(x -> x != null && !x.isBlank()).map(String::trim).toList();
+            if (!c.isEmpty()) s.setConditionsJson(Json.write(c));
+        }
         s = records.save(s);
 
         apps.transition(a, Domain.SANCTION, "SANCTIONED", "sanction.approved", by,
@@ -155,6 +165,20 @@ public class SanctionService {
         return s;
     }
 
+    /** Sends the case back to credit for re-assessment (FR-SAN-02): sanction is reset and the decision is re-opened. */
+    @Transactional
+    public SanctionRecord sendBack(Long appId, String note, CurrentUser by) {
+        LoanApplication a = apps.get(appId);
+        String level = pendingLevel(a);
+        checkAuthority(level, by);
+        if (note == null || note.trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
+        SanctionRecord s = record(appId, "SENT_BACK", level, note.trim(), by);
+        apps.transition(a, Domain.SANCTION, "NOT_STARTED", "sanction.sent_back", by, level + ": " + note.trim());
+        apps.transition(a, Domain.DECISION, "PENDING", "decision.reopened", by, "Sent back by " + by.username() + " for re-assessment");
+        audit.record(by, "sanction.sent_back", "APPLICATION", a.getAppNo(), appId, level + ": " + note.trim());
+        return s;
+    }
+
     @Transactional
     public SanctionRecord escalate(Long appId, String note, CurrentUser by) {
         LoanApplication a = apps.get(appId);
@@ -166,6 +190,14 @@ public class SanctionService {
         SanctionRecord s = record(appId, "ESCALATED", level, note, by);
         apps.transition(a, Domain.SANCTION, "PENDING_" + next, "sanction.escalated", by, level + " -> " + next + ": " + note);
         return s;
+    }
+
+    /** True while a case sent back from sanction waits for credit to re-assess it (no decision run since). */
+    public boolean awaitingReassessment(LoanApplication a) {
+        if (!"PENDING".equals(a.getDecisionState())) return false;
+        return records.findFirstByApplicationIdAndActionOrderByIdDesc(a.getId(), "SENT_BACK")
+                .map(s -> decisions.latestCreatedAt(a.getId()).map(d -> d.isBefore(s.getCreatedAt())).orElse(true))
+                .orElse(false);
     }
 
     public Kfs kfs(Long appId) {

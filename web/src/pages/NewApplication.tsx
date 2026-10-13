@@ -10,7 +10,7 @@ type Form = Record<string, string | boolean>
 const EMPTY: Form = {
   productCode: 'BL-UNS', applicantName: '', pan: '', mobile: '', email: '', dob: '', gender: '', address: '', city: '', pincode: '',
   businessName: '', businessVintageYears: '3', declaredMonthlyIncome: '', essentialExpenses: '', loanAmount: '', tenureMonths: '24',
-  purpose: '', bankAccountNo: '', bankIfsc: '', consentBureau: false, consentAa: false, consentKyc: false,
+  purpose: '', bankAccountNo: '', bankIfsc: '', consentBureau: false, consentAa: false, consentKyc: false, preferredLanguage: 'en',
 }
 
 function fromApp(a: LoanApplication): Form {
@@ -121,6 +121,11 @@ export default function NewApplication() {
         <label className="check"><input type="checkbox" name="consentKyc" checked={!!f.consentKyc} onChange={set('consentKyc')} /> KYC verification (PAN, Aadhaar offline e-KYC or DigiLocker, CKYC)</label>
         <label className="check"><input type="checkbox" name="consentAa" checked={!!f.consentAa} onChange={set('consentAa')} /> Bank statements through the Account Aggregator for the last 12 months</label>
         <label className="check"><input type="checkbox" name="consentBureau" checked={!!f.consentBureau} onChange={set('consentBureau')} /> Credit bureau report</label>
+        <label className="fld" style={{ maxWidth: 280, marginTop: 8 }}>Borrower's preferred language (consent text, KFS and messages)
+          <select name="preferredLanguage" value={String(f.preferredLanguage)} onChange={set('preferredLanguage')}>
+            {[['en', 'English'], ['hi', 'Hindi'], ['mr', 'Marathi'], ['ta', 'Tamil'], ['ml', 'Malayalam'], ['kn', 'Kannada'], ['te', 'Telugu'], ['bn', 'Bengali'], ['gu', 'Gujarati']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
       </div>
       <div className="row">
         <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>

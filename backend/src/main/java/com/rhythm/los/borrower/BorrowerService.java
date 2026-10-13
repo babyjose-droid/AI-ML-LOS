@@ -114,7 +114,7 @@ public class BorrowerService {
         String m = mobileOf(by);
         ApplicationRequest req = new ApplicationRequest(r.productCode(), r.applicantName(), r.pan(), m, r.email(), r.dob(), r.gender(), r.address(),
                 r.city(), r.pincode(), r.businessName(), r.businessVintageYears(), r.declaredMonthlyIncome(), r.essentialExpenses(), r.loanAmount(),
-                r.tenureMonths(), r.purpose(), r.bankAccountNo(), r.bankIfsc(), r.consentBureau(), r.consentAa(), r.consentKyc());
+                r.tenureMonths(), r.purpose(), r.bankAccountNo(), r.bankIfsc(), r.consentBureau(), r.consentAa(), r.consentKyc(), null);
         if (!r.consentBureau() || !r.consentAa() || !r.consentKyc())
             throw ApiException.unprocessable("CONSENT_MISSING", "Please give all three consents to apply");
         LoanApplication a = apps.create(req, by);

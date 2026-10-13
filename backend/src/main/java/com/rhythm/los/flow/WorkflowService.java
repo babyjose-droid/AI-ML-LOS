@@ -200,6 +200,27 @@ public class WorkflowService {
         return out;
     }
 
+    /** Signing the credit memo is the person's confirmation when the memo stage is "automatic, person confirms" and not skipped. */
+    public boolean memoSignRequired(LoanApplication a) {
+        Stage cam = defs.stages(a).stream().filter(s -> "cam".equals(s.key())).findFirst().orElse(null);
+        if (cam == null || !"AUTO_REVIEW".equals(cam.mode())) return false;
+        return rows.findByApplicationIdAndStageKey(a.getId(), "cam").map(r -> !"SKIPPED".equals(r.getStatus())).orElse(true);
+    }
+
+    /** Records a person's confirmation of a stage done elsewhere (the credit memo sign-off confirms the memo stage). */
+    @Transactional
+    public void markReviewed(LoanApplication a, String key, CurrentUser by, String note) {
+        refresh(a);
+        rows.findByApplicationIdAndStageKey(a.getId(), key).ifPresent(r -> {
+            if (r.getReviewedAt() != null) return;
+            r.setReviewedBy(by.username());
+            r.setReviewedAt(Instant.now());
+            r.setNote(note);
+            rows.save(r);
+        });
+        refresh(a, by.username());
+    }
+
     /** True when the applicant's joint liability group passed its recognition test (GRT) in this application's workflow. */
     public boolean groupRecognised(LoanApplication a) {
         return a.getId() != null && rows.findByApplicationIdAndStageKey(a.getId(), "grt").map(r -> "PASS".equals(r.getOutcome())).orElse(false);
@@ -311,6 +332,7 @@ public class WorkflowService {
         Map<String, Object> v = view(appId, by);
         @SuppressWarnings("unchecked") Map<String, Object> st = ((List<Map<String, Object>>) v.get("stages")).stream()
                 .filter(x -> key.equals(x.get("key"))).findFirst().orElseThrow(() -> ApiException.notFound("Stage " + key + " in this workflow"));
+        if ("cam".equals(key)) throw ApiException.conflict("SIGN_MEMO", "Confirm the credit memo by signing it on the Credit memo tab");
         if (!Boolean.TRUE.equals(st.get("canReview"))) throw ApiException.forbidden("NOT_YOURS", st.get("name") + " is not waiting for your review");
         if (note == null || note.trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Write review notes of at least 10 characters");
         AppStage r = rows.findByApplicationIdAndStageKey(appId, key).orElseThrow();

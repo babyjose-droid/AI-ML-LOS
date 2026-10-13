@@ -24,6 +24,10 @@ public class MyWorkService {
     private final com.rhythm.los.flow.WorkflowDesignService design;
     private final com.rhythm.los.flow.StageAccess access;
     private final com.rhythm.los.org.DataScope scope;
+    private java.util.function.Predicate<LoanApplication> sentBack = a -> false;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setSanctions(@org.springframework.context.annotation.Lazy com.rhythm.los.sanction.SanctionService s) { this.sentBack = s::awaitingReassessment; }
 
     public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc,
                          com.rhythm.los.policy.PolicyRepository policies, com.rhythm.los.flow.WorkflowService workflow,
@@ -75,6 +79,8 @@ public class MyWorkService {
                 if ("DEFICIENT".equals(a.getDocsState()) && r != Role.SALES && access.can(a, "docs", u)) add(out, a, "Documents deficient: follow up", "verifyDocuments", 24);
                 if ("IN_REVIEW".equals(a.getDocsState()) && access.can(a, "docs", u)) add(out, a, "Document review: AI was not sure", "reviewDocuments", 4);
                 if ("REQUIRED".equals(a.getFieldState()) && !"NOT_STARTED".equals(a.getKycState()) && access.can(a, "field", u)) add(out, a, "Field visit required", "fieldVisit", 48);
+                if ("UNDERWRITING".equals(st) && "PENDING".equals(a.getDecisionState()) && "NOT_STARTED".equals(a.getSanctionState())
+                        && access.can(a, "uw", u) && sentBack.test(a)) add(out, a, "Sent back from sanction: re-assess and re-run the decision", "runDecision", 24);
                 if ("READY".equals(a.getDisbState()) && access.can(a, "disb", u)) add(out, a, "Disburse", "disburse", 8);
                 if ("FAILED".equals(a.getDisbState()) && access.can(a, "disb", u)) add(out, a, "Disbursement failed: fix and retry", "retryDisbursement", 4);
             }

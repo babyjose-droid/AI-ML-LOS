@@ -11,6 +11,7 @@ interface Field { key: string; label: string; group: string; min: number; max: n
 interface Version {
   id: number; version: string; status: string; notes?: string; createdBy?: string; createdAt: string; basedOn?: string
   submittedAt?: string; checker?: string; decidedAt?: string; decisionNote?: string; simulated: boolean; liveFrom?: string; retiredAt?: string
+  effectiveFrom?: string; rollbackOf?: string
 }
 interface Change { key: string; label: string; group: string; from: number; to: number; unit: string }
 interface Metrics {
@@ -24,8 +25,18 @@ interface Simulation {
   segments: Record<string, { loans?: number; liveApproved?: number; draftApproved?: number; liveBad?: number; draftBad?: number }>
   recent: { applications: number; live: Metrics; draft: Metrics; changed: { applicationId: number; appNo: string; name: string; live: string; draft: string; liveAmount: number; draftAmount: number; liveRate: number; draftRate: number }[] }
   ruleHits: { rule: string; label: string; live: number; draft: number }[]
+  liveBook?: LiveBookSim
 }
-interface Detail { policy: Version; params: Record<string, number | string>; changes: Change[]; simulation: Simulation | null }
+interface BookSide { withinPolicy: number; outsidePolicy: number; outsideOutstanding: number; topUpEligible: number; topUpAmount: number; renewalEligible: number; renewalAmount: number; expectedLoss: number }
+interface LiveBookSim {
+  loans: number; outstanding: number; source: string; live: BookSide; draft: BookSide
+  classification: Record<string, { loans: number; outstanding: number; behaviourPd: number }>
+  drillDown: { ref: string; name: string; source: string; segment: string; product: string; outstanding: number; mob: number; dpd: number; classification: string; behaviourPd: number; live: string; draft: string }[]
+}
+type Overrides = Record<string, Record<string, number>>
+interface OvRow { scope: string; key: string; value: string }
+const SEGMENTS = ['MSME', 'SALARIED', 'MICROFINANCE']
+interface Detail { policy: Version; params: Record<string, number | string>; changes: Change[]; simulation: Simulation | null; overrides: Overrides }
 
 const MAKERS = ['CREDIT_MANAGER', 'CRO', 'ADMIN']
 
@@ -44,7 +55,7 @@ export default function PolicyStudio() {
   const [selected, setSelected] = useState<number | null>(null)
   const [error, setError] = useState<unknown>()
   const list = versions.data ?? []
-  const open = list.find(v => v.status === 'DRAFT' || v.status === 'PENDING_APPROVAL')
+  const open = list.find(v => v.status === 'DRAFT' || v.status === 'PENDING_APPROVAL' || v.status === 'APPROVED')
   const live = list.find(v => v.status === 'LIVE')
   const current = selected ?? open?.id ?? live?.id ?? null
   const isMaker = !!user && MAKERS.includes(user.role)
@@ -89,12 +100,17 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
   const [note, setNote] = useState('')
   const [error, setError] = useState<unknown>()
   const [saved, setSaved] = useState('')
+  const [ovs, setOvs] = useState<OvRow[]>([])
+  const [eff, setEff] = useState('')
+  const products = useLoad(() => api.get<{ code: string; name: string }[]>('/api/products'), [])
 
   useEffect(() => {
     if (!d.data) return
     setVals(Object.fromEntries(fields.map(f => [f.key, String(d.data!.params[f.key])])))
     setNotes(d.data.policy.notes ?? '')
     setSim(d.data.simulation)
+    setOvs(toRows(d.data.overrides))
+    setEff(d.data.policy.effectiveFrom ? d.data.policy.effectiveFrom.slice(0, 10) : '')
   }, [d.data, fields])
 
   const groups = useMemo(() => [...new Set(fields.map(f => f.group))], [fields])
@@ -103,6 +119,8 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
   const editable = p.status === 'DRAFT' && user?.username === p.createdBy
   const canDecide = p.status === 'PENDING_APPROVAL' && user?.role === 'CRO' && user.username !== p.createdBy
   const dirty = fields.some(f => String(d.data!.params[f.key]) !== vals[f.key]) || notes !== (p.notes ?? '')
+    || JSON.stringify(fromRows(ovs)) !== JSON.stringify(fromRows(toRows(d.data.overrides))) || eff !== (p.effectiveFrom ? p.effectiveFrom.slice(0, 10) : '')
+  const futureEff = !!p.effectiveFrom && new Date(p.effectiveFrom).getTime() > Date.now()
 
   async function act(name: string, fn: () => Promise<unknown>, after?: () => void) {
     setBusy(name)
@@ -112,7 +130,7 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
   }
   const save = () => act('save', async () => {
     const params = Object.fromEntries(fields.map(f => [f.key, Number(vals[f.key])]))
-    await api.put(`/api/policies/${id}`, { params, notes })
+    await api.put(`/api/policies/${id}`, { params, notes, overrides: fromRows(ovs), effectiveFrom: eff || null, setEffectiveFrom: true })
     setSim(null)
     setSaved('Saved. Run the simulation again before sending for approval.')
   }, () => d.reload())
@@ -129,6 +147,7 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
               {p.submittedAt && <> · sent for approval {when(p.submittedAt)}</>}
               {p.checker && <> · {p.status === 'LIVE' || p.status === 'RETIRED' ? 'approved' : 'reviewed'} by {p.checker} {when(p.decidedAt)}</>}
               {p.liveFrom && <> · live from {when(p.liveFrom)}</>}{p.retiredAt && <> · retired {when(p.retiredAt)}</>}
+              {p.effectiveFrom && <> · effective from {when(p.effectiveFrom)}</>}{p.rollbackOf && <> · rollback to {p.rollbackOf}</>}
             </p>
           </div>
           <div className="row">
@@ -153,6 +172,32 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
           <Table head={['Parameter', 'From', 'To']} rows={d.data.changes.map(c => [c.label, show(c.from, c.unit), <b>{show(c.to, c.unit)}</b>])} />
         </div>
       )}
+
+      <div className="panel" data-policy-overrides>
+        <h3 style={{ marginTop: 0 }}>Segment and product overrides</h3>
+        <p className="small muted">Parameters that differ for one segment or product. Order: base policy, then the segment's overrides, then the product's.</p>
+        <Table head={['Applies to', 'Parameter', 'Value', 'Base', '']} rows={ovs.map((o, i) => {
+          const f = fields.find(x => x.key === o.key)
+          return editable ? [
+            <select value={o.scope} name={'ovScope' + i} onChange={e => setOvs(ovs.map((x, j) => j === i ? { ...x, scope: e.target.value } : x))}>
+              {SEGMENTS.map(sg => <option key={sg} value={'segment:' + sg}>Segment: {sg.toLowerCase()}</option>)}
+              {(products.data ?? []).map(pr => <option key={pr.code} value={'product:' + pr.code}>Product: {pr.code}</option>)}
+            </select>,
+            <select value={o.key} name={'ovKey' + i} onChange={e => setOvs(ovs.map((x, j) => j === i ? { ...x, key: e.target.value } : x))}>
+              {fields.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+            </select>,
+            <input type="number" name={'ovValue' + i} step={f?.step} value={o.value} style={{ maxWidth: 120 }} onChange={e => setOvs(ovs.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} />,
+            <span className="small muted">{f ? show(Number(vals[f.key]), f.unit) : ''}</span>,
+            <button className="btn sm" onClick={() => setOvs(ovs.filter((_, j) => j !== i))}>Remove</button>,
+          ] : [o.scope.replace(':', ': ').toLowerCase(), f?.label ?? o.key, <b>{f ? show(Number(o.value), f.unit) : o.value}</b>, <span className="small muted">{f ? show(Number(vals[f.key]), f.unit) : ''}</span>, '']
+        })} empty="No overrides: the base policy applies to every segment and product." />
+        {editable && <button className="btn sm" style={{ marginTop: 8 }} data-policy="addOverride" onClick={() => setOvs([...ovs, { scope: 'segment:MSME', key: 'maxFoir', value: String(vals.maxFoir ?? '') }])}>Add override</button>}
+        <div style={{ marginTop: 12 }}>
+          {editable
+            ? <label className="fld" style={{ maxWidth: 280 }}>Effective date (empty = as soon as approved)<input type="date" name="effectiveFrom" value={eff} onChange={e => setEff(e.target.value)} /></label>
+            : <span className="small">Effective: {p.effectiveFrom ? when(p.effectiveFrom) : 'on approval'}</span>}
+        </div>
+      </div>
 
       {groups.map(g => (
         <div className="panel" key={g}>
@@ -180,13 +225,45 @@ function PolicyDetail({ id, fields, onChange }: { id: number; fields: Field[]; o
           <p className="small muted">Approving makes this the live policy for every new decision. Applications already decided keep their result.</p>
           <label className="fld">Note (required)<textarea name="decisionNote" rows={2} value={note} onChange={e => setNote(e.target.value)} /></label>
           <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn primary" data-policy="approve" onClick={() => act('approve', () => api.post(`/api/policies/${id}/decision`, { approve: true, note }), onChange)}>Approve and make live</button>
+            <button className="btn primary" data-policy="approve" onClick={() => act('approve', () => api.post(`/api/policies/${id}/decision`, { approve: true, note }), onChange)}>{futureEff ? `Approve: takes effect ${when(p.effectiveFrom!)}` : 'Approve and make live'}</button>
             <button className="btn danger" data-policy="sendback" onClick={() => act('reject', () => api.post(`/api/policies/${id}/decision`, { approve: false, note }), onChange)}>Send back to drafter</button>
+          </div>
+        </div>
+      )}
+
+      {user?.role === 'CRO' && (p.status === 'RETIRED' || p.status === 'APPROVED') && (
+        <div className="panel" data-policy-rollback>
+          <h3 style={{ marginTop: 0 }}>{p.status === 'RETIRED' ? 'Roll back to this version' : 'Cancel before it takes effect'}</h3>
+          <p className="small muted">{p.status === 'RETIRED'
+            ? 'Puts these parameters and overrides back in force now, as a new version. The current live policy is retired. Use when a change is doing harm.'
+            : 'This version is approved and waiting for its effective date. Cancelling keeps the current live policy.'}</p>
+          <label className="fld">Reason (required)<textarea name="rollbackNote" rows={2} value={note} onChange={e => setNote(e.target.value)} /></label>
+          <div className="row" style={{ marginTop: 8 }}>
+            {p.status === 'RETIRED'
+              ? <button className="btn danger" data-policy="rollback" onClick={() => act('rollback', () => api.post(`/api/policies/${id}/rollback`, { note }), onChange)}>Restore {p.version}</button>
+              : <button className="btn danger" data-policy="cancel" onClick={() => act('cancel', () => api.post(`/api/policies/${id}/cancel`, { note }), onChange)}>Cancel scheduled version</button>}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function toRows(o: Overrides | undefined): OvRow[] {
+  const out: OvRow[] = []
+  for (const [scope, m] of Object.entries(o ?? {})) for (const [key, v] of Object.entries(m)) out.push({ scope, key, value: String(v) })
+  return out
+}
+
+function fromRows(rows: OvRow[]): Overrides {
+  const o: Overrides = {}
+  for (const r of rows) {
+    if (r.value === '' || isNaN(Number(r.value))) continue
+    ;(o[r.scope] ??= {})[r.key] = Number(r.value)
+  }
+  const sorted: Overrides = {}
+  for (const k of Object.keys(o).sort()) sorted[k] = Object.fromEntries(Object.entries(o[k]).sort(([a], [b]) => a.localeCompare(b)))
+  return sorted
 }
 
 async function fetchDelete(url: string) {
@@ -259,6 +336,40 @@ function SimulationView({ s }: { s: Simulation }) {
           <Table head={['Rule', 'Live', 'Draft']} rows={s.ruleHits.map(h => [`${h.rule} ${h.label}`, h.live, <b className={h.draft !== h.live ? 'changed-text' : ''}>{h.draft}</b>])} empty="No rules triggered." />
         </div>
       </div>
+      {s.liveBook && <LiveBookView b={s.liveBook} />}
+    </div>
+  )
+}
+
+function LiveBookView({ b }: { b: LiveBookSim }) {
+  const [all, setAll] = useState(false)
+  const l = b.live, d = b.draft
+  const rows = [
+    ['Loans within policy', l.withinPolicy, d.withinPolicy, delta(l.withinPolicy, d.withinPolicy, 'n', null)],
+    ['Outside policy (would not be approved today)', `${l.outsidePolicy} · ${inr(l.outsideOutstanding)}`, `${d.outsidePolicy} · ${inr(d.outsideOutstanding)}`, delta(l.outsidePolicy, d.outsidePolicy, 'n', false)],
+    ['Eligible for top-up', `${l.topUpEligible} · ${inr(l.topUpAmount)}`, `${d.topUpEligible} · ${inr(d.topUpAmount)}`, delta(l.topUpAmount, d.topUpAmount, 'inr', null)],
+    ['Eligible for renewal (≤ 3 months left)', `${l.renewalEligible} · ${inr(l.renewalAmount)}`, `${d.renewalEligible} · ${inr(d.renewalAmount)}`, delta(l.renewalEligible, d.renewalEligible, 'n', null)],
+    ['Expected loss on outstanding (behaviour PD × LGD)', inr(l.expectedLoss), inr(d.expectedLoss), delta(l.expectedLoss, d.expectedLoss, 'inr', false)],
+  ]
+  const drill = all ? b.drillDown : b.drillDown.slice(0, 10)
+  return (
+    <div className="panel" data-policy-livebook>
+      <h3 style={{ marginTop: 0 }}>Live book ({b.loans} loans · {inr(b.outstanding)} outstanding)</h3>
+      <p className="small muted">Loans still being repaid, re-checked against each policy: whether they would be approved today, top-up and renewal eligibility, and expected loss using behaviour PD (application PD moved by how the loan is paying).
+        {b.source !== 'RHYTHM' && ' Until the LMS feed is connected, the outstanding book is derived from the historical loans' + (b.source === 'MIXED' ? ' plus loans disbursed in Rhythm.' : '.')}</p>
+      <Table head={['', 'Live policy', 'Draft', 'Change']} rows={rows} />
+      <h4>Classification</h4>
+      <Table head={['Class', 'Loans', 'Outstanding', 'Average behaviour PD']} rows={Object.entries(b.classification).map(([k, v]) => [k, v.loans, inr(v.outstanding), pct(v.behaviourPd, 1)])} />
+      {b.drillDown.length > 0 && (
+        <>
+          <h4>Loans whose status changes ({b.drillDown.length}{b.drillDown.length >= 50 ? '+' : ''})</h4>
+          <Table head={['Loan', 'Segment · product', 'Outstanding', 'MOB · DPD', 'Class', 'Live', 'Draft']} rows={drill.map(x => [
+            <span>{x.ref}<div className="small muted">{x.name} · {x.source === 'RHYTHM' ? 'Rhythm' : 'synthetic'}</div></span>, `${x.segment.toLowerCase()} · ${x.product}`, inr(x.outstanding),
+            `${x.mob} · ${x.dpd}`, x.classification, <span className="small">{x.live}</span>, <b className="small">{x.draft}</b>,
+          ])} />
+          {b.drillDown.length > 10 && <button className="btn sm" onClick={() => setAll(!all)}>{all ? 'Show fewer' : 'Show all'}</button>}
+        </>
+      )}
     </div>
   )
 }

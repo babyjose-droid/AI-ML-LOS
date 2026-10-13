@@ -41,12 +41,14 @@ public class PolicyController {
         m.put("policy", v);
         m.put("params", studio.params(v));
         m.put("changes", studio.changes(v));
+        m.put("overrides", PolicyService.overrides(v.getOverridesJson()));
         m.put("simulation", v.getSimulationJson() == null ? null : Json.read(v.getSimulationJson(), Map.class));
         return m;
     }
 
     public record DraftRequest(String notes) {}
-    public record UpdateRequest(Map<String, Object> params, String notes) {}
+    public record UpdateRequest(Map<String, Object> params, String notes, Map<String, Map<String, Object>> overrides, String effectiveFrom, Boolean setEffectiveFrom) {}
+    public record NoteRequest(String note) {}
 
     @PostMapping("/drafts")
     @PreAuthorize(CREDIT)
@@ -57,7 +59,7 @@ public class PolicyController {
     @PutMapping("/{id}")
     @PreAuthorize(CREDIT)
     public PolicyVersion update(@PathVariable Long id, @RequestBody UpdateRequest r) {
-        return studio.update(id, r.params(), r.notes(), CurrentUser.get());
+        return studio.update(id, r.params(), r.notes(), r.overrides(), r.effectiveFrom(), Boolean.TRUE.equals(r.setEffectiveFrom()), CurrentUser.get());
     }
 
     @PostMapping("/{id}/simulate")
@@ -71,6 +73,14 @@ public class PolicyController {
     @PostMapping("/{id}/decision")
     @PreAuthorize(CREDIT)
     public PolicyVersion decide(@PathVariable Long id, @RequestBody PolicyStudioService.Decision r) { return studio.decide(id, r, CurrentUser.get()); }
+
+    @PostMapping("/{id}/rollback")
+    @PreAuthorize(CREDIT)
+    public PolicyVersion rollback(@PathVariable Long id, @RequestBody NoteRequest r) { return studio.rollback(id, r.note(), CurrentUser.get()); }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize(CREDIT)
+    public PolicyVersion cancel(@PathVariable Long id, @RequestBody NoteRequest r) { return studio.cancelScheduled(id, r.note(), CurrentUser.get()); }
 
     @DeleteMapping("/{id}")
     @PreAuthorize(CREDIT)

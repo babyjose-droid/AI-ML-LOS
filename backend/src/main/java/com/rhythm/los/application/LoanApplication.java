@@ -32,6 +32,8 @@ public class LoanApplication {
     private String email;
     private LocalDate dob;
     private String gender;
+    /** Language for the KFS, sanction letter and messages (BR-02, BR-27): en, hi, mr, ta, ml, kn, te, bn, gu. */
+    @Column(name = "preferred_language") private String preferredLanguage = "en";
     private String address;
     private String city;
     private String pincode;
@@ -145,6 +147,8 @@ public class LoanApplication {
     public void setEmail(String v) { this.email = v; }
     public LocalDate getDob() { return dob; }
     public void setDob(LocalDate v) { this.dob = v; }
+    public String getPreferredLanguage() { return preferredLanguage; }
+    public void setPreferredLanguage(String v) { this.preferredLanguage = v; }
     public String getGender() { return gender; }
     public void setGender(String v) { this.gender = v; }
     public String getAddress() { return address; }

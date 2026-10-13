@@ -27,4 +27,5 @@ public record ApplicationRequest(
         @Pattern(regexp = "^$|[A-Z]{4}0[A-Z0-9]{6}", message = "must be a valid IFSC") String bankIfsc,
         boolean consentBureau,
         boolean consentAa,
-        boolean consentKyc) {}
+        boolean consentKyc,
+        @Pattern(regexp = "^$|en|hi|mr|ta|ml|kn|te|bn|gu", message = "must be one of en, hi, mr, ta, ml, kn, te, bn, gu") String preferredLanguage) {}

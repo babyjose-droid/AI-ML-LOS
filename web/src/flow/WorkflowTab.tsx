@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import { ErrorBox, Modal, Pill, Table } from '../components/ui'
+import { ErrorBox, Modal, Pill, Table, useLoad } from '../components/ui'
 import { label, when } from '../format'
 import type { AppStage, AppStages } from '../types'
 
@@ -65,8 +65,42 @@ export default function WorkflowTab({ id, data, onChange }: { id: string; data: 
         ])} />
       </div>
       <p className="small muted">Stages follow the product's workflow version this application started on. <Link to={`/admin/workflows?product=${data.product}`}>Open the workflow designer</Link></p>
+      <DataChecklist id={id} names={Object.fromEntries(data.stages.map(s => [s.key, s.name]))} />
       {open && <StageDialog id={id} stage={open.stage} review={open.review} onClose={() => setOpen(null)} onDone={() => { setOpen(null); onChange() }} />}
     </>
+  )
+}
+
+interface CaptureItem { stage: string; item: string; tier: string; source: string; why: string; applies: boolean; captured: boolean }
+const SRC: Record<string, string> = { B: 'Borrower', F: 'Fetched', D: 'Derived', O: 'Officer' }
+const STAGE_NAME: Record<string, string> = { lead: 'Lead & application', kyc: 'Consent & KYC', docs: 'Documents', field: 'Field visit', uw: 'Underwriting', cam: 'Credit memo', sanction: 'Sanction', disb: 'Disbursement' }
+
+/** FSD 11–12: the minimum and additional data for each stage and whether the file has it. */
+function DataChecklist({ id, names }: { id: string; names: Record<string, string> }) {
+  const q = useLoad(() => api.get<CaptureItem[]>(`/api/applications/${id}/data-capture`), [id])
+  const [all, setAll] = useState(false)
+  if (!q.data) return <ErrorBox error={q.error} />
+  const items = q.data.filter(i => all || i.applies)
+  const stages = [...new Set(items.map(i => i.stage))]
+  const gaps = q.data.filter(i => i.applies && i.tier === 'MINIMUM' && !i.captured).length
+  return (
+    <div className="panel" data-testid="data-capture">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0 }}>Data capture by stage</h3>
+        <span className="small">{gaps === 0 ? 'All minimum data captured so far' : `${gaps} minimum item${gaps > 1 ? 's' : ''} not captured yet`} ·{' '}
+          <label><input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> show items that do not apply</label></span>
+      </div>
+      {stages.map(st => (
+        <details key={st} open={items.some(i => i.stage === st && i.applies && i.tier === 'MINIMUM' && !i.captured)} style={{ marginTop: 8 }}>
+          <summary><b>{names[st] ?? STAGE_NAME[st] ?? st}</b> <span className="small muted">{items.filter(i => i.stage === st && i.captured).length}/{items.filter(i => i.stage === st).length} captured</span></summary>
+          <Table head={['Data', 'Tier', 'Source', 'Why', 'Status']} rows={items.filter(i => i.stage === st).map(i => [
+            i.item, <span className={'pill' + (i.tier === 'MINIMUM' ? '' : ' muted')}>{i.tier === 'MINIMUM' ? 'Minimum' : 'Additional'}</span>, SRC[i.source] ?? i.source,
+            <span className="small muted">{i.why}</span>,
+            !i.applies ? <span className="small muted">Not needed</span> : i.captured ? <span className="pill ok">Captured</span> : <span className={'pill' + (i.tier === 'MINIMUM' ? ' warn' : '')}>Missing</span>,
+          ])} />
+        </details>
+      ))}
+    </div>
   )
 }
 

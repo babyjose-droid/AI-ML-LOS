@@ -134,7 +134,7 @@ class CorrectionsIT {
         assertThat(d.get("decision").asText()).isEqualTo("INCOMPLETE");
         assertThat(d.get("missingData").asText()).contains("6 months");
         assertThat(d.get("reasonCodes").asText()).contains("RC-013");
-        assertThat(d.get("delegationLevel").isNull()).isTrue();
+        assertThat(d.has("delegationLevel")).isFalse();
         // running again with nothing new does not add another decision record
         long first = d.get("id").asLong();
         ok(post("/api/applications/" + id + "/process"), ops, null);

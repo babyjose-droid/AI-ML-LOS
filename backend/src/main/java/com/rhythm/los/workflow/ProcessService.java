@@ -85,6 +85,10 @@ public class ProcessService {
         }
         a = apps.get(appId);
         List<String> blockers = decisions.blockers(a);
+        if (sanctions.awaitingReassessment(a)) {
+            log.add(new StepLog("Decision engine", "Sent back from sanction: credit re-assesses and re-runs the decision"));
+            return log;
+        }
         if (blockers.isEmpty() && List.of("PENDING", "INCOMPLETE").contains(a.getDecisionState())) {
             var d = decisions.run(appId, by);
             boolean provisional = d.getConditionsJson() != null && d.getConditionsJson().contains("Provisional");

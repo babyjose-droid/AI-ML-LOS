@@ -45,6 +45,9 @@ public class SecurityConfig {
                             "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     // role rules at the edge, so a forbidden caller is refused before the body is even read;
                     // the same rules are repeated with @PreAuthorize on each controller method
+                    // video KYC customer pages: the one-time link token is the credential
+                    .requestMatchers("/api/vkyc/c/**").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/vkyc/**", "/api/applications/*/vkyc").hasAnyRole("OPERATIONS", "ADMIN")
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/audit/**", "/api/audit").hasAnyRole("ADMIN", "COMPLIANCE", "CRO", "CREDIT_MANAGER")
                     .requestMatchers(HttpMethod.GET, "/api/integrations/**").hasAnyRole("ADMIN", "OPERATIONS", "COMPLIANCE")

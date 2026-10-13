@@ -10,5 +10,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? 'http://localhost:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // video KYC: a fake camera and microphone, and no permission prompts
+    launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--disable-features=WebRtcHideLocalIpsWithMdns'] },
   },
 })

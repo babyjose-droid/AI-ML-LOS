@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
 import { inr, label, pct, when } from '../format'
+import VideoKycTab from '../vkyc/VideoKycTab'
 import type { AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Documents', 'Bank statement', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice')[]; choices?: [string, string][]; hint?: string }
@@ -25,7 +26,7 @@ const ACTION_LABEL: Record<string, string> = {
   edit: 'Edit draft', submit: 'Submit', withdraw: 'Withdraw', process: 'Run automated checks', runKyc: 'Run KYC', fetchData: 'Fetch bank, bureau and GST data',
   verifyDocuments: 'Verify documents', runDecision: 'Run decision engine', resolveKyc: 'Resolve KYC review', fieldVisit: 'Record field visit',
   fraudDisposition: 'Fraud review outcome', sanction: 'Sanction', decline: 'Decline', escalate: 'Escalate', acceptKfs: 'Borrower accepts KFS',
-  disburse: 'Disburse', retryDisbursement: 'Retry disbursement', uploadDocument: 'Upload document', reviewDocuments: 'Review documents',
+  disburse: 'Disburse', retryDisbursement: 'Retry disbursement', uploadDocument: 'Upload document', reviewDocuments: 'Review documents', videoKyc: 'Video KYC',
 }
 
 export default function Application360() {
@@ -71,6 +72,7 @@ export default function Application360() {
         }
         case 'retryDisbursement': await api.post(base + '/disburse/retry'); break
         case 'reviewDocuments': setTab('Documents'); break
+        case 'videoKyc': setTab('Video KYC'); break
       }
       setDialog(null)
       refresh()
@@ -102,6 +104,7 @@ export default function Application360() {
           {tab === 'Overview' && <Overview v={v} />}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}
+          {tab === 'Video KYC' && <VideoKycTab id={id!} rev={rev} canRun={v.actions.includes('videoKyc')} onChange={refresh} />}
           {tab === 'Data' && <DataTab id={id!} rev={rev} />}
           {tab === 'Decision' && <DecisionTab id={id!} rev={rev} />}
           {tab === 'Credit memo' && <MemoTab id={id!} rev={rev} />}

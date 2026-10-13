@@ -67,6 +67,7 @@ jobs:
         shell: bash
         run: |
           pip install -q -r requirements-dev.txt
+          sh tools/fetch_models.sh models
           python -m pytest -q tests 2>&1 | tee ../ai-tests.log
       - name: Accuracy evaluation (2 people x 7 document types x 13 photo conditions)
         working-directory: ai

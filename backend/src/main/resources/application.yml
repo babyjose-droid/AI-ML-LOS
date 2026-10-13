@@ -15,8 +15,9 @@ spring:
     enabled: true
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
+      # documents are limited to 10 MB in DocumentService; video KYC recordings may be larger
+      max-file-size: 60MB
+      max-request-size: 61MB
   jackson:
     default-property-inclusion: non_null
 
@@ -24,7 +25,7 @@ server:
   port: ${PORT:8081}
   tomcat:
     # read the rest of an oversized upload so the client gets a clean 413 instead of a reset connection
-    max-swallow-size: 20MB
+    max-swallow-size: 70MB
   error:
     include-message: always
 
@@ -60,3 +61,8 @@ rhythm:
     # URL of the AI document service. Empty = filename-based mock reader and mock KYC (used by unit tests).
     url: ${DOCUMENT_AI_URL:}
     timeout-seconds: ${DOCUMENT_AI_TIMEOUT:180}
+  vkyc:
+    link-hours: ${VKYC_LINK_HOURS:24}
+    # WebRTC ICE servers as JSON, e.g. [{"urls":"turn:turn.example.in:3478","username":"u","credential":"p"}].
+    # Empty works on the same machine or LAN; production needs a TURN server hosted in India.
+    ice-servers: ${VKYC_ICE_SERVERS:[]}

@@ -18,10 +18,12 @@ import java.util.List;
 public class MyWorkService {
     private final LoanApplicationRepository apps;
     private final IntegrationLogRepository logs;
+    private final com.rhythm.los.vkyc.VkycSessionRepository vkyc;
 
-    public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs) {
+    public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc) {
         this.apps = apps;
         this.logs = logs;
+        this.vkyc = vkyc;
     }
 
     public record Task(Long applicationId, String appNo, String applicant, String product, double amount,
@@ -63,6 +65,12 @@ public class MyWorkService {
             }
         }
         if (r == Role.ADMIN || r == Role.OPERATIONS) {
+            for (var s : vkyc.findByStatusInOrderByIdAsc(List.of("JOINED", "COMPLETED"))) {
+                if ("COMPLETED".equals(s.getStatus()) && !u.username().equals(s.getOfficer())) continue;
+                apps.findById(s.getApplicationId()).ifPresent(a -> out.add(0, new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(),
+                        a.getLoanAmount().doubleValue(), "JOINED".equals(s.getStatus()) ? "Video KYC: customer is waiting on the call" : "Video KYC: record your decision",
+                        "videoKyc", Duration.between("JOINED".equals(s.getStatus()) ? s.getJoinedAt() : s.getCallEndedAt(), Instant.now()).toHours(), 1)));
+            }
             long dlq = logs.countByStatus("DLQ");
             if (dlq > 0) out.add(0, new Task(null, null, null, null, 0, dlq + " integration call(s) in the dead-letter queue", "integrations", 0, 4));
         }

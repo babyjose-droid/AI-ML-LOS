@@ -132,3 +132,16 @@ label.check input { width: auto; margin-top: 3px; }
 .login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .login .panel { width: min(420px, 100%); }
 .empty { padding: 26px; text-align: center; color: var(--muted); }
+
+/* video KYC */
+.vkyc-videos { position: relative; background: #0f1222; border-radius: var(--radius); overflow: hidden; aspect-ratio: 4 / 3; max-width: 640px; margin-bottom: 10px; }
+.vkyc-remote { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vkyc-self { position: absolute; right: 10px; bottom: 10px; width: 28%; border-radius: 8px; border: 2px solid #fff; background: #222; }
+.vkyc-instruction { background: var(--surface); border: 2px solid var(--brand, #3b4aa0); border-radius: var(--radius); padding: 14px 16px; font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+.vkyc-frames { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.vkyc-frames figure { margin: 0; width: 120px; }
+.vkyc-frames img, .vkyc-frames .ph { width: 120px; height: 90px; object-fit: cover; border-radius: 6px; background: var(--soft); display: block; }
+.vkyc-frames figcaption { font-size: 12px; color: var(--muted); }
+.vkyc-customer { padding: 0 16px; }
+.btn.ok { border-color: var(--ok); }
+.bad-text { color: var(--bad); }

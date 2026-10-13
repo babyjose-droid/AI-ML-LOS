@@ -71,6 +71,7 @@ public class DocumentService {
         if (file == null || file.isEmpty()) throw ApiException.unprocessable("EMPTY_FILE", "The file is empty");
         String ct = file.getContentType() == null ? "" : file.getContentType();
         if (!MIME.contains(ct)) throw ApiException.unprocessable("BAD_FILE_TYPE", "Only PDF, JPG and PNG files are accepted");
+        if (file.getSize() > 10L * 1024 * 1024) throw new ApiException(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "The file is larger than 10 MB");
         try {
             byte[] bytes = file.getBytes();
             boolean unlocked = false;

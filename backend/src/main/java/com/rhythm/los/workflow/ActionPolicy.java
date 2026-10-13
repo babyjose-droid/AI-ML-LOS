@@ -35,6 +35,7 @@ public final class ActionPolicy {
             if (!a.getSanctionState().equals("SANCTIONED")) out.add("runDecision");
         }
         if (active && "REVIEW".equals(a.getKycState()) && ops) out.add("resolveKyc");
+        if (ApplicationService.isOpen(a) && !"FAILED".equals(a.getKycState()) && ops) out.add("videoKyc");
         if (ApplicationService.isOpen(a) && "IN_REVIEW".equals(a.getDocsState()) && ops) out.add("reviewDocuments");
         if (active && "REQUIRED".equals(a.getFieldState()) && is(r, OPERATIONS, CREDIT_OFFICER, ADMIN)) out.add("fieldVisit");
         if ("REVIEW".equals(a.getFraudState()) && is(r, FRAUD_ANALYST)) out.add("fraudDisposition");

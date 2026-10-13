@@ -79,6 +79,25 @@ public class HttpDocumentReader implements DocumentReader {
         }
     }
 
+    @Override public boolean analysesVideoKyc() { return true; }
+
+    @Override
+    public String analyzeVideoKyc(List<Part> frames, List<Part> idImages, String expectedPan) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        for (Part p : frames) form.add("frames", part(p));
+        for (Part p : idImages) form.add("id_images", part(p));
+        if (expectedPan != null) form.add("expected_pan", expectedPan);
+        return post("/v1/vkyc/analyze", form);
+    }
+
+    private static Object part(Part p) {
+        org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
+        h.setContentType(MediaType.parseMediaType(p.contentType() == null ? "image/jpeg" : p.contentType()));
+        return new org.springframework.http.HttpEntity<>(new ByteArrayResource(p.bytes()) {
+            @Override public String getFilename() { return p.name(); }
+        }, h);
+    }
+
     private static LinkedMultiValueMap<String, Object> filePart(byte[] bytes, String fileName) {
         LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         String fname = fileName == null ? "document" : fileName;

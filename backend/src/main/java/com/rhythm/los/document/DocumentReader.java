@@ -24,4 +24,15 @@ public interface DocumentReader {
     }
 
     record StatementReading(DocumentReading reading, String analysisJson) {}
+
+    /** A named file sent to the AI service. For video KYC frames the name starts with the step (front-, left-, right-, code-, pan-). */
+    record Part(String name, byte[] bytes, String contentType) {}
+
+    /** True when video KYC frames can be analysed (face match, liveness, PAN on camera). */
+    default boolean analysesVideoKyc() { return false; }
+
+    /** Video KYC analysis; returns the AI service's JSON. */
+    default String analyzeVideoKyc(java.util.List<Part> frames, java.util.List<Part> idImages, String expectedPan) {
+        throw new UnsupportedOperationException("Video KYC analysis needs the AI service");
+    }
 }

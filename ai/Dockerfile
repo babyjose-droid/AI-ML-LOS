@@ -10,6 +10,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY tools ./tools
+# open face models for video KYC (YuNet: MIT, SFace: Apache 2.0), verified by SHA-256
+RUN sh tools/fetch_models.sh /app/models
 
 RUN useradd -r -u 10001 rhythm
 USER rhythm

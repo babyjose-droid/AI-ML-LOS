@@ -20,6 +20,7 @@ public final class StateMachine {
         init(Domain.KYC, "NOT_STARTED");
         allow(Domain.KYC, "NOT_STARTED", "VERIFIED", "REVIEW", "FAILED");
         allow(Domain.KYC, "REVIEW", "VERIFIED", "FAILED");
+        allow(Domain.KYC, "VERIFIED", "FAILED");   // a rejected video KYC fails identity even after document KYC
 
         init(Domain.DATA, "NOT_FETCHED");
         allow(Domain.DATA, "NOT_FETCHED", "FETCHED", "PARTIAL", "FAILED");

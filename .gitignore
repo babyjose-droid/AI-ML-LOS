@@ -16,3 +16,4 @@ __pycache__/
 .pytest_cache/
 *.pyc
 e2e/screens/
+ai/models/*.onnx

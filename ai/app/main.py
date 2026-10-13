@@ -71,3 +71,32 @@ async def unlock_pdf(file: UploadFile = File(...), password: str = Form(...)):
         raise HTTPException(422, "NOT_A_PDF")
     import base64
     return {"wasEncrypted": was, "pdf": base64.b64encode(out).decode()}
+
+
+@app.post("/v1/vkyc/analyze")
+async def analyze_vkyc(frames: list[UploadFile] = File(...), id_images: list[UploadFile] = File(default=[]),
+                       expected_pan: str | None = Form(None)):
+    """
+    Video KYC assistance. Each frame's file name starts with its step: front-, left-, right-, code- or pan-.
+    id_images are the ID documents on file (file name = document type). Nothing here is stored.
+    """
+    from . import vkyc
+    if not vkyc.available():
+        raise HTTPException(503, "Face models are not installed in this image")
+    if len(frames) > 60:
+        raise HTTPException(413, "Too many frames (max 60)")
+    fin = []
+    for f in frames:
+        step = (f.filename or "front").split("-")[0].split(".")[0].lower()
+        fin.append((step if step in vkyc.STEPS else "front", await f.read()))
+    ids = [((f.filename or "ID").split(".")[0].upper(), await f.read()) for f in id_images]
+
+    def read_pan(data: bytes):
+        try:
+            r = analyze(data, "image/jpeg", "PAN")
+            v = (r.get("fields") or {}).get("pan") or {}
+            return v.get("value")
+        except Exception:  # noqa: BLE001
+            return None
+
+    return vkyc.analyse(fin, ids, read_pan, expected_pan)

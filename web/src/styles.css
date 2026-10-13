@@ -148,7 +148,16 @@ label.check input { width: auto; margin-top: 3px; }
 
 /* policy studio */
 .policy-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 960px) { .policy-layout { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .policy-layout { grid-template-columns: minmax(0, 1fr); } }
+.policy-layout > * { min-width: 0; }
 input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6); }
 .changed-text { color: var(--warn); }
 .ok-text { color: var(--ok); }
+
+/* reports */
+.funnel-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 60px; gap: 10px; align-items: center; margin-bottom: 8px; }
+.funnel-row .bar { height: 14px; }
+.funnel-row b { text-align: right; }
+.daily { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+.daily > div { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+.daily > div > span { display: block; width: 100%; background: var(--brand, #3b4aa0); border-radius: 2px 2px 0 0; min-height: 1px; }

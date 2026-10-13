@@ -15,8 +15,9 @@ const PAGES: [string, string, string[]][] = [
   ['users', '/admin/users', ['admin']],
   ['products', '/admin/products', ['admin']],
   ['policy', '/admin/policy', ['admin']],
+  ['reports', '/reports', ['cro1']],
 ]
-const TABS = ['Overview', 'Documents', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations']
+const TABS = ['Overview', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations']
 
 async function login(page: Page, user: string) {
   await page.goto('/')

@@ -12,6 +12,7 @@ import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
 import { Branches, Users, Products } from './pages/Admin'
 import PolicyStudio from './pages/PolicyStudio'
+import Reports from './pages/Reports'
 import StateMachinePage from './pages/StateMachine'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
@@ -22,6 +23,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/applications/new', label: 'New application', roles: ['SALES', 'OPERATIONS', 'ADMIN'] },
   ]],
   ['Operations', [
+    { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
     { to: '/integrations', label: 'Integration logs', roles: ['ADMIN', 'OPERATIONS', 'COMPLIANCE'] },
     { to: '/audit', label: 'Audit trail', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/state-machine', label: 'State machine' },
@@ -83,6 +85,7 @@ export default function App() {
             <Route path="/applications/:id" element={<Application360 />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/state-machine" element={<StateMachinePage />} />
             <Route path="/admin/branches" element={<Branches />} />
             <Route path="/admin/users" element={<Users />} />

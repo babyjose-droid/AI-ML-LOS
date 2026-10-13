@@ -114,4 +114,29 @@ class PolicyStudioIT {
         ok(post("/api/policies/" + id2 + "/submit"), cro, null);
         assertThat(call(post("/api/policies/" + id2 + "/decision"), cro, Map.of("approve", true, "note", "Approving my own change")).body().toString()).contains("MAKER_CHECKER");
     }
+
+    @Test
+    void reportsSummaryAndCsv() throws Exception {
+        String sales = login("sales1"), cro = login("cro1");
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("productCode", "PL"); m.put("applicantName", "Report Person"); m.put("pan", "REPPP1234R"); m.put("mobile", "9811190001");
+        m.put("dob", "1990-04-15"); m.put("city", "Pune"); m.put("pincode", "411038"); m.put("businessVintageYears", 5);
+        m.put("declaredMonthlyIncome", 80000); m.put("essentialExpenses", 25000); m.put("loanAmount", 200000); m.put("tenureMonths", 24);
+        m.put("bankAccountNo", "123456789012"); m.put("bankIfsc", "ICIC0000123"); m.put("consentBureau", true); m.put("consentAa", true); m.put("consentKyc", true);
+        String appNo = ok(post("/api/applications"), sales, m).body().get("appNo").asText();
+
+        assertThat(call(get("/api/reports/summary"), sales, null).status()).isEqualTo(403);
+        JsonNode s = ok(get("/api/reports/summary"), cro, null).body();
+        assertThat(s.get("funnel").get("created").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(s.get("daily").size()).isEqualTo(30);
+        assertThat(s.get("products").toString()).contains("PL");
+        assertThat(s.has("turnaround")).isTrue();
+        assertThat(s.get("controls").has("sanctionOverrides")).isTrue();
+
+        MvcResult csv = mvc.perform(get("/api/reports/applications.csv").header("Authorization", "Bearer " + cro)).andReturn();
+        assertThat(csv.getResponse().getStatus()).isEqualTo(200);
+        String body = csv.getResponse().getContentAsString();
+        assertThat(body).startsWith("app_no,created_at,product").contains(appNo).contains("Report Person");
+        assertThat(call(get("/api/reports/summary?from=2026-13-40"), cro, null).status()).isEqualTo(400);
+    }
 }

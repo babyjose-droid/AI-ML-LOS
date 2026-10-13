@@ -53,7 +53,7 @@ public class ApplicationService {
         apps.save(a);
         history.save(new StateHistory(a.getId(), d, from, to, event, by.username(), note));
         audit.record(by, event, "APPLICATION", a.getAppNo(), a.getId(), d + ": " + from + " -> " + to + (note == null ? "" : " · " + note));
-        events.publishEvent(new ApplicationChanged(a.getId()));
+        events.publishEvent(new ApplicationChanged(a.getId(), by.username()));
     }
 
     @Transactional
@@ -75,7 +75,7 @@ public class ApplicationService {
         history.save(new StateHistory(saved.getId(), Domain.APP, "-", "DRAFT", "application.created", by.username(), p.getName()));
         audit.record(by, "application.created", "APPLICATION", saved.getAppNo(), saved.getId(), p.getCode() + " · ₹" + saved.getLoanAmount()
                 + (saved.getWorkflowVersion() == null ? "" : " · workflow v" + saved.getWorkflowVersion()));
-        events.publishEvent(new ApplicationChanged(saved.getId()));
+        events.publishEvent(new ApplicationChanged(saved.getId(), by.username()));
         return saved;
     }
 
@@ -118,6 +118,14 @@ public class ApplicationService {
     public LoanApplication withdraw(Long id, String reason, CurrentUser by) {
         LoanApplication a = get(id);
         transition(a, Domain.APP, "WITHDRAWN", "application.withdrawn", by, reason);
+        return a;
+    }
+
+    @Transactional
+    public LoanApplication recordFieldVisit(Long id, String note, CurrentUser by) {
+        if (note == null || note.trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Write field visit notes of at least 10 characters");
+        LoanApplication a = get(id);
+        transition(a, Domain.FIELD, "DONE", "field.visit_completed", by, note.trim());
         return a;
     }
 

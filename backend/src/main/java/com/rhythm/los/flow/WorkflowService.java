@@ -60,22 +60,26 @@ public class WorkflowService {
 
     @EventListener
     public void onChange(ApplicationChanged e) {
-        appRepo.findById(e.applicationId()).ifPresent(this::refresh);
+        appRepo.findById(e.applicationId()).ifPresent(a -> refresh(a, e.actor()));
     }
 
     /** Recomputes the stages of one application. Safe to call often. */
     @Transactional
-    public void refresh(LoanApplication a) {
+    public void refresh(LoanApplication a) { refresh(a, null); }
+
+    /** As refresh, recording who caused the change on stages it completes (the person whose action finished them). */
+    @Transactional
+    public void refresh(LoanApplication a, String actor) {
         if (BUSY.get()) return;
         BUSY.set(true);
         try {
-            doRefresh(a);
+            doRefresh(a, actor == null ? "system" : actor);
         } finally {
             BUSY.set(false);
         }
     }
 
-    private void doRefresh(LoanApplication a) {
+    private void doRefresh(LoanApplication a, String actor) {
         List<Stage> stages = defs.stages(a);
         // one request at a time per application: take the application's row lock before touching its stages, the same
         // lock any state change takes, so two concurrent requests queue instead of deadlocking. NO KEY: inserts that
@@ -110,7 +114,7 @@ public class WorkflowService {
                 r = row(byKey, a, s);
                 r.setStatus("DONE");
                 if (r.getCompletedAt() == null) r.setCompletedAt(now);
-                if (r.getCompletedBy() == null) r.setCompletedBy("system");
+                if (r.getCompletedBy() == null) r.setCompletedBy(actor);
                 rows.save(r);
                 continue;
             }

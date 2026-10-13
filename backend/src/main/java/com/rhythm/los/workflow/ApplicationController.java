@@ -139,7 +139,9 @@ public class ApplicationController {
     @PreAuthorize(STAFF)
     public AppDocument reviewDocument(@PathVariable Long id, @PathVariable Long docId, @RequestBody DocumentService.ReviewRequest r) {
         access.require(apps.get(id), CurrentUser.get(), "docs");
-        return docs.review(id, docId, r, CurrentUser.get());
+        AppDocument d = docs.review(id, docId, r, CurrentUser.get());
+        process.continueAfterPersonStep(id);
+        return d;
     }
 
     @GetMapping("/{id}/documents")
@@ -208,7 +210,9 @@ public class ApplicationController {
     @PreAuthorize(STAFF)
     public LoanApplication resolveKyc(@PathVariable Long id, @RequestBody ResolveRequest r) {
         access.require(apps.get(id), CurrentUser.get(), "kyc");
-        return data.resolveKyc(id, r.verified(), r.note(), CurrentUser.get());
+        data.resolveKyc(id, r.verified(), r.note(), CurrentUser.get());
+        process.continueAfterPersonStep(id);
+        return apps.get(id);
     }
 
     @PostMapping("/{id}/data/fetch")
@@ -227,13 +231,11 @@ public class ApplicationController {
 
     @PostMapping("/{id}/field-visit")
     @PreAuthorize(STAFF)
-    @Transactional
     public LoanApplication fieldVisit(@PathVariable Long id, @RequestBody NoteRequest r) {
         access.require(apps.get(id), CurrentUser.get(), "field");
-        if (r.note() == null || r.note().trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Write field visit notes of at least 10 characters");
-        LoanApplication a = apps.get(id);
-        apps.transition(a, Domain.FIELD, "DONE", "field.visit_completed", CurrentUser.get(), r.note());
-        return a;
+        apps.recordFieldVisit(id, r.note(), CurrentUser.get());
+        process.continueAfterPersonStep(id);
+        return apps.get(id);
     }
 
     @PostMapping("/{id}/decision/run")

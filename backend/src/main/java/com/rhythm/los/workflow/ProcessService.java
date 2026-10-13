@@ -36,6 +36,21 @@ public class ProcessService {
 
     public record StepLog(String step, String outcome) {}
 
+    /**
+     * After a person finishes a step (field visit, KYC review, document review, a recorded workflow stage), the
+     * automatic stages that follow run straight away instead of waiting for someone to press "Run automated checks".
+     * Only once the intake checks have been run by their owner; failures are left for the queue, never thrown.
+     */
+    public List<StepLog> continueAfterPersonStep(Long appId) {
+        LoanApplication a = apps.get(appId);
+        if (!List.of("SUBMITTED", "UNDERWRITING").contains(a.getAppState()) || "NOT_STARTED".equals(a.getKycState())) return List.of();
+        try {
+            return process(appId, CurrentUser.SYSTEM);
+        } catch (ApiException e) {
+            return List.of(new StepLog("Automatic continuation", e.getMessage()));
+        }
+    }
+
     public List<StepLog> process(Long appId, CurrentUser by) {
         List<StepLog> log = new ArrayList<>();
         LoanApplication a = apps.get(appId);

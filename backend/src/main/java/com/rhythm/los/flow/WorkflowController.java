@@ -13,10 +13,12 @@ import java.util.Map;
 public class WorkflowController {
     private final WorkflowDesignService design;
     private final WorkflowService flow;
+    private final com.rhythm.los.workflow.ProcessService process;
 
-    public WorkflowController(WorkflowDesignService design, WorkflowService flow) {
+    public WorkflowController(WorkflowDesignService design, WorkflowService flow, com.rhythm.los.workflow.ProcessService process) {
         this.design = design;
         this.flow = flow;
+        this.process = process;
     }
 
     @GetMapping("/api/workflows")
@@ -68,13 +70,17 @@ public class WorkflowController {
 
     @PostMapping("/api/applications/{id}/stages/{key}/complete")
     public Map<String, Object> complete(@PathVariable Long id, @PathVariable String key, @RequestBody WorkflowService.CompleteRequest r) {
-        return flow.complete(id, key, r, CurrentUser.get());
+        flow.complete(id, key, r, CurrentUser.get());
+        process.continueAfterPersonStep(id);
+        return flow.view(id, CurrentUser.get());
     }
 
     public record Note(String note) {}
 
     @PostMapping("/api/applications/{id}/stages/{key}/review")
     public Map<String, Object> review(@PathVariable Long id, @PathVariable String key, @RequestBody Note r) {
-        return flow.review(id, key, r.note(), CurrentUser.get());
+        flow.review(id, key, r.note(), CurrentUser.get());
+        process.continueAfterPersonStep(id);
+        return flow.view(id, CurrentUser.get());
     }
 }

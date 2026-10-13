@@ -227,7 +227,13 @@ class JourneyIT {
         // the BL-UNS workflow assigns the field visit to the field officer
         assertThat(call(post("/api/applications/" + id + "/field-visit"), ops, Map.of("note", "Visited depot, three trucks on site")).body().toString()).contains("NOT_YOUR_STAGE");
         assertThat(call(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "short")).status()).isEqualTo(422);
+        assertThat(ok(get("/api/my-work"), field, null).body().toString()).contains("Field visit required");
         ok(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "Visited depot, three trucks on site"));
+        // the decision runs by itself once the field visit is recorded
+        assertThat(states(id, ops).get("DECISION").asText()).isNotEqualTo("PENDING");
+        JsonNode fieldStage = null;
+        for (JsonNode s : ok(get("/api/applications/" + id + "/stages"), ops, null).body().get("stages")) if ("field".equals(s.get("key").asText())) fieldStage = s;
+        assertThat(fieldStage.get("completedBy").asText()).isEqualTo("field1");
         ok(post("/api/applications/" + id + "/process"), ops, null);
         JsonNode st = states(id, ops);
         assertThat(st.get("DECISION").asText()).isEqualTo("REFER");

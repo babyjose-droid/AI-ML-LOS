@@ -23,6 +23,23 @@ public class AppUser {
     private String email;
     private String mobile;
     private boolean active = true;
+    @JsonIgnore @Column(name = "mfa_secret") private String mfaSecret;
+    @Column(name = "mfa_enabled") private boolean mfaEnabled;
+    @Column(name = "failed_logins") private int failedLogins;
+    @Column(name = "locked_until") private Instant lockedUntil;
+    @Column(name = "last_login_at") private Instant lastLoginAt;
+
+    @JsonIgnore public String getMfaSecret() { return mfaSecret; }
+    public void setMfaSecret(String v) { this.mfaSecret = v; }
+    public boolean isMfaEnabled() { return mfaEnabled; }
+    public void setMfaEnabled(boolean v) { this.mfaEnabled = v; }
+    public int getFailedLogins() { return failedLogins; }
+    public void setFailedLogins(int v) { this.failedLogins = v; }
+    public Instant getLockedUntil() { return lockedUntil; }
+    public void setLockedUntil(Instant v) { this.lockedUntil = v; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(Instant v) { this.lastLoginAt = v; }
+    public boolean isLocked() { return lockedUntil != null && lockedUntil.isAfter(Instant.now()); }
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 

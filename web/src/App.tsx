@@ -18,24 +18,31 @@ import Models from './pages/Models'
 import Workflows from './pages/Workflows'
 import StateMachinePage from './pages/StateMachine'
 import ReviewQueue from './pages/ReviewQueue'
+import Overview from './pages/Overview'
+import Board from './pages/Board'
+import Masters from './pages/Masters'
+import Account from './pages/Account'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
   ['Work', [
+    { to: '/overview', label: 'Overview' },
     { to: '/my-work', label: 'My work' },
     { to: '/review-queue', label: 'Review queue', roles: ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
     { to: '/applications', label: 'Pipeline' },
+    { to: '/board', label: 'Stage board' },
     { to: '/applications/new', label: 'New application', roles: ['SALES', 'OPERATIONS', 'ADMIN'] },
   ]],
   ['Operations', [
     { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
-    { to: '/integrations', label: 'Integration logs', roles: ['ADMIN', 'OPERATIONS', 'COMPLIANCE'] },
+    { to: '/integrations', label: 'Integration hub', roles: ['ADMIN', 'OPERATIONS', 'COMPLIANCE'] },
     { to: '/audit', label: 'Audit trail', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/state-machine', label: 'State machine' },
   ]],
   ['Admin', [
     { to: '/admin/branches', label: 'Branches' },
     { to: '/admin/users', label: 'Users', roles: ['ADMIN'] },
+    { to: '/admin/masters', label: 'Masters and roles' },
     { to: '/admin/products', label: 'Products' },
     { to: '/admin/workflows', label: 'Workflow designer' },
     { to: '/admin/policy', label: 'Credit policy studio' },
@@ -55,6 +62,18 @@ export default function App() {
     if (hasToken()) api.get<User>('/api/auth/me').then(setUser).catch(() => setToken(null)).finally(() => setReady(true))
   }, [])
   useEffect(() => setOpen(false), [loc.pathname])
+  // idle timeout (FSD 23): sign out after the configured minutes without keyboard, mouse or touch
+  useEffect(() => {
+    if (!user) return
+    let minutes = 15
+    try { minutes = Number(localStorage.getItem('rhythm_idle_minutes')) || 15 } catch { /* ignore */ }
+    let last = Date.now()
+    const touch = () => { last = Date.now() }
+    const evs = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll']
+    evs.forEach(e => window.addEventListener(e, touch, { passive: true }))
+    const t = window.setInterval(() => { if (Date.now() - last > minutes * 60_000) { setToken(null); setUser(null) } }, 30_000)
+    return () => { evs.forEach(e => window.removeEventListener(e, touch)); window.clearInterval(t) }
+  }, [user])
 
   if (!ready) return null
   if (!user) return <Login onLogin={u => setUser(u)} />
@@ -77,7 +96,7 @@ export default function App() {
             </div>
           ))}
           <div className="who">
-            <b>{user.name}</b>
+            <b><NavLink to="/account" style={{ color: 'inherit' }}>{user.name}</NavLink></b>
             <span className="muted">{user.username} · {user.role.replace(/_/g, ' ').toLowerCase()}</span>
             <div style={{ marginTop: 10 }}><button className="btn sm" onClick={logout}>Sign out</button></div>
           </div>
@@ -87,6 +106,10 @@ export default function App() {
             <Route path="/" element={<Navigate to="/my-work" replace />} />
             <Route path="/my-work" element={<MyWork />} />
             <Route path="/review-queue" element={<ReviewQueue />} />
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/board" element={<Board />} />
+            <Route path="/admin/masters" element={<Masters />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/applications" element={<Pipeline />} />
             <Route path="/applications/new" element={<NewApplication />} />
             <Route path="/applications/:id/edit" element={<NewApplication />} />

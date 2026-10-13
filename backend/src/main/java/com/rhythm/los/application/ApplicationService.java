@@ -24,6 +24,10 @@ public class ApplicationService {
     private final ApplicationEventPublisher events;
     private final com.rhythm.los.product.ProductService productVersions;
     private final com.rhythm.los.consent.ConsentService consents;
+    private com.rhythm.los.org.Geography geography;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setGeography(com.rhythm.los.org.Geography g) { this.geography = g; }
 
     public ApplicationService(LoanApplicationRepository apps, StateHistoryRepository history,
                               ProductRepository products, AuditService audit, WorkflowDefinitions workflows, ApplicationEventPublisher events,
@@ -71,6 +75,8 @@ public class ApplicationService {
         apply(a, r, p);
         a.setCreatedBy(by.username());
         a.setBranchId(by.branchId());
+        // portal applications have no branch: route them by PIN code once branches have PIN codes (masters)
+        if (a.getBranchId() == null && geography != null) geography.branchFor(a.getPincode(), p.getCode()).ifPresent(b -> a.setBranchId(b.getId()));
         workflows.published(p.getCode()).ifPresent(w -> a.setWorkflowVersion(w.getVersion()));
         a.setProductVersion(p.getVersion());
         if (apps.countActiveByPanExcluding(a.getPan(), -1L) > 0) {

@@ -127,11 +127,14 @@ public class DataFetchService {
         return a;
     }
 
+    /** Calls that did not reach a result: dead-lettered, short-circuited by an open breaker, or with the connector off. */
+    public static final java.util.List<String> RETRYABLE_STATUS = java.util.List.of("DLQ", "CIRCUIT_OPEN", "DISABLED");
+
     /** Manual retry of a dead-lettered call from the integration log screen. */
     @Transactional
     public LoanApplication retry(Long logId, CurrentUser by) {
         IntegrationLog row = logs.findById(logId).orElseThrow(() -> ApiException.notFound("Integration log " + logId));
-        if (!"DLQ".equals(row.getStatus())) throw ApiException.conflict("NOT_IN_DLQ", "Only dead-lettered calls can be retried");
+        if (!RETRYABLE_STATUS.contains(row.getStatus())) throw ApiException.conflict("NOT_IN_DLQ", "Only dead-lettered calls can be retried");
         LoanApplication a = apps.get(row.getApplicationId());
         boolean ok = switch (row.getOperation()) {
             case OP_AA -> fetchAa(a, row.getId());
@@ -140,10 +143,11 @@ public class DataFetchService {
             default -> throw ApiException.unprocessable("NOT_RETRYABLE", "Operation " + row.getOperation() + " cannot be retried here");
         };
         if (ok) {
-            for (IntegrationLog l : logs.findByApplicationIdAndOperationAndStatus(a.getId(), row.getOperation(), "DLQ")) {
-                l.setStatus("RESOLVED");
-                logs.save(l);
-            }
+            for (String st : RETRYABLE_STATUS)
+                for (IntegrationLog l : logs.findByApplicationIdAndOperationAndStatus(a.getId(), row.getOperation(), st)) {
+                    l.setStatus("RESOLVED");
+                    logs.save(l);
+                }
             audit.record(by, "integration.retry_succeeded", "INTEGRATION", String.valueOf(logId), a.getId(), row.getOperation());
         } else {
             audit.record(by, "integration.retry_failed", "INTEGRATION", String.valueOf(logId), a.getId(), row.getOperation());

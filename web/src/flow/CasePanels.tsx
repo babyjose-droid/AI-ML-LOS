@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { Link } from 'react-router-dom'
 import { ErrorBox, Modal, Pill, Table, useLoad } from '../components/ui'
-import { when } from '../format'
+import { inr, when } from '../format'
 import type { Consent, MemoDeviation, MemoView } from '../types'
 
 const SOURCE: Record<string, string> = { KYC: 'Identity (KYC)', AA: 'Bank data (Account Aggregator)', BUREAU: 'Credit bureau', GST: 'GST returns', COMMUNICATION: 'Messages' }
@@ -109,6 +110,36 @@ export function CreditMemoPanel({ id, rev, onChange }: { id: string; rev: number
       </div>
       <div className="panel flush">
         <Table head={['Version', 'Status', 'Edited by', 'When', 'Signed by']} rows={d.history.map(h => [h.version, <Pill s={h.status} />, h.editedBy, h.editedAt ? when(h.editedAt) : '—', h.signedBy || '—'])} />
+      </div>
+    </>
+  )
+}
+
+interface Customer {
+  name: string; pan: string; mobile: string; city?: string; segment: string; language?: string; disbursedTotal: number; exposure: number; otherPansOnMobile: string[]
+  applications: { applicationId: number; appNo: string; product: string; amount: number; state: string; createdAt: string; decision?: string; band?: string; disbursed: number; samePan: boolean }[]
+}
+
+/** Customer 360 (SCR-031): the borrower across applications on the same PAN or mobile number. */
+export function CustomerPanel({ id, rev }: { id: string; rev: number }) {
+  const c = useLoad(() => api.get<Customer>(`/api/applications/${id}/customer`), [id, rev])
+  if (!c.data) return <ErrorBox error={c.error} />
+  const d = c.data
+  return (
+    <>
+      <div className="kpis" data-testid="customer360">
+        <div className="kpi"><span>Customer</span><b>{d.name}</b><span className="mono">{d.pan} · {d.mobile}</span></div>
+        <div className="kpi"><span>Applications</span><b>{d.applications.length}</b></div>
+        <div className="kpi"><span>Disbursed so far</span><b>{inr(d.disbursedTotal)}</b></div>
+        <div className="kpi"><span>Exposure (open + disbursed)</span><b>{inr(d.exposure)}</b></div>
+      </div>
+      {d.otherPansOnMobile.length > 0 && <div className="alert warn small" style={{ marginTop: 10 }}>Other PANs use this mobile number: {d.otherPansOnMobile.join(', ')}. The fraud check counts these links.</div>}
+      <div className="panel flush" style={{ marginTop: 10 }}>
+        <Table head={['Application', 'Product', 'Amount', 'Stage', 'Decision', 'Disbursed', 'Created', 'Match']} rows={d.applications.map(x => [
+          <Link to={`/applications/${x.applicationId}`}>{x.appNo}</Link>, x.product, inr(x.amount), <Pill s={x.state} />,
+          x.decision ? <span><Pill s={x.decision} />{x.band && <span className="small"> band {x.band}</span>}</span> : '—',
+          x.disbursed ? inr(x.disbursed) : '—', when(x.createdAt), x.samePan ? 'Same PAN' : 'Same mobile',
+        ])} />
       </div>
     </>
   )

@@ -25,6 +25,19 @@ public final class Mask {
         return "x".repeat(acc.length() - 4) + acc.substring(acc.length() - 4);
     }
 
+    private static final java.util.regex.Pattern PAN_RX = java.util.regex.Pattern.compile("\\b[A-Z]{5}[0-9]{4}[A-Z]\\b");
+    private static final java.util.regex.Pattern AADHAAR_RX = java.util.regex.Pattern.compile("\\b[2-9][0-9]{3}[ -]?[0-9]{4}[ -]?([0-9]{4})\\b");
+    private static final java.util.regex.Pattern ACCOUNT_RX = java.util.regex.Pattern.compile("\\b[0-9]{9,18}\\b");
+
+    /** Masks PANs, Aadhaar numbers (last 4 kept) and long account numbers inside free text such as vendor log bodies. */
+    public static String text(String s) {
+        if (s == null || s.isEmpty()) return s;
+        String out = PAN_RX.matcher(s).replaceAll(m -> pan(m.group()));
+        out = AADHAAR_RX.matcher(out).replaceAll(m -> "XXXX XXXX " + m.group(1));
+        out = ACCOUNT_RX.matcher(out).replaceAll(m -> account(m.group()));
+        return out;
+    }
+
     public static final class PanSerializer extends JsonSerializer<String> {
         @Override public void serialize(String v, JsonGenerator g, SerializerProvider p) throws IOException { g.writeString(pan(v)); }
     }

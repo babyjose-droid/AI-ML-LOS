@@ -26,6 +26,14 @@ public class WorkController {
     @org.springframework.beans.factory.annotation.Autowired
     void setReview(ReviewQueueService r) { this.review = r; }
 
+    @org.springframework.beans.factory.annotation.Autowired private ScreensService screens;
+
+    @GetMapping("/pipeline/board")
+    public Map<String, Object> board(@RequestParam(required = false) String product) { return screens.board(CurrentUser.get(), product); }
+
+    @GetMapping("/overview")
+    public Map<String, Object> overview() { return screens.overview(CurrentUser.get()); }
+
     @GetMapping("/review-queue")
     @PreAuthorize("hasAnyRole('CREDIT_OFFICER','CREDIT_MANAGER','CRO','ADMIN','COMPLIANCE')")
     public List<ReviewQueueService.Card> reviewQueue() { return review.queue(CurrentUser.get()); }

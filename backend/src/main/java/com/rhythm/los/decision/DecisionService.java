@@ -78,7 +78,6 @@ public class DecisionService {
         return b;
     }
 
-    @Transactional
     public java.util.Optional<java.time.Instant> latestCreatedAt(Long appId) {
         return decisions.findFirstByApplicationIdOrderByIdDesc(appId).map(DecisionRecord::getCreatedAt);
     }
@@ -144,6 +143,7 @@ public class DecisionService {
     @org.springframework.beans.factory.annotation.Autowired
     void setProducts(com.rhythm.los.product.ProductService products) { this.productLookup = c -> products.definition(c, null); }
 
+    @Transactional
     public DecisionRecord run(Long appId, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         List<String> blockers = blockers(a);
@@ -244,7 +244,12 @@ public class DecisionService {
     }
 
     /** Geography (FSD 14.1 step 3): null until branches carry their PIN codes and products (Branch hierarchy). */
-    Boolean served(LoanApplication a, Product p) { return null; }
+    Boolean served(LoanApplication a, Product p) { return geography == null ? null : geography.served(a.getPincode(), p.getCode()); }
+
+    private com.rhythm.los.org.Geography geography;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setGeography(com.rhythm.los.org.Geography g) { this.geography = g; }
 
     private <T> Optional<T> snap(LoanApplication a, String kind, Class<T> type) {
         return snapshots.findFirstByApplicationIdAndKindOrderByIdDesc(a.getId(), kind)

@@ -14,6 +14,27 @@ public class Branch {
     private Long parentId;
     private String city;
     private boolean active = true;
+    /** PIN codes this branch serves (comma-separated); used for geography eligibility and to route portal applications. */
+    private String pincodes;
+    /** Product codes offered here (comma-separated); empty means every product. */
+    private String products;
+
+    public String getPincodes() { return pincodes; }
+    public void setPincodes(String v) { this.pincodes = v; }
+    public String getProducts() { return products; }
+    public void setProducts(String v) { this.products = v; }
+
+    public boolean servesPin(String pin) {
+        if (pin == null || pincodes == null || pincodes.isBlank()) return false;
+        for (String p : pincodes.split(",")) if (p.trim().equals(pin.trim())) return true;
+        return false;
+    }
+
+    public boolean offers(String product) {
+        if (products == null || products.isBlank()) return true;
+        for (String p : products.split(",")) if (p.trim().equalsIgnoreCase(product)) return true;
+        return false;
+    }
 
     public Long getId() { return id; }
     public String getCode() { return code; }

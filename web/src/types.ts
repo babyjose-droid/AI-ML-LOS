@@ -85,8 +85,8 @@ export interface SanctionRecord { id: number; action: string; level: string; amo
 export interface Disbursement { id: number; status: string; grossAmount: number; deductions: number; netAmount: number; beneficiaryAccount: string; ifsc: string; nameMatchScore?: number; utr?: string; failureReason?: string; lmsPayload?: string; actor: string; createdAt: string }
 export interface Task { applicationId?: number; appNo?: string; applicant?: string; product?: string; amount: number; task: string; action: string; ageHours: number; slaHours: number }
 export interface AuditEvent { id: number; actor: string; actorRole?: string; action: string; entityType: string; entityId?: string; applicationId?: number; details?: string; createdAt: string }
-export interface Branch { id: number; code: string; name: string; level: string; parentId?: number; city?: string; active: boolean }
-export interface AppUser { id: number; username: string; fullName: string; role: Role; branchId?: number; email?: string; mobile?: string; active: boolean }
+export interface Branch { id: number; code: string; name: string; level: string; parentId?: number; city?: string; active: boolean; pincodes?: string; products?: string }
+export interface AppUser { id: number; username: string; fullName: string; role: Role; branchId?: number; email?: string; mobile?: string; active: boolean; mfaEnabled?: boolean; locked?: boolean; lastLoginAt?: string }
 
 // Workflow designer
 export interface Stage { key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; integrations: string[] }

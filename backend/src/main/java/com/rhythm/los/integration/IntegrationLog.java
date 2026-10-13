@@ -31,8 +31,8 @@ public class IntegrationLog {
         this.status = status;
         this.latencyMs = latencyMs;
         this.requestRef = requestRef;
-        this.responseSummary = cut(responseSummary);
-        this.errorMessage = cut(errorMessage);
+        this.responseSummary = cut(com.rhythm.los.common.Mask.text(responseSummary));
+        this.errorMessage = cut(com.rhythm.los.common.Mask.text(errorMessage));
         this.retryOf = retryOf;
     }
 

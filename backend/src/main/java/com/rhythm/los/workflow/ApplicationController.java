@@ -59,6 +59,7 @@ public class ApplicationController {
     private final com.rhythm.los.org.DataScope scope;
     private final com.rhythm.los.consent.ConsentService consentService;
     @org.springframework.beans.factory.annotation.Autowired private DataCaptureService dataCapture;
+    @org.springframework.beans.factory.annotation.Autowired private ScreensService screens;
 
     public ApplicationController(KycCheckRepository kycChecks, ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
                                  DecisionService decisions, FraudReviewService fraud, SanctionService sanctions,
@@ -128,6 +129,10 @@ public class ApplicationController {
         m.put("bankAccountNo", a.getBankAccountNo());
         return m;
     }
+
+    @GetMapping("/{id}/customer")
+    @PreAuthorize(STAFF)
+    public Map<String, Object> customer(@PathVariable Long id) { return screens.customer(apps.get(id), CurrentUser.get()); }
 
     @GetMapping("/{id}/data-capture")
     @PreAuthorize(STAFF)

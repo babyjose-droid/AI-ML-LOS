@@ -147,7 +147,7 @@ public class WorkflowService {
                 r.setStatus(st);
                 if (r.getStartedAt() == null) {
                     r.setStartedAt(now);
-                    r.setDueAt(now.plus(Duration.ofHours(Math.max(1, s.sla()))));
+                    r.setDueAt(calendar == null ? now.plus(Duration.ofHours(Math.max(1, s.sla()))) : calendar.due(now, Math.max(1, s.sla()), a.getBranchId()));
                 }
                 rows.save(r);
             } else if (r != null && OPEN_ROW.contains(r.getStatus()) && !"FAILED".equals(r.getStatus())) {
@@ -201,6 +201,11 @@ public class WorkflowService {
     }
 
     /** Signing the credit memo is the person's confirmation when the memo stage is "automatic, person confirms" and not skipped. */
+    private com.rhythm.los.masters.BusinessCalendar calendar;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setCalendar(com.rhythm.los.masters.BusinessCalendar c) { this.calendar = c; }
+
     public boolean memoSignRequired(LoanApplication a) {
         Stage cam = defs.stages(a).stream().filter(s -> "cam".equals(s.key())).findFirst().orElse(null);
         if (cam == null || !"AUTO_REVIEW".equals(cam.mode())) return false;

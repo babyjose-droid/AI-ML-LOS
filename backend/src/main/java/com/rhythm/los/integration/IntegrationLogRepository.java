@@ -7,6 +7,7 @@ import java.util.List;
 public interface IntegrationLogRepository extends JpaRepository<IntegrationLog, Long> {
     List<IntegrationLog> findByApplicationIdOrderByIdDesc(Long applicationId);
     List<IntegrationLog> findByStatusOrderByIdDesc(String status);
+    List<IntegrationLog> findByCreatedAtAfterOrderByIdDesc(java.time.Instant since);
     List<IntegrationLog> findAllByOrderByIdDesc(Pageable page);
     long countByStatus(String status);
     List<IntegrationLog> findByApplicationIdAndOperationAndStatus(Long applicationId, String operation, String status);

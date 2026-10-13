@@ -11,43 +11,66 @@ const ROLES: Role[] = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT
 export function Branches() {
   const { user } = useAuth()
   const [rev, setRev] = useState(0)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<Branch | 'new' | null>(null)
+  const [error, setError] = useState<unknown>()
   const b = useLoad(() => api.get<Branch[]>('/api/branches'), [rev])
+  const admin = user?.role === 'ADMIN'
+  async function toggle(x: Branch) {
+    try { setError(undefined); await api.patch(`/api/admin/branches/${x.id}/active?value=${!x.active}`); setRev(r => r + 1) } catch (e) { setError(e) }
+  }
   const list = b.data ?? []
   const name = (id?: number) => list.find(x => x.id === id)?.name ?? '—'
   const depth = (x: Branch): number => (x.parentId ? 1 + depth(list.find(p => p.id === x.parentId) ?? { ...x, parentId: undefined }) : 0)
   return (
     <>
-      <Head title="Branch hierarchy" sub="Head office → zone → region → branch. Users belong to one branch.">
-        {user?.role === 'ADMIN' && <button className="btn primary" onClick={() => setOpen(true)}>Add branch</button>}
+      <Head title="Branch hierarchy" sub="Head office → zone → region → branch. Users belong to one branch. A branch's PIN codes decide where portal applications go and the geography rule (R18).">
+        {admin && <button className="btn primary" onClick={() => setOpen('new')}>Add branch</button>}
       </Head>
-      <ErrorBox error={b.error} />
+      <ErrorBox error={b.error ?? error} />
       <div className="panel flush">
-        <Table head={['Code', 'Name', 'Level', 'Parent', 'City', 'Status']} rows={list.map(x => [
+        <Table head={['Code', 'Name', 'Level', 'Parent', 'City', 'PIN codes', 'Products', 'Status', '']} rows={list.map(x => [
           <span className="mono">{x.code}</span>, <span style={{ paddingLeft: depth(x) * 16 }}>{x.name}</span>, x.level.replace('_', ' ').toLowerCase(),
-          name(x.parentId), x.city ?? '—', <Pill s={x.active ? 'SUCCESS' : 'WITHDRAWN'} />,
+          name(x.parentId), x.city ?? '—',
+          <span className="small" title={x.pincodes ?? ''}>{x.pincodes ? `${x.pincodes.split(',').length} PIN codes` : '—'}</span>,
+          <span className="small">{x.level === 'BRANCH' ? (x.products ?? 'All') : '—'}</span>,
+          <Pill s={x.active ? 'SUCCESS' : 'WITHDRAWN'} />,
+          admin ? <div className="row"><button className="btn sm" onClick={() => setOpen(x)}>Edit</button>
+            {x.level !== 'HEAD_OFFICE' && <button className="btn sm" onClick={() => toggle(x)}>{x.active ? 'Deactivate' : 'Activate'}</button>}</div> : '',
         ])} />
       </div>
-      {open && <BranchForm branches={list} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); setRev(r => r + 1) }} />}
+      {open && <BranchForm branch={open === 'new' ? null : open} branches={list} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); setRev(r => r + 1) }} />}
     </>
   )
 }
 
-function BranchForm({ branches, onClose, onSaved }: { branches: Branch[]; onClose: () => void; onSaved: () => void }) {
-  const [f, setF] = useState({ code: '', name: '', level: 'BRANCH', parentId: String(branches.find(b => b.level === 'REGION')?.id ?? ''), city: '' })
+function BranchForm({ branch, branches, onClose, onSaved }: { branch: Branch | null; branches: Branch[]; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState({
+    code: branch?.code ?? '', name: branch?.name ?? '', level: branch?.level ?? 'BRANCH',
+    parentId: String(branch ? (branch.parentId ?? '') : (branches.find(b => b.level === 'REGION')?.id ?? '')), city: branch?.city ?? '',
+    pincodes: branch?.pincodes ?? '', products: branch?.products ?? '',
+  })
   const [error, setError] = useState<unknown>()
   async function save() {
-    try { await api.post('/api/admin/branches', { ...f, code: f.code.toUpperCase(), parentId: f.parentId ? Number(f.parentId) : null }); onSaved() } catch (e) { setError(e) }
+    const body = { ...f, code: f.code.toUpperCase(), parentId: f.parentId ? Number(f.parentId) : null }
+    try {
+      if (branch) await api.put('/api/admin/branches/' + branch.id, body)
+      else await api.post('/api/admin/branches', body)
+      onSaved()
+    } catch (e) { setError(e) }
   }
   return (
-    <Modal title="Add branch" onClose={onClose}>
+    <Modal title={branch ? `Edit ${branch.name}` : 'Add branch'} onClose={onClose}>
       <ErrorBox error={error} />
       <div className="form" style={{ gridTemplateColumns: '1fr' }}>
-        <label className="fld">Code<input value={f.code} onChange={e => setF({ ...f, code: e.target.value })} /></label>
+        <label className="fld">Code<input value={f.code} disabled={!!branch} onChange={e => setF({ ...f, code: e.target.value })} /></label>
         <label className="fld">Name<input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
-        <label className="fld">Level<select value={f.level} onChange={e => setF({ ...f, level: e.target.value })}>{['ZONE', 'REGION', 'BRANCH'].map(l => <option key={l}>{l}</option>)}</select></label>
-        <label className="fld">Parent<select value={f.parentId} onChange={e => setF({ ...f, parentId: e.target.value })}>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+        <label className="fld">Level<select value={f.level} disabled={!!branch} onChange={e => setF({ ...f, level: e.target.value })}>{['ZONE', 'REGION', 'BRANCH', ...(branch?.level === 'HEAD_OFFICE' ? ['HEAD_OFFICE'] : [])].map(l => <option key={l}>{l}</option>)}</select></label>
+        {f.level !== 'HEAD_OFFICE' && <label className="fld">Parent<select value={f.parentId} onChange={e => setF({ ...f, parentId: e.target.value })}>{branches.filter(b => b.id !== branch?.id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>}
         <label className="fld">City<input value={f.city} onChange={e => setF({ ...f, city: e.target.value })} /></label>
+        {f.level === 'BRANCH' && <>
+          <label className="fld">PIN codes served (comma or space separated)<textarea name="pincodes" rows={3} value={f.pincodes} onChange={e => setF({ ...f, pincodes: e.target.value })} /></label>
+          <label className="fld">Products offered (codes; empty = all)<input name="products" value={f.products} placeholder="BL-UNS, PL" onChange={e => setF({ ...f, products: e.target.value })} /></label>
+        </>}
         <button className="btn primary" onClick={save}>Save</button>
       </div>
     </Modal>
@@ -64,6 +87,9 @@ export function Users() {
   async function toggle(x: AppUser) {
     try { await api.patch(`/api/admin/users/${x.id}/active?value=${!x.active}`); setRev(r => r + 1) } catch (e) { setError(e) }
   }
+  async function act(x: AppUser, what: 'unlock' | 'mfa-reset') {
+    try { await api.post(`/api/admin/users/${x.id}/${what}`, {}); setRev(r => r + 1) } catch (e) { setError(e) }
+  }
   return (
     <>
       <Head title="Users and roles" sub="Each user has one role. Sanction authority: credit officer L1, credit manager L2, CRO L3.">
@@ -71,10 +97,14 @@ export function Users() {
       </Head>
       <ErrorBox error={u.error ?? error} />
       <div className="panel flush">
-        <Table head={['Username', 'Name', 'Role', 'Branch', 'Status', '']} rows={(u.data ?? []).map(x => [
+        <Table head={['Username', 'Name', 'Role', 'Branch', 'Status', 'Security', '']} rows={(u.data ?? []).map(x => [
           <span className="mono">{x.username}</span>, x.fullName, x.role.replace(/_/g, ' ').toLowerCase(), bname(x.branchId),
           <Pill s={x.active ? 'SUCCESS' : 'WITHDRAWN'} />,
-          <div className="row"><button className="btn sm" onClick={() => setEdit(x)}>Edit</button><button className="btn sm" onClick={() => toggle(x)}>{x.active ? 'Deactivate' : 'Activate'}</button></div>,
+          <span className="small">{x.mfaEnabled ? 'MFA on' : 'MFA off'}{x.locked && <> · <span className="pill bad">Locked</span></>}
+            {x.lastLoginAt && <div className="muted">last sign-in {new Date(x.lastLoginAt).toLocaleString()}</div>}</span>,
+          <div className="row"><button className="btn sm" onClick={() => setEdit(x)}>Edit</button><button className="btn sm" onClick={() => toggle(x)}>{x.active ? 'Deactivate' : 'Activate'}</button>
+            {x.locked && <button className="btn sm" onClick={() => act(x, 'unlock')}>Unlock</button>}
+            {x.mfaEnabled && <button className="btn sm" onClick={() => act(x, 'mfa-reset')}>Reset MFA</button>}</div>,
         ])} />
       </div>
       {edit && <UserForm user={edit === 'new' ? null : edit} branches={br.data ?? []} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); setRev(r => r + 1) }} />}

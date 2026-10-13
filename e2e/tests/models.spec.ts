@@ -31,8 +31,11 @@ test('risk models: train a candidate, compare, CRO decides', async ({ page }) =>
     await expect(page.locator('[data-model-detail]')).toBeVisible()
     if (await page.locator('[data-model=reject]').count() === 0) break
     await page.locator('textarea[name=modelNote]').fill('Synthetic book only: wait for the NBFC history')
-    await page.locator('[data-model=reject]').click()
-    await expect(page.locator('[data-model-detail=CANDIDATE]')).toHaveCount(i === 0 ? 1 : 0).catch(() => undefined)
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/models/') && r.request().method() === 'POST'),
+      page.locator('[data-model=reject]').click(),
+    ])
+    await page.waitForLoadState('networkidle')
   }
   await expect(page.locator('[data-model-detail=CANDIDATE]')).toHaveCount(0)
   await expect(page.getByText('Rejected').first()).toBeVisible()

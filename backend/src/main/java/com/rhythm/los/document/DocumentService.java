@@ -165,6 +165,33 @@ public class DocumentService {
                 "BANK_STATEMENT -> " + d.getStatus() + (d.getRemarks() == null ? "" : " · " + d.getRemarks()));
     }
 
+    /** Employer on the verified salary slip compared with the employer paying salary in the verified bank statement. */
+    public record EmployerCheck(String slipEmployer, String statementEmployer, double score) {
+        public boolean matches() { return score >= 0.8; }
+    }
+
+    public Optional<EmployerCheck> employerCheck(Long appId) {
+        String slip = list(appId).stream().filter(x -> "SALARY_SLIP".equals(x.getDocType()) && "VERIFIED".equals(x.getStatus()))
+                .map(x -> extracted(x).get("employer")).filter(f -> f != null && f.value() != null && !f.value().isBlank())
+                .map(DocumentReading.FieldValue::value).reduce((x, y) -> y).orElse(null);
+        String stmt = verifiedStatement(appId).map(d -> {
+            try {
+                return Json.MAPPER.readTree(d.getAnalysisJson()).path("summary").path("salary").path("employer").asText(null);
+            } catch (Exception e) {
+                return null;
+            }
+        }).filter(x -> x != null && !x.isBlank()).orElse(null);
+        if (slip == null || stmt == null) return Optional.empty();
+        return Optional.of(new EmployerCheck(slip, stmt, NameMatch.score(company(slip), company(stmt))));
+    }
+
+    /** Company name without legal suffixes and punctuation, so "Harbour Software Pvt. Ltd." equals "HARBOUR SOFTWARE PRIVATE LIMITED". */
+    static String company(String s) {
+        return s.toUpperCase().replaceAll("[^A-Z0-9 ]", " ")
+                .replaceAll("\\b(PVT|PRIVATE|LTD|LIMITED|LLP|INC|CO|COMPANY|CORP|CORPORATION|THE|INDIA)\\b", " ")
+                .replaceAll("\\s+", " ").trim();
+    }
+
     /** Latest verified bank statement analysis for an application, if any. */
     public Optional<AppDocument> verifiedStatement(Long appId) {
         return list(appId).stream().filter(x -> "BANK_STATEMENT".equals(x.getDocType()) && "VERIFIED".equals(x.getStatus()) && x.getAnalysisJson() != null)

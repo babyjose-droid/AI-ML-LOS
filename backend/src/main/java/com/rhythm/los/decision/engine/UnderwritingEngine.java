@@ -57,7 +57,7 @@ public final class UnderwritingEngine {
         double foirEx = existing / income;
         double balRatio = a.bank().avgBalance() / income;
         double surplus = income - a.essential() - existing;
-        steps.add(new EngineResult.Step("Bank cash-flow (" + n + " mo via AA)", "₹" + inr(income) + "/mo sustainable",
+        steps.add(new EngineResult.Step("Bank cash-flow (" + n + " mo via " + (a.bank().source() == null ? "AA" : a.bank().source()) + ")", "₹" + inr(income) + "/mo sustainable",
                 stab > 0.65 ? "ok" : stab > 0.45 ? "warn" : "bad"));
 
         // 3. Bureau
@@ -153,6 +153,8 @@ public final class UnderwritingEngine {
         rb.rule("R11", "Some EMI capacity after obligations", maxEmi >= 0.3 * reqEmi && surplus > 0, "REJECT", "RC-003");
         rb.rule("R12", "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
         rb.rule("R13", "Amount ≤ auto-approval limit ₹" + inr(p.autoApproveLimit()), recAmt <= p.autoApproveLimit(), "REFER", "RC-014");
+        if (a.bank().employerMismatch())
+            rb.rule("R15", "Salary slip employer matches the salary credits in the bank statement", false, "REFER", "RC-010");
         if (a.bank().gambling() > 0)
             rb.rule("R14", "No betting / gambling transactions in the bank statement", false, "REFER", "RC-020");
         if (!thick) reasons.add("RC-015");

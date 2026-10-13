@@ -93,6 +93,7 @@ class DocumentAiIT {
                     if (file.startsWith("statement")) return analyzeStatement(b, ct, file, null, null).reading();
                     f.put("employeeName", new FieldValue(kiran ? "Kiran Joshi" : "Deepa Menon", 0.96, "ocr"));
                     f.put("netPay", new FieldValue("80000", 0.96, "ocr"));
+                    if (kiran) f.put("employer", new FieldValue("Acme Industries Pvt. Ltd.", 0.9, "ocr"));
                     return new DocumentReading("OK", "SALARY_SLIP", 0.99, f, List.of(), Map.of("issues", List.of()), Map.of("score", 0),
                             List.of(), 0.96, "tesseract", false, null);
                 }
@@ -113,7 +114,7 @@ class DocumentAiIT {
                          "transactions":[{"date":"2026-04-01","narration":"NEFT SALARY ACME","debit":0,"credit":80000,"balance":92000,"category":"SALARY","flags":[]},
                                          {"date":"2026-04-03","narration":"UPI DREAM11","debit":2000,"credit":0,"balance":90000,"category":"GAMBLING","flags":["Betting / gaming"]}],
                          "monthly":[%s],
-                         "summary":{"months":6,"avgBalance":30000,"bounces":0,"detectedEmi":4500,"gamblingCount":3,"salary":{"amount":80000}},
+                         "summary":{"months":6,"avgBalance":30000,"bounces":0,"detectedEmi":4500,"gamblingCount":3,"salary":{"amount":80000,"employer":"ACME INDUSTRIES LTD","months":6}},
                          "reconciliation":{"checked":120,"passed":120,"rate":1.0,"breaks":[]},
                          "tamper":{"score":0,"signals":[]},"notes":[],"reviewReasons":[],"overallConfidence":1.0,"headerFound":true}
                         """.formatted(String.join(",", java.util.Collections.nCopies(6, "{\"month\":\"2026-04\",\"inflow\":80000,\"outflow\":52000,\"avgBalance\":30000}")));
@@ -284,7 +285,7 @@ class DocumentAiIT {
         assertThat(analysis.has("unlockedPdf")).isFalse();
 
         assertThat(ok(get("/api/applications/" + id + "/snapshots"), ops, null).body().toString()).contains("STATEMENT-AI");
-        assertThat(ok(get("/api/applications/" + id + "/kyc-checks"), ops, null).body().toString()).contains("Account holder on bank statement matches");
+        assertThat(ok(get("/api/applications/" + id + "/kyc-checks"), ops, null).body().toString()).contains("Account holder on bank statement matches").contains("Salary slip employer matches salary credits in statement");
         String decision = ok(get("/api/applications/" + id + "/decision"), ops, null).body().toString();
         assertThat(decision).contains("R14").contains("RC-020");
         assertThat(states(id, ops).get("DECISION").asText()).isEqualTo("REFER");

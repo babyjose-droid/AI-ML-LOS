@@ -66,7 +66,7 @@ def _month_starts(start: date, months: int):
 
 def generate(holder: str, profile: str = "salaried", months: int = 6, layout: str = "A", seed: int = 1,
              bounce_months: tuple[int, ...] = (), gambling: bool = False, end: date | None = None,
-             salary: int | None = None) -> Statement:
+             salary: int | None = None, employer: str | None = None) -> Statement:
     """A plausible statement for a fictional person. The ground truth is kept in Statement.truth."""
     rng = random.Random(seed)
     end = end or (date.today().replace(day=1) - timedelta(days=1))
@@ -77,7 +77,7 @@ def generate(holder: str, profile: str = "salaried", months: int = 6, layout: st
     txns: list[Txn] = []
     salary = (rng.randint(35, 95) * 1000 if profile == "salaried" else 0) if salary is None else salary
     emi = rng.choice([4500, 6800, 9200, 12500])
-    employer = rng.choice(["ACME INDUSTRIES LTD", "HARBOUR SOFTWARE PVT LTD", "WESTERN TOOLS LTD"])
+    employer = rng.choice(["ACME INDUSTRIES LTD", "HARBOUR SOFTWARE PVT LTD", "WESTERN TOOLS LTD"]) if employer is None else employer
     lender = rng.choice(["SWIFT FINANCE LTD", "TRUSTLINE CAPITAL", "METRO HOUSING FIN"])
     shops = ["KIRANA MART", "FRESH VEG", "CITY MEDICALS", "FUEL POINT", "BOOK STALL", "TEA HOUSE"]
     customers = ["RAJ TRADERS", "MAHESH STORES", "SHREE AGENCIES", "NEW INDIA PROVISIONS", "OM ENTERPRISES"]

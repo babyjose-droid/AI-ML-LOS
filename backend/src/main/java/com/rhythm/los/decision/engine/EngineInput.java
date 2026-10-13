@@ -22,9 +22,17 @@ public record EngineInput(
         Loan loan) {
 
     public record Kyc(double name, double dob, double id, double address, double contact) {}
-    public record Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi, int gambling) {
+    /**
+     * Bank cash flow. source is where it came from ("AA" or "bank statement"); employerMismatch is true when the
+     * salary credits in the statement come from a different employer than the one on the salary slip.
+     */
+    public record Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi, int gambling,
+                       String source, boolean employerMismatch) {
         public Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi) {
-            this(inflows, outflows, avgBalance, bounces, detectedEmi, 0);
+            this(inflows, outflows, avgBalance, bounces, detectedEmi, 0, "AA", false);
+        }
+        public Bank(List<Double> inflows, List<Double> outflows, double avgBalance, int bounces, double detectedEmi, int gambling) {
+            this(inflows, outflows, avgBalance, bounces, detectedEmi, gambling, "AA", false);
         }
     }
     public record Bureau(int score, int active, int maxDpd12, boolean ever90, int enq6, int ageM, double emi) {}

@@ -134,4 +134,18 @@ class UnderwritingEngineTest {
             if (base.decision().startsWith("APPROVE")) assertThat(r.decision()).isEqualTo("REFER");
         }
     }
+
+    @Test
+    void salaryFromAnotherEmployerIsReferred() {
+        EngineInput in = samples().get("APP-100232");
+        EngineInput.Bank b = in.bank();
+        EngineInput with = new EngineInput(in.id(), in.name(), in.segment(), in.age(), in.vintage(), in.kyc(), in.declaredIncome(), in.essential(),
+                new EngineInput.Bank(b.inflows(), b.outflows(), b.avgBalance(), b.bounces(), b.detectedEmi(), 0, "bank statement", true),
+                in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan());
+        EngineResult r = UnderwritingEngine.underwrite(with, PolicyParams.defaults());
+        assertThat(r.rules()).anyMatch(x -> x.id().equals("R15") && !x.pass());
+        assertThat(r.reasonCodes()).contains("RC-010");
+        assertThat(r.decision()).isIn("REFER", "REJECT");
+        assertThat(r.steps()).anyMatch(s -> s.name().contains("via bank statement"));
+    }
 }

@@ -130,8 +130,10 @@ class ModelRegistryIT {
         @SuppressWarnings("unchecked") List<Map<String, Object>> rows = (List<Map<String, Object>>) SEEN.get(0).get("rows");
         assertThat(rows).hasSize(cand.get("rowsUsed").asInt());
         assertThat(rows.get(0)).containsKeys("features", "bad", "championPd");
-        assertThat((List<?>) SEEN.get(0).get("features")).hasSize(16).doesNotContain("thinFile");
-        assertThat((List<?>) SEEN.get(1).get("features")).hasSize(11).doesNotContain("bureauScoreGap", "dpd12");
+        @SuppressWarnings("unchecked") List<String> thickFeatures = (List<String>) SEEN.get(0).get("features");
+        @SuppressWarnings("unchecked") List<String> ntcFeatures = (List<String>) SEEN.get(1).get("features");
+        assertThat(thickFeatures).hasSize(16).doesNotContain("thinFile");
+        assertThat(ntcFeatures).hasSize(11).doesNotContain("bureauScoreGap", "dpd12");
 
         JsonNode detail = ok(get("/api/models/" + id), cm, null).body();
         assertThat(detail.get("terms").get(0).get("label").asText()).isEqualTo("EMI/cheque bounces (12m)");

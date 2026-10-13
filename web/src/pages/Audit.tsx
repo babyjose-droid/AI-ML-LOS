@@ -8,8 +8,9 @@ import type { AuditEvent } from '../types'
 export default function Audit() {
   const [appId, setAppId] = useState('')
   const { user } = useAuth()
-  const today = new Date().toISOString().slice(0, 10)
-  const [ex, setEx] = useState({ from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), to: today, action: '' })
+  const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const today = day(new Date())
+  const [ex, setEx] = useState({ from: day(new Date(Date.now() - 30 * 864e5)), to: today, action: '' })
   const [exErr, setExErr] = useState<unknown>()
   async function download() {
     setExErr(undefined)

@@ -251,7 +251,8 @@ class AdminSecurityIT {
     @Test
     void auditTrailIsAppendOnlyAndExportable() throws Exception {
         String admin = login("admin"), comp = login("comp1"), sales = login("sales1");
-        String today = LocalDate.now().toString(), yesterday = LocalDate.now().minusDays(1).toString();
+        java.time.ZoneId ist = java.time.ZoneId.of("Asia/Kolkata");
+        String today = LocalDate.now(ist).toString(), yesterday = LocalDate.now(ist).minusDays(1).toString();
         Res csv = call(get("/api/audit/export?from=" + yesterday + "&to=" + today + "&action=auth."), comp, null);
         assertThat(csv.status()).isEqualTo(200);
         assertThat(csv.raw()).startsWith("id,time,actor,role,action").contains("auth.login").doesNotContain("user.create");

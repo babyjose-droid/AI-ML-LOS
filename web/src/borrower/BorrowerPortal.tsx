@@ -127,7 +127,7 @@ function Home({ onOpen, onApply, onSignOut }: { onOpen: (id: number) => void; on
 
 function Apply({ onDone, onCancel, onSignOut }: { onDone: (id: number) => void; onCancel: () => void; onSignOut: () => void }) {
   const [products, setProducts] = useState<Product[]>([])
-  const [f, setF] = useState<Record<string, string>>({ productCode: 'PL', tenureMonths: '24', gender: 'Prefer not to say' })
+  const [f, setF] = useState<Record<string, string>>({ productCode: 'PL', tenureMonths: '24' })
   const [consent, setConsent] = useState({ consentKyc: false, consentAa: false, consentBureau: false })
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -142,7 +142,7 @@ function Apply({ onDone, onCancel, onSignOut }: { onDone: (id: number) => void; 
     setBusy(true)
     try {
       const body = {
-        ...f, ...consent, pan: (f.pan ?? '').toUpperCase(), bankIfsc: (f.bankIfsc ?? '').toUpperCase(), mobile: '9000000000',
+        ...f, ...consent, email: f.email || null, gender: f.gender || null, pan: (f.pan ?? '').toUpperCase(), bankIfsc: (f.bankIfsc ?? '').toUpperCase(), mobile: '9000000000',
         loanAmount: Number(f.loanAmount), tenureMonths: Number(f.tenureMonths), businessVintageYears: Number(f.businessVintageYears ?? 0),
         declaredMonthlyIncome: Number(f.declaredMonthlyIncome), essentialExpenses: Number(f.essentialExpenses ?? 0),
       }
@@ -163,6 +163,7 @@ function Apply({ onDone, onCancel, onSignOut }: { onDone: (id: number) => void; 
         {input('pan', 'PAN', { maxLength: 10, style: { textTransform: 'uppercase' } })}
         {input('dob', 'Date of birth', { type: 'date' })}
         {input('email', 'Email (optional)', { type: 'email' })}
+        <label className="fld">Gender (optional)<select name="gender" value={f.gender ?? ''} onChange={set('gender')}><option value="">Prefer not to say</option><option value="FEMALE">Female</option><option value="MALE">Male</option><option value="OTHER">Other</option></select></label>
         {input('address', 'Address')}
         {input('city', 'City')}
         {input('pincode', 'PIN code', { inputMode: 'numeric', maxLength: 6 })}

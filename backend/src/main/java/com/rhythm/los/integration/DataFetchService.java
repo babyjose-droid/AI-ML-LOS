@@ -113,7 +113,10 @@ public class DataFetchService {
     public LoanApplication fetchData(Long id, CurrentUser by) {
         LoanApplication a = requireActive(id);
         if ("FETCHED".equals(a.getDataState())) throw ApiException.conflict("ALREADY_DONE", "Data already fetched");
-        boolean aaOk = has(a, "AA") || fromStatement(a, by) || fetchAa(a, null);
+        String source = apps.product(a).getBankDataSource();
+        boolean aaOk = has(a, "AA")
+                || !"AA_ONLY".equals(source) && fromStatement(a, by)
+                || !"STATEMENT_ONLY".equals(source) && fetchAa(a, null);
         boolean buOk = has(a, "BUREAU") || fetchBureau(a, null);
         if ("MSME".equals(a.getSegment()) && !has(a, "GST")) fetchGst(a, null);
         updateDataState(a, aaOk, buOk, by);

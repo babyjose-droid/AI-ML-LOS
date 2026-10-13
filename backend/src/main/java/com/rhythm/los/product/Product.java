@@ -29,6 +29,10 @@ public class Product {
     @Column(name = "field_visit_rule") private String fieldVisitRule;
     @Column(name = "field_visit_threshold") private BigDecimal fieldVisitThreshold;
     @Column(name = "required_docs") private String requiredDocs;
+    @Column(name = "video_kyc_rule") private String videoKycRule = "ON_KYC_REVIEW";
+    @Column(name = "video_kyc_threshold") private BigDecimal videoKycThreshold;
+    @Column(name = "bank_data_source") private String bankDataSource = "AA_OR_STATEMENT";
+    @Column(name = "auto_sanction_limit") private BigDecimal autoSanctionLimit;
     @Column(name = "updated_at") private Instant updatedAt = Instant.now();
 
     public List<String> requiredDocList() {
@@ -82,4 +86,19 @@ public class Product {
     public void setRequiredDocs(String v) { this.requiredDocs = v; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getVideoKycRule() { return videoKycRule; }
+    public void setVideoKycRule(String v) { this.videoKycRule = v; }
+    public BigDecimal getVideoKycThreshold() { return videoKycThreshold; }
+    public void setVideoKycThreshold(BigDecimal v) { this.videoKycThreshold = v; }
+    public String getBankDataSource() { return bankDataSource; }
+    public void setBankDataSource(String v) { this.bankDataSource = v; }
+    public BigDecimal getAutoSanctionLimit() { return autoSanctionLimit; }
+    public void setAutoSanctionLimit(BigDecimal v) { this.autoSanctionLimit = v; }
+
+    /** True when this product needs an approved video KYC before the decision, whatever the document KYC result. */
+    public boolean videoKycRequired(double amount) {
+        return "ALWAYS".equals(videoKycRule)
+                || "ABOVE_AMOUNT".equals(videoKycRule) && videoKycThreshold != null && amount > videoKycThreshold.doubleValue();
+    }
 }

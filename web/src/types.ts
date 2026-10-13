@@ -21,6 +21,7 @@ export interface Product {
   id: number; code: string; name: string; segment: string; secured: boolean; status: string; version: number
   minAmount: number; maxAmount: number; minTenure: number; maxTenure: number; minAge: number; maxAge: number
   processingFeePct: number; rateMin: number; rateMax: number; fieldVisitRule: string; fieldVisitThreshold?: number; requiredDocs: string
+  videoKycRule: string; videoKycThreshold?: number; bankDataSource: string; autoSanctionLimit?: number
 }
 
 export interface AppView {

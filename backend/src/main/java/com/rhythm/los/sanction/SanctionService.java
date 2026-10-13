@@ -25,9 +25,12 @@ public class SanctionService {
     private final SanctionRecordRepository records;
     private final AuditService audit;
     private final String mockOtp;
+    private final com.rhythm.los.document.DocumentService documents;
 
     public SanctionService(ApplicationService apps, DecisionService decisions, SanctionRecordRepository records,
-                           AuditService audit, @Value("${rhythm.kfs.otp}") String mockOtp) {
+                           AuditService audit, @Value("${rhythm.kfs.otp}") String mockOtp,
+                           com.rhythm.los.document.DocumentService documents) {
+        this.documents = documents;
         this.apps = apps;
         this.decisions = decisions;
         this.records = records;
@@ -88,6 +91,45 @@ public class SanctionService {
         apps.transition(a, Domain.APP, "SANCTIONED", "application.sanctioned", by, null);
         if (override) audit.record(by, "sanction.override", "APPLICATION", a.getAppNo(), appId, note);
         return s;
+    }
+
+    /**
+     * Straight-through sanction for small, clean cases, when the product allows it: engine APPROVE (not conditional),
+     * amount as applied and within the product's auto-sanction limit, KYC verified, fraud clear, no edit signal on any
+     * document, no field visit pending, and routed to the lowest level. Returns empty when the case must go to a person.
+     */
+    @Transactional
+    public java.util.Optional<SanctionRecord> autoSanction(Long appId) {
+        LoanApplication a = apps.get(appId);
+        Product p = apps.product(a);
+        if (p.getAutoSanctionLimit() == null || !"PENDING_L1".equals(a.getSanctionState())) return java.util.Optional.empty();
+        DecisionRecord d = decisions.latest(appId).orElse(null);
+        if (d == null || !"APPROVE".equals(d.getDecision())) return java.util.Optional.empty();
+        boolean clean = "VERIFIED".equals(a.getKycState()) && "CLEAR".equals(a.getFraudState()) && !documents.anyTampered(appId)
+                && !"REQUIRED".equals(a.getFieldState())
+                && d.getRecommendedAmount().compareTo(a.getLoanAmount()) == 0
+                && a.getLoanAmount().compareTo(p.getAutoSanctionLimit()) <= 0;
+        if (!clean) return java.util.Optional.empty();
+        CurrentUser sys = CurrentUser.SYSTEM;
+        Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), a.getLoanAmount().doubleValue(),
+                d.getRate().doubleValue(), a.getTenureMonths(), p.getProcessingFeePct().doubleValue());
+        SanctionRecord s = new SanctionRecord();
+        s.setApplicationId(appId);
+        s.setDecisionId(d.getId());
+        s.setAction("APPROVED");
+        s.setLevel("AUTO");
+        s.setAmount(a.getLoanAmount());
+        s.setRate(d.getRate());
+        s.setTenureMonths(a.getTenureMonths());
+        s.setOverrideFlag(false);
+        s.setNote("Auto-sanctioned: engine approved, ₹" + a.getLoanAmount().toPlainString() + " within the product limit of ₹" + p.getAutoSanctionLimit().toPlainString());
+        s.setKfsJson(Json.write(kfs));
+        s.setActor(sys.username());
+        s = records.save(s);
+        apps.transition(a, Domain.SANCTION, "SANCTIONED", "sanction.auto_approved", sys, s.getNote());
+        apps.transition(a, Domain.APP, "SANCTIONED", "application.sanctioned", sys, null);
+        audit.record(sys, "sanction.auto", "APPLICATION", a.getAppNo(), appId, s.getNote());
+        return java.util.Optional.of(s);
     }
 
     @Transactional

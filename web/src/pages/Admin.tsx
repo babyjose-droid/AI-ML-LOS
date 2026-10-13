@@ -112,6 +112,9 @@ function UserForm({ user, branches, onClose, onSaved }: { user: AppUser | null; 
   )
 }
 
+const VKYC_LABEL: Record<string, string> = { ON_KYC_REVIEW: 'Video KYC when KYC needs review', ALWAYS: 'Video KYC always', ABOVE_AMOUNT: 'Video KYC above' }
+const BANK_LABEL: Record<string, string> = { AA_OR_STATEMENT: 'bank data: statement or AA', STATEMENT_ONLY: 'bank data: statement only', AA_ONLY: 'bank data: AA only' }
+
 export function Products() {
   const { user } = useAuth()
   const [rev, setRev] = useState(0)
@@ -124,10 +127,12 @@ export function Products() {
       </Head>
       <ErrorBox error={p.error} />
       <div className="panel flush">
-        <Table head={['Code', 'Name', 'Segment', 'Amount', 'Tenure', 'Rate', 'Fee', 'Field visit', 'Documents', 'Status', '']} rows={(p.data ?? []).map(x => [
+        <Table head={['Code', 'Name', 'Segment', 'Amount', 'Tenure', 'Rate', 'Fee', 'Field visit', 'Documents', 'Workflow', 'Status', '']} rows={(p.data ?? []).map(x => [
           <span className="mono">{x.code}</span>, x.name, x.segment.toLowerCase(), `${inr(x.minAmount)}–${inr(x.maxAmount)}`, `${x.minTenure}–${x.maxTenure} m`,
           `${x.rateMin}–${x.rateMax}%`, `${x.processingFeePct}%`,
           x.fieldVisitRule === 'ABOVE_AMOUNT' ? `Above ${inr(x.fieldVisitThreshold)}` : x.fieldVisitRule.toLowerCase(), <span className="small">{x.requiredDocs.replace(/,/g, ', ').replace(/\|/g, ' or ')}</span>,
+          <span className="small">{VKYC_LABEL[x.videoKycRule] ?? x.videoKycRule}{x.videoKycRule === 'ABOVE_AMOUNT' ? ` ${inr(x.videoKycThreshold)}` : ''} · {BANK_LABEL[x.bankDataSource] ?? x.bankDataSource}
+            {x.autoSanctionLimit ? ` · auto-sanction up to ${inr(x.autoSanctionLimit)}` : ''}</span>,
           <Pill s={x.status === 'LIVE' ? 'SUCCESS' : 'WITHDRAWN'} />, user?.role === 'ADMIN' ? <button className="btn sm" onClick={() => setEdit(x)}>Edit</button> : '',
         ])} />
       </div>
@@ -140,6 +145,7 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
   const init = product ?? {
     code: '', name: '', segment: 'MSME', secured: false, status: 'LIVE', minAmount: 50000, maxAmount: 500000, minTenure: 6, maxTenure: 36, minAge: 21, maxAge: 65,
     processingFeePct: 2, rateMin: 13, rateMax: 26, fieldVisitRule: 'NEVER', fieldVisitThreshold: undefined, requiredDocs: 'PAN,AADHAAR',
+    videoKycRule: 'ON_KYC_REVIEW', videoKycThreshold: undefined, bankDataSource: 'AA_OR_STATEMENT', autoSanctionLimit: undefined,
   }
   const [f, setF] = useState<Record<string, string | number | boolean | undefined>>({ ...init })
   const [error, setError] = useState<unknown>()
@@ -163,6 +169,12 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
         {num('minAge', 'Min age')}{num('maxAge', 'Max age')}{num('rateMin', 'Min rate %')}{num('rateMax', 'Max rate %')}{num('processingFeePct', 'Fee %')}
         <label className="fld">Field visit<select value={String(f.fieldVisitRule)} onChange={e => setF({ ...f, fieldVisitRule: e.target.value })}><option>NEVER</option><option>ALWAYS</option><option>ABOVE_AMOUNT</option></select></label>
         {num('fieldVisitThreshold', 'Field visit above (₹)')}
+        <label className="fld">Video KYC<select name="videoKycRule" value={String(f.videoKycRule)} onChange={e => setF({ ...f, videoKycRule: e.target.value })}>
+          {Object.entries(VKYC_LABEL).map(([k, v]) => <option key={k} value={k}>{v}{k === 'ABOVE_AMOUNT' ? ' amount' : ''}</option>)}</select></label>
+        {num('videoKycThreshold', 'Video KYC above (₹)')}
+        <label className="fld">Bank data<select name="bankDataSource" value={String(f.bankDataSource)} onChange={e => setF({ ...f, bankDataSource: e.target.value })}>
+          {Object.entries(BANK_LABEL).map(([k, v]) => <option key={k} value={k}>{v.replace('bank data: ', '')}</option>)}</select></label>
+        {num('autoSanctionLimit', 'Auto-sanction up to (₹, empty = never)')}
         <label className="fld wide">Required documents (comma separated)<input value={String(f.requiredDocs)} onChange={e => setF({ ...f, requiredDocs: e.target.value })} /></label>
         <label className="check"><input type="checkbox" checked={!!f.secured} onChange={e => setF({ ...f, secured: e.target.checked })} /> Secured</label>
         <button className="btn primary" onClick={save}>Save</button>

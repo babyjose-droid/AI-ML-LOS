@@ -69,7 +69,7 @@ class BorrowerPortalIT {
 
     Map<String, Object> application(String name, String pan) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("productCode", "PL"); m.put("applicantName", name); m.put("pan", pan); m.put("mobile", "9000000000");
+        m.put("productCode", "PL"); m.put("applicantName", name); m.put("pan", pan); m.put("mobile", "9000000000"); m.put("gender", "Prefer not to say");
         m.put("dob", "1992-03-02"); m.put("city", "Kochi"); m.put("pincode", "682020"); m.put("address", "4 Lake View");
         m.put("businessName", "Coastal Systems"); m.put("businessVintageYears", 6); m.put("declaredMonthlyIncome", 72000);
         m.put("essentialExpenses", 30000); m.put("loanAmount", 500000); m.put("tenureMonths", 24); m.put("purpose", "Home renovation");

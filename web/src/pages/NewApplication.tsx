@@ -91,7 +91,7 @@ export default function NewApplication() {
           {txt('dob', 'Date of birth', { type: 'date' })}
           <label className="fld">Gender
             <select name="gender" value={String(f.gender)} onChange={set('gender')}>
-              <option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Other</option>
+              <option value="">Prefer not to say</option><option value="FEMALE">Female</option><option value="MALE">Male</option><option value="OTHER">Other</option>
             </select>
           </label>
           {txt('city', 'City')}

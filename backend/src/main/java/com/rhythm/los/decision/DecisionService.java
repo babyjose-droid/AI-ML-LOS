@@ -34,11 +34,14 @@ public class DecisionService {
     private final LoanApplicationRepository appRepo;
     private final DataSnapshotRepository snapshots;
     private final DocumentService documents;
+    private final com.rhythm.los.vkyc.VkycSessionRepository vkyc;
     private final PolicyService policy;
     private final DecisionRecordRepository decisions;
 
     public DecisionService(ApplicationService apps, LoanApplicationRepository appRepo, DataSnapshotRepository snapshots,
-                           DocumentService documents, PolicyService policy, DecisionRecordRepository decisions) {
+                           DocumentService documents, PolicyService policy, DecisionRecordRepository decisions,
+                           com.rhythm.los.vkyc.VkycSessionRepository vkyc) {
+        this.vkyc = vkyc;
         this.apps = apps;
         this.appRepo = appRepo;
         this.snapshots = snapshots;
@@ -59,6 +62,10 @@ public class DecisionService {
         if ("IN_REVIEW".equals(a.getDocsState())) b.add("Documents waiting for review");
         else if (!"COMPLETE".equals(a.getDocsState())) b.add("Documents not complete (" + a.getDocsState() + ")");
         if ("REQUIRED".equals(a.getFieldState())) b.add("Field visit pending");
+        Product prod = apps.product(a);
+        if (prod.videoKycRequired(a.getLoanAmount().doubleValue())
+                && vkyc.findByApplicationIdOrderByIdDesc(a.getId()).stream().noneMatch(s -> "APPROVED".equals(s.getStatus())))
+            b.add("Video KYC required for this product: not yet approved");
         if (Set.of("SANCTIONED", "KFS_ACCEPTED", "DECLINED").contains(a.getSanctionState())) b.add("Already " + a.getSanctionState());
         return b;
     }

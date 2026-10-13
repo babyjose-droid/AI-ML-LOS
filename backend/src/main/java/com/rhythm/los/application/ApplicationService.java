@@ -118,6 +118,13 @@ public class ApplicationService {
 
     public static boolean isOpen(LoanApplication a) { return !CLOSED.contains(a.getAppState()); }
 
+    /** Stored as FEMALE, MALE or OTHER; anything else (blank, "Prefer not to say") is not stored. */
+    static String gender(String g) {
+        if (g == null) return null;
+        String x = g.trim().toUpperCase();
+        return switch (x) { case "F", "FEMALE" -> "FEMALE"; case "M", "MALE" -> "MALE"; case "O", "OTHER", "TRANSGENDER" -> "OTHER"; default -> null; };
+    }
+
     private void apply(LoanApplication a, ApplicationRequest r, Product p) {
         double amt = r.loanAmount().doubleValue();
         if (amt < p.getMinAmount().doubleValue() || amt > p.getMaxAmount().doubleValue()) {
@@ -135,7 +142,7 @@ public class ApplicationService {
         a.setMobile(r.mobile());
         a.setEmail(r.email());
         a.setDob(r.dob());
-        a.setGender(r.gender());
+        a.setGender(gender(r.gender()));
         a.setAddress(r.address());
         a.setCity(r.city());
         a.setPincode(blankToNull(r.pincode()));

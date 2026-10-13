@@ -45,7 +45,14 @@ public class ProductController {
             @NotNull BigDecimal rateMax,
             @NotBlank String fieldVisitRule,
             BigDecimal fieldVisitThreshold,
-            @NotBlank String requiredDocs) {}
+            @NotBlank String requiredDocs,
+            String videoKycRule,
+            BigDecimal videoKycThreshold,
+            String bankDataSource,
+            BigDecimal autoSanctionLimit) {}
+
+    private static final Set<String> VKYC_RULES = Set.of("ON_KYC_REVIEW", "ALWAYS", "ABOVE_AMOUNT");
+    private static final Set<String> BANK_SOURCES = Set.of("AA_OR_STATEMENT", "STATEMENT_ONLY", "AA_ONLY");
 
     @GetMapping("/api/products")
     public List<Product> list() { return repo.findAll(); }
@@ -104,7 +111,21 @@ public class ProductController {
         p.setRateMax(r.rateMax());
         p.setFieldVisitRule(r.fieldVisitRule());
         p.setFieldVisitThreshold(r.fieldVisitThreshold());
-        p.setRequiredDocs(r.requiredDocs().replace(" ", ""));
+        String vk = r.videoKycRule() == null ? p.getVideoKycRule() : r.videoKycRule();
+        String bank = r.bankDataSource() == null ? p.getBankDataSource() : r.bankDataSource();
+        if (!VKYC_RULES.contains(vk)) throw ApiException.unprocessable("BAD_VKYC_RULE", "Video KYC rule must be one of " + VKYC_RULES);
+        if ("ABOVE_AMOUNT".equals(vk) && r.videoKycThreshold() == null)
+            throw ApiException.unprocessable("MISSING_THRESHOLD", "Video KYC threshold is needed for ABOVE_AMOUNT");
+        if (!BANK_SOURCES.contains(bank)) throw ApiException.unprocessable("BAD_BANK_SOURCE", "Bank data source must be one of " + BANK_SOURCES);
+        if (r.autoSanctionLimit() != null && (r.autoSanctionLimit().signum() <= 0 || r.autoSanctionLimit().compareTo(r.maxAmount()) > 0))
+            throw ApiException.unprocessable("BAD_AUTO_SANCTION", "Auto-sanction limit must be positive and not above the product maximum");
+        String docs = r.requiredDocs().replace(" ", "");
+        if ("STATEMENT_ONLY".equals(bank) && !java.util.Arrays.asList(docs.split("[,|]")).contains("BANK_STATEMENT")) docs = docs + ",BANK_STATEMENT";
+        p.setRequiredDocs(docs);
+        p.setVideoKycRule(vk);
+        p.setVideoKycThreshold(r.videoKycThreshold());
+        p.setBankDataSource(bank);
+        p.setAutoSanctionLimit(r.autoSanctionLimit());
         p.setUpdatedAt(Instant.now());
     }
 }

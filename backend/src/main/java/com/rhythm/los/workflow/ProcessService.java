@@ -23,8 +23,11 @@ public class ProcessService {
     private final DataFetchService data;
     private final DocumentService docs;
     private final DecisionService decisions;
+    private final com.rhythm.los.sanction.SanctionService sanctions;
 
-    public ProcessService(ApplicationService apps, DataFetchService data, DocumentService docs, DecisionService decisions) {
+    public ProcessService(ApplicationService apps, DataFetchService data, DocumentService docs, DecisionService decisions,
+                          com.rhythm.los.sanction.SanctionService sanctions) {
+        this.sanctions = sanctions;
         this.apps = apps;
         this.data = data;
         this.docs = docs;
@@ -71,6 +74,7 @@ public class ProcessService {
             var d = decisions.run(appId, by);
             log.add(new StepLog("Decision engine", d.getDecision() + " · band " + d.getRiskBand() +
                     (d.getDelegationLevel() == null ? "" : " · routed to " + d.getDelegationLevel())));
+            sanctions.autoSanction(appId).ifPresent(s -> log.add(new StepLog("Sanction", "Auto-sanctioned (product rule): ₹" + s.getAmount().toPlainString())));
         } else if (!blockers.isEmpty()) {
             log.add(new StepLog("Decision engine", "Waiting: " + String.join("; ", blockers)));
         }

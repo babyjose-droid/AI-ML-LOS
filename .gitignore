@@ -17,3 +17,4 @@ __pycache__/
 *.pyc
 e2e/screens/
 ai/models/*.onnx
+web/tsconfig.tsbuildinfo

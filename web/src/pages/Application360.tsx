@@ -19,7 +19,7 @@ const DIALOGS: Record<string, Dialog> = {
   sanction: { kind: 'sanction', title: 'Sanction', fields: ['amount', 'note'], hint: 'Leave the amount empty to sanction the recommended amount. A reason is required for a referred case or a higher amount.' },
   decline: { kind: 'decline', title: 'Decline', fields: ['note'] },
   escalate: { kind: 'escalate', title: 'Escalate to next level', fields: ['note'] },
-  acceptKfs: { kind: 'acceptKfs', title: 'Borrower accepts the Key Fact Statement', fields: ['otp'], hint: 'In this build the OTP is 123456. Phase 4 sends it to the borrower by SMS.' },
+  acceptKfs: { kind: 'acceptKfs', title: 'Borrower accepts the Key Fact Statement', fields: ['otp'], hint: 'In this build the OTP is 123456. The integrations phase sends it to the borrower by SMS.' },
 }
 
 const ACTION_LABEL: Record<string, string> = {

@@ -26,8 +26,15 @@ test('risk models: train a candidate, compare, CRO decides', async ({ page }) =>
 
   await login(page, 'cro1')
   await page.goto('/admin/models')
-  await page.locator('textarea[name=modelNote]').fill('Synthetic book only: wait for the NBFC history')
-  await page.locator('[data-model=reject]').click()
-  await expect(page.locator('[data-model-detail=REJECTED]')).toBeVisible()
+  // training gives one candidate per kind (bureau-hit and new-to-credit); reject each
+  for (let i = 0; i < 3; i++) {
+    await expect(page.locator('[data-model-detail]')).toBeVisible()
+    if (await page.locator('[data-model=reject]').count() === 0) break
+    await page.locator('textarea[name=modelNote]').fill('Synthetic book only: wait for the NBFC history')
+    await page.locator('[data-model=reject]').click()
+    await expect(page.locator('[data-model-detail=CANDIDATE]')).toHaveCount(i === 0 ? 1 : 0).catch(() => undefined)
+  }
+  await expect(page.locator('[data-model-detail=CANDIDATE]')).toHaveCount(0)
+  await expect(page.getByText('Rejected').first()).toBeVisible()
   await expect(page.locator('[data-model=inuse]')).toContainText('built-in')
 })

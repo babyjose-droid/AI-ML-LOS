@@ -19,8 +19,11 @@ public class MyWorkService {
     private final LoanApplicationRepository apps;
     private final IntegrationLogRepository logs;
     private final com.rhythm.los.vkyc.VkycSessionRepository vkyc;
+    private final com.rhythm.los.policy.PolicyRepository policies;
 
-    public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc) {
+    public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc,
+                         com.rhythm.los.policy.PolicyRepository policies) {
+        this.policies = policies;
         this.apps = apps;
         this.logs = logs;
         this.vkyc = vkyc;
@@ -63,6 +66,14 @@ public class MyWorkService {
                 }
                 default -> { }
             }
+        }
+        for (var pv : policies.findAllByOrderByIdDesc()) {
+            if (r == Role.CRO && "PENDING_APPROVAL".equals(pv.getStatus()) && !u.username().equals(pv.getCreatedBy()))
+                out.add(0, new Task(null, pv.getVersion(), null, null, 0, "Credit policy " + pv.getVersion() + " waiting for your approval", "policy",
+                        Duration.between(pv.getSubmittedAt(), Instant.now()).toHours(), 48));
+            if ((r == Role.CREDIT_MANAGER || r == Role.CRO || r == Role.ADMIN) && "DRAFT".equals(pv.getStatus()) && u.username().equals(pv.getCreatedBy()))
+                out.add(0, new Task(null, pv.getVersion(), null, null, 0, "Credit policy draft " + pv.getVersion() + ": simulate and send for approval", "policy",
+                        Duration.between(pv.getCreatedAt(), Instant.now()).toHours(), 72));
         }
         if (r == Role.ADMIN || r == Role.OPERATIONS) {
             for (var s : vkyc.findByStatusInOrderByIdAsc(List.of("JOINED", "COMPLETED"))) {

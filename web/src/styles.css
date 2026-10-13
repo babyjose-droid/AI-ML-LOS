@@ -145,3 +145,10 @@ label.check input { width: auto; margin-top: 3px; }
 .vkyc-customer { padding: 0 16px; }
 .btn.ok { border-color: var(--ok); }
 .bad-text { color: var(--bad); }
+
+/* policy studio */
+.policy-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 960px) { .policy-layout { grid-template-columns: 1fr; } }
+input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6); }
+.changed-text { color: var(--warn); }
+.ok-text { color: var(--ok); }

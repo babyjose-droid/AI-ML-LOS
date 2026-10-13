@@ -14,7 +14,7 @@ public record CurrentUser(String username, Role role, String name, Long branchId
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
         if (a != null && a.getPrincipal() instanceof Jwt jwt) {
             Object b = jwt.getClaim("branchId");
-            Long branch = b == null ? null : Long.valueOf(b.toString());
+            Long branch = b == null || b.toString().isBlank() ? null : Long.valueOf(b.toString());
             return new CurrentUser(jwt.getSubject(), Role.valueOf(jwt.getClaimAsString("role")),
                     jwt.getClaimAsString("name"), branch);
         }

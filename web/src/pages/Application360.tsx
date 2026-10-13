@@ -175,6 +175,7 @@ function Overview({ v }: { v: AppView }) {
           <dt>Purpose</dt><dd>{a.purpose ?? '—'}</dd><dt>Declared income</dt><dd>{inr(a.declaredMonthlyIncome)} / month</dd>
           <dt>Essential expenses</dt><dd>{inr(a.essentialExpenses)} / month</dd>
           <dt>Disbursement to</dt><dd>{a.bankAccountNo ? `${a.bankAccountNo} · ${a.bankIfsc}` : '—'}</dd>
+          <dt>Channel</dt><dd>{a.channel === 'BORROWER_PORTAL' ? 'Borrower portal (self-service)' : 'Branch / sales'}</dd>
           <dt>Consents</dt><dd>{[a.consentKyc && 'KYC', a.consentAa && 'AA', a.consentBureau && 'Bureau'].filter(Boolean).join(', ') || 'None yet'}</dd>
         </dl>
       </div>

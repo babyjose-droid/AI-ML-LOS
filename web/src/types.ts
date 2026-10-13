@@ -13,7 +13,7 @@ export interface LoanApplication {
   id: number; appNo: string; productCode: string; applicantName: string; pan: string; mobile: string; email?: string
   dob: string; gender?: string; address?: string; city?: string; pincode?: string; segment: string; businessName?: string
   businessVintageYears: number; declaredMonthlyIncome: number; essentialExpenses: number; loanAmount: number; tenureMonths: number
-  purpose?: string; bankAccountNo?: string; bankIfsc?: string; consentBureau: boolean; consentAa: boolean; consentKyc: boolean
+  purpose?: string; bankAccountNo?: string; bankIfsc?: string; consentBureau: boolean; consentAa: boolean; consentKyc: boolean; channel?: string
   rejectionReason?: string; createdBy: string; createdAt: string; updatedAt: string
 }
 

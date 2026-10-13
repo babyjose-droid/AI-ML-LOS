@@ -2,7 +2,9 @@ package com.rhythm.los.org;
 
 /** Internal roles. Sanction levels: CREDIT_OFFICER = L1, CREDIT_MANAGER = L2, CRO = L3. */
 public enum Role {
-    ADMIN, SALES, OPERATIONS, CREDIT_OFFICER, CREDIT_MANAGER, CRO, FRAUD_ANALYST, COMPLIANCE;
+    ADMIN, SALES, OPERATIONS, CREDIT_OFFICER, CREDIT_MANAGER, CRO, FRAUD_ANALYST, COMPLIANCE,
+    /** A customer signed in to the borrower portal with mobile OTP. Never a staff user. */
+    BORROWER;
 
     public int sanctionLevel() {
         return switch (this) {

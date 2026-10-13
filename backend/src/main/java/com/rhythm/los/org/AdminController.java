@@ -70,6 +70,7 @@ public class AdminController {
     public AppUser createUser(@Valid @RequestBody UserRequest r) {
         if (users.existsByUsername(r.username())) throw ApiException.conflict("DUPLICATE_USERNAME", "Username already exists");
         if (r.password() == null) throw ApiException.unprocessable("PASSWORD_REQUIRED", "Password is required for a new user");
+        if (r.role() == com.rhythm.los.org.Role.BORROWER) throw ApiException.unprocessable("NOT_A_STAFF_ROLE", "Borrowers sign in with OTP; they are not staff users");
         if (r.branchId() != null && !branches.existsById(r.branchId())) throw ApiException.notFound("Branch");
         AppUser u = new AppUser();
         u.setUsername(r.username());
@@ -90,6 +91,7 @@ public class AdminController {
     public AppUser updateUser(@PathVariable Long id, @Valid @RequestBody UserRequest r) {
         AppUser u = users.findById(id).orElseThrow(() -> ApiException.notFound("User"));
         if (r.branchId() != null && !branches.existsById(r.branchId())) throw ApiException.notFound("Branch");
+        if (r.role() == com.rhythm.los.org.Role.BORROWER) throw ApiException.unprocessable("NOT_A_STAFF_ROLE", "Borrowers sign in with OTP; they are not staff users");
         String before = u.getRole().name();
         u.setFullName(r.fullName());
         u.setRole(r.role());

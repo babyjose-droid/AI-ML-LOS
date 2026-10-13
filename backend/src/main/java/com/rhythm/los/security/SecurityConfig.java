@@ -47,6 +47,10 @@ public class SecurityConfig {
                     // the same rules are repeated with @PreAuthorize on each controller method
                     // video KYC customer pages: the one-time link token is the credential
                     .requestMatchers("/api/vkyc/c/**").permitAll()
+                    // borrower portal: OTP sign-in is open; everything else needs a borrower token, and borrowers reach nothing else
+                    .requestMatchers(HttpMethod.POST, "/api/borrower/otp", "/api/borrower/otp/verify").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/borrower/products").permitAll()
+                    .requestMatchers("/api/borrower/**").hasRole("BORROWER")
                     .requestMatchers(HttpMethod.POST, "/api/vkyc/**", "/api/applications/*/vkyc").hasAnyRole("OPERATIONS", "ADMIN")
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/audit/**", "/api/audit").hasAnyRole("ADMIN", "COMPLIANCE", "CRO", "CREDIT_MANAGER")
@@ -63,7 +67,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/applications", "/api/applications/*/submit", "/api/applications/*/withdraw",
                             "/api/applications/*/documents", "/api/applications/*/kfs/**").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
                     .requestMatchers(HttpMethod.PUT, "/api/applications/*").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
-                    .requestMatchers("/api/**").authenticated()
+                    .requestMatchers("/api/**").hasAnyRole("ADMIN", "SALES", "OPERATIONS", "CREDIT_OFFICER", "CREDIT_MANAGER", "CRO", "FRAUD_ANALYST", "COMPLIANCE")
                     .anyRequest().permitAll())
             .exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) ->
                     json(res, 403, "FORBIDDEN", "Your role is not allowed to do this")))

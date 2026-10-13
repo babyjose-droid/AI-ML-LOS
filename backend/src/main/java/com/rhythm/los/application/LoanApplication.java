@@ -21,6 +21,7 @@ public class LoanApplication {
     private Long branchId;
     @Column(name = "created_by")
     private String createdBy;
+    private String channel = "BRANCH";
     @Column(name = "applicant_name")
     private String applicantName;
     private String pan;
@@ -129,6 +130,8 @@ public class LoanApplication {
     public String getPan() { return pan; }
     public void setPan(String v) { this.pan = v; }
     public String getMobile() { return mobile; }
+    public String getChannel() { return channel; }
+    public void setChannel(String v) { this.channel = v; }
     public void setMobile(String v) { this.mobile = v; }
     public String getEmail() { return email; }
     public void setEmail(String v) { this.email = v; }

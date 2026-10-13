@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 
 public interface LoanApplicationRepository extends JpaRepository<LoanApplication, Long> {
+    java.util.List<LoanApplication> findByMobileOrderByIdDesc(String mobile);
     List<LoanApplication> findAllByOrderByIdDesc();
 
     @Query("select count(a) from LoanApplication a where a.pan = :pan and a.id <> :id and a.appState not in ('REJECTED','WITHDRAWN','DISBURSED')")

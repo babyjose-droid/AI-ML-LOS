@@ -66,7 +66,7 @@ public class ScreensService {
 
     /** Each open application in the column of its current stage, with SLA and breach. */
     public Map<String, Object> board(CurrentUser u, String product) {
-        Map<String, List<AppStage>> byApp = new HashMap<>();
+        Map<Long, List<AppStage>> byApp = new HashMap<>();
         for (AppStage s : stages.findByStatusIn(OPEN)) byApp.computeIfAbsent(s.getApplicationId(), k -> new ArrayList<>()).add(s);
         Map<String, List<Map<String, Object>>> cols = new LinkedHashMap<>();
         Map<String, String> names = new LinkedHashMap<>();

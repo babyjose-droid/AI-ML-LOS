@@ -77,6 +77,9 @@ public class WorkflowService {
 
     private void doRefresh(LoanApplication a) {
         List<Stage> stages = defs.stages(a);
+        // one request at a time per application: take the application's row lock before touching its stages, the same
+        // lock any state change takes, so two concurrent requests queue instead of deadlocking
+        jdbc.queryForList("select id from loan_application where id = ? for update", a.getId());
         // create missing rows first; two requests on the same application at once must not both insert
         for (Stage s : stages)
             jdbc.update("insert into app_stage (application_id, stage_key, status) values (?, ?, 'PENDING') on conflict (application_id, stage_key) do nothing",

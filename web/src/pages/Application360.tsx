@@ -4,9 +4,10 @@ import { api } from '../api'
 import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
 import { inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
-import type { AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
+import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
+import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Workflow', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice')[]; choices?: [string, string][]; hint?: string }
@@ -38,6 +39,7 @@ export default function Application360() {
   const [busy, setBusy] = useState(false)
   const [rev, setRev] = useState(0)
   const view = useLoad(() => api.get<AppView>('/api/applications/' + id), [id, rev])
+  const stages = useLoad(() => api.get<AppStages>('/api/applications/' + id + '/stages'), [id, rev])
   const refresh = () => setRev(r => r + 1)
 
   async function run(action: string, body?: Record<string, unknown>) {
@@ -98,10 +100,12 @@ export default function Application360() {
       <div className="layout360">
         <div style={{ minWidth: 0 }}>
           <div className="panel"><StateBoard states={v.states} /></div>
+          {stages.data && <StageStrip data={stages.data} onOpen={() => setTab('Workflow')} />}
           <div className="tabs" role="tablist">
             {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
           </div>
           {tab === 'Overview' && <Overview v={v} />}
+          {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}
           {tab === 'Video KYC' && <VideoKycTab id={id!} rev={rev} canRun={v.actions.includes('videoKyc')} onChange={refresh} />}

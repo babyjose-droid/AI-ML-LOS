@@ -2,9 +2,11 @@ package com.rhythm.los.application;
 
 import com.rhythm.los.audit.AuditService;
 import com.rhythm.los.common.ApiException;
+import com.rhythm.los.flow.WorkflowDefinitions;
 import com.rhythm.los.product.Product;
 import com.rhythm.los.product.ProductRepository;
 import com.rhythm.los.security.CurrentUser;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,13 +20,17 @@ public class ApplicationService {
     private final StateHistoryRepository history;
     private final ProductRepository products;
     private final AuditService audit;
+    private final WorkflowDefinitions workflows;
+    private final ApplicationEventPublisher events;
 
     public ApplicationService(LoanApplicationRepository apps, StateHistoryRepository history,
-                              ProductRepository products, AuditService audit) {
+                              ProductRepository products, AuditService audit, WorkflowDefinitions workflows, ApplicationEventPublisher events) {
         this.apps = apps;
         this.history = history;
         this.products = products;
         this.audit = audit;
+        this.workflows = workflows;
+        this.events = events;
     }
 
     public LoanApplication get(Long id) {
@@ -47,6 +53,7 @@ public class ApplicationService {
         apps.save(a);
         history.save(new StateHistory(a.getId(), d, from, to, event, by.username(), note));
         audit.record(by, event, "APPLICATION", a.getAppNo(), a.getId(), d + ": " + from + " -> " + to + (note == null ? "" : " · " + note));
+        events.publishEvent(new ApplicationChanged(a.getId()));
     }
 
     @Transactional
@@ -58,15 +65,18 @@ public class ApplicationService {
         apply(a, r, p);
         a.setCreatedBy(by.username());
         a.setBranchId(by.branchId());
+        workflows.published(p.getCode()).ifPresent(w -> a.setWorkflowVersion(w.getVersion()));
         if (apps.countActiveByPanExcluding(a.getPan(), -1L) > 0) {
             throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + a.getPan());
         }
-        a = apps.save(a);
-        a.setAppNo(String.format("APP-%06d", 300000 + a.getId()));
-        a = apps.save(a);
-        history.save(new StateHistory(a.getId(), Domain.APP, "-", "DRAFT", "application.created", by.username(), p.getName()));
-        audit.record(by, "application.created", "APPLICATION", a.getAppNo(), a.getId(), p.getCode() + " · ₹" + a.getLoanAmount());
-        return a;
+        LoanApplication saved = apps.save(a);
+        saved.setAppNo(String.format("APP-%06d", 300000 + saved.getId()));
+        saved = apps.save(saved);
+        history.save(new StateHistory(saved.getId(), Domain.APP, "-", "DRAFT", "application.created", by.username(), p.getName()));
+        audit.record(by, "application.created", "APPLICATION", saved.getAppNo(), saved.getId(), p.getCode() + " · ₹" + saved.getLoanAmount()
+                + (saved.getWorkflowVersion() == null ? "" : " · workflow v" + saved.getWorkflowVersion()));
+        events.publishEvent(new ApplicationChanged(saved.getId()));
+        return saved;
     }
 
     @Transactional
@@ -93,9 +103,11 @@ public class ApplicationService {
         }
         Product p = product(a);
         transition(a, Domain.APP, "SUBMITTED", "application.submitted", by, null);
-        boolean field = p.fieldVisitNeeded(a.getLoanAmount().doubleValue());
+        boolean existing = apps.countDisbursedByPanExcluding(a.getPan(), a.getId()) > 0;
+        boolean field = p.fieldVisitNeeded(a.getLoanAmount().doubleValue()) && workflows.fieldStageApplies(a, existing);
         transition(a, Domain.FIELD, field ? "REQUIRED" : "NOT_REQUIRED", "field.rule_evaluated", CurrentUser.SYSTEM,
-                "Rule " + p.getFieldVisitRule() + (p.getFieldVisitThreshold() != null ? " ₹" + p.getFieldVisitThreshold() : ""));
+                "Rule " + p.getFieldVisitRule() + (p.getFieldVisitThreshold() != null ? " ₹" + p.getFieldVisitThreshold() : "")
+                        + (p.fieldVisitNeeded(a.getLoanAmount().doubleValue()) && !field ? " · skipped by workflow rule" : ""));
         return a;
     }
 

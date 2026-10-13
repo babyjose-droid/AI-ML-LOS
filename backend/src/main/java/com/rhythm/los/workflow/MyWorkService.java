@@ -20,9 +20,14 @@ public class MyWorkService {
     private final IntegrationLogRepository logs;
     private final com.rhythm.los.vkyc.VkycSessionRepository vkyc;
     private final com.rhythm.los.policy.PolicyRepository policies;
+    private final com.rhythm.los.flow.WorkflowService workflow;
+    private final com.rhythm.los.flow.WorkflowDesignService design;
 
     public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc,
-                         com.rhythm.los.policy.PolicyRepository policies) {
+                         com.rhythm.los.policy.PolicyRepository policies, com.rhythm.los.flow.WorkflowService workflow,
+                         com.rhythm.los.flow.WorkflowDesignService design) {
+        this.workflow = workflow;
+        this.design = design;
         this.policies = policies;
         this.apps = apps;
         this.logs = logs;
@@ -61,11 +66,24 @@ public class MyWorkService {
                     if (r == Role.CREDIT_OFFICER && "REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st))
                         add(out, a, "Field visit required", "fieldVisit", 48);
                 }
+                case FIELD_OFFICER -> {
+                    if ("REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st)) add(out, a, "Field visit required", "fieldVisit", 48);
+                }
                 case FRAUD_ANALYST -> {
                     if ("REVIEW".equals(a.getFraudState())) add(out, a, "Fraud referral: investigate", "fraudDisposition", 24);
                 }
                 default -> { }
             }
+        }
+        for (var t : workflow.tasks(u)) {
+            LoanApplication a = (LoanApplication) t.get("application");
+            out.add(0, new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                    (String) t.get("task"), "stage", (Long) t.get("ageHours"), (Integer) t.get("slaHours")));
+        }
+        if (r == Role.CRO) for (var wv : design.pending()) {
+            if (u.username().equals(wv.getCreatedBy())) continue;
+            out.add(0, new Task(null, wv.getProductCode() + " v" + wv.getVersion(), null, null, 0, "Workflow " + wv.getProductCode() + " v" + wv.getVersion() + " waiting for your approval",
+                    "workflow", Duration.between(wv.getSubmittedAt(), Instant.now()).toHours(), 48));
         }
         for (var pv : policies.findAllByOrderByIdDesc()) {
             if (r == Role.CRO && "PENDING_APPROVAL".equals(pv.getStatus()) && !u.username().equals(pv.getCreatedBy()))

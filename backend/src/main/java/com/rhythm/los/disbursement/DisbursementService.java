@@ -35,9 +35,12 @@ public class DisbursementService {
     private final IntegrationGateway gateway;
     private final Vendors.BankVerification bank;
     private final Vendors.PayoutProvider payout;
+    private final com.rhythm.los.flow.WorkflowService workflow;
 
     public DisbursementService(ApplicationService apps, SanctionService sanctions, DisbursementRepository repo,
-                               IntegrationGateway gateway, Vendors.BankVerification bank, Vendors.PayoutProvider payout) {
+                               IntegrationGateway gateway, Vendors.BankVerification bank, Vendors.PayoutProvider payout,
+                               com.rhythm.los.flow.WorkflowService workflow) {
+        this.workflow = workflow;
         this.apps = apps;
         this.sanctions = sanctions;
         this.repo = repo;
@@ -52,6 +55,7 @@ public class DisbursementService {
     public Disbursement disburse(Long appId, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         if (!"READY".equals(a.getDisbState())) throw ApiException.conflict("NOT_READY", "Disbursement is " + a.getDisbState());
+        workflow.requireNothingPendingBefore(a, "disb");
         Kfs kfs = sanctions.kfs(appId);
 
         Disbursement d = new Disbursement();

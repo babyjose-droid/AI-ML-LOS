@@ -37,7 +37,7 @@ public final class ActionPolicy {
         if (active && "REVIEW".equals(a.getKycState()) && ops) out.add("resolveKyc");
         if (ApplicationService.isOpen(a) && !"FAILED".equals(a.getKycState()) && ops) out.add("videoKyc");
         if (ApplicationService.isOpen(a) && "IN_REVIEW".equals(a.getDocsState()) && ops) out.add("reviewDocuments");
-        if (active && "REQUIRED".equals(a.getFieldState()) && is(r, OPERATIONS, CREDIT_OFFICER, ADMIN)) out.add("fieldVisit");
+        if (active && "REQUIRED".equals(a.getFieldState()) && is(r, OPERATIONS, CREDIT_OFFICER, FIELD_OFFICER, ADMIN)) out.add("fieldVisit");
         if ("REVIEW".equals(a.getFraudState()) && is(r, FRAUD_ANALYST)) out.add("fraudDisposition");
         if (a.getSanctionState().startsWith("PENDING_")) {
             String lvl = a.getSanctionState().substring(8);

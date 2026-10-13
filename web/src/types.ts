@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'SALES' | 'OPERATIONS' | 'CREDIT_OFFICER' | 'CREDIT_MANAGER' | 'CRO' | 'FRAUD_ANALYST' | 'COMPLIANCE'
+export type Role = 'ADMIN' | 'SALES' | 'OPERATIONS' | 'CREDIT_OFFICER' | 'CREDIT_MANAGER' | 'CRO' | 'FRAUD_ANALYST' | 'COMPLIANCE' | 'FIELD_OFFICER'
 
 export interface User { username: string; name: string; role: Role; branchId: number; sanctionLevel: number }
 
@@ -81,3 +81,16 @@ export interface Task { applicationId?: number; appNo?: string; applicant?: stri
 export interface AuditEvent { id: number; actor: string; actorRole?: string; action: string; entityType: string; entityId?: string; applicationId?: number; details?: string; createdAt: string }
 export interface Branch { id: number; code: string; name: string; level: string; parentId?: number; city?: string; active: boolean }
 export interface AppUser { id: number; username: string; fullName: string; role: Role; branchId?: number; email?: string; mobile?: string; active: boolean }
+
+// Workflow designer
+export interface Stage { key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; integrations: string[] }
+export interface LibraryStage { key: string; name: string; role: string; sla: number; mode: string; modes: string[]; kind: 'STATE' | 'RECORDED'; integrations: string[]; dataFields: string[]; help: string; mandatory: boolean }
+export interface WorkflowSummary { id: number; version: number; status: string; stageCount: number; createdBy: string; createdAt: string; approvedBy?: string; approvedAt?: string; notes?: string }
+export interface ProductWorkflows { productCode: string; productName: string; segment: string; published?: WorkflowSummary; versions: WorkflowSummary[] }
+export interface WorkflowDetail extends WorkflowSummary { productCode: string; stages: Stage[]; issues: string[]; changes?: string[]; submittedAt?: string; decisionNote?: string }
+export interface AppStage {
+  key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; kind: 'STATE' | 'RECORDED'; help: string; dataFields: string[]
+  status: string; startedAt?: string; dueAt?: string; completedAt?: string; completedBy?: string; outcome?: string; note?: string; data?: Record<string, unknown>
+  skipReason?: string; breachedAt?: string; breachAction?: string; escalatedTo?: string; reviewedBy?: string; canComplete: boolean; canReview: boolean
+}
+export interface AppStages { product: string; version?: number; stages: AppStage[] }

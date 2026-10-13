@@ -39,9 +39,13 @@ public class DecisionService {
     private final PolicyService policy;
     private final DecisionRecordRepository decisions;
 
+    private final com.rhythm.los.flow.WorkflowService workflow;
+
     public DecisionService(ApplicationService apps, LoanApplicationRepository appRepo, DataSnapshotRepository snapshots,
                            DocumentService documents, PolicyService policy, DecisionRecordRepository decisions,
-                           com.rhythm.los.vkyc.VkycSessionRepository vkyc, com.rhythm.los.model.ModelService models) {
+                           com.rhythm.los.vkyc.VkycSessionRepository vkyc, com.rhythm.los.model.ModelService models,
+                           com.rhythm.los.flow.WorkflowService workflow) {
+        this.workflow = workflow;
         this.models = models;
         this.vkyc = vkyc;
         this.apps = apps;
@@ -69,6 +73,7 @@ public class DecisionService {
                 && vkyc.findByApplicationIdOrderByIdDesc(a.getId()).stream().noneMatch(s -> "APPROVED".equals(s.getStatus())))
             b.add("Video KYC required for this product: not yet approved");
         if (Set.of("SANCTIONED", "KFS_ACCEPTED", "DECLINED").contains(a.getSanctionState())) b.add("Already " + a.getSanctionState());
+        b.addAll(workflow.pendingBefore(a, "uw"));
         return b;
     }
 

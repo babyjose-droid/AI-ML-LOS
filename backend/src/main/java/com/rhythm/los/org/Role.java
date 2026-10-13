@@ -3,6 +3,8 @@ package com.rhythm.los.org;
 /** Internal roles. Sanction levels: CREDIT_OFFICER = L1, CREDIT_MANAGER = L2, CRO = L3. */
 public enum Role {
     ADMIN, SALES, OPERATIONS, CREDIT_OFFICER, CREDIT_MANAGER, CRO, FRAUD_ANALYST, COMPLIANCE,
+    /** Field visits, group formation (CGT) and vehicle valuation. */
+    FIELD_OFFICER,
     /** A customer signed in to the borrower portal with mobile OTP. Never a staff user. */
     BORROWER;
 

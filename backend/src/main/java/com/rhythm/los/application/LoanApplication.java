@@ -22,6 +22,7 @@ public class LoanApplication {
     @Column(name = "created_by")
     private String createdBy;
     private String channel = "BRANCH";
+    @Column(name = "workflow_version") private Integer workflowVersion;
     @Column(name = "applicant_name")
     private String applicantName;
     private String pan;
@@ -132,6 +133,8 @@ public class LoanApplication {
     public String getMobile() { return mobile; }
     public String getChannel() { return channel; }
     public void setChannel(String v) { this.channel = v; }
+    public Integer getWorkflowVersion() { return workflowVersion; }
+    public void setWorkflowVersion(Integer v) { this.workflowVersion = v; }
     public void setMobile(String v) { this.mobile = v; }
     public String getEmail() { return email; }
     public void setEmail(String v) { this.email = v; }

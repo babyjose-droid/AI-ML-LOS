@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Fragment, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
@@ -5,7 +6,7 @@ import { ErrorBox, Head, Modal, Pill, Table, useLoad } from '../components/ui'
 import { inr } from '../format'
 import type { AppUser, Branch, Product, Role } from '../types'
 
-const ROLES: Role[] = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE']
+const ROLES: Role[] = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER']
 
 export function Branches() {
   const { user } = useAuth()
@@ -132,7 +133,8 @@ export function Products() {
           `${x.rateMin}–${x.rateMax}%`, `${x.processingFeePct}%`,
           x.fieldVisitRule === 'ABOVE_AMOUNT' ? `Above ${inr(x.fieldVisitThreshold)}` : x.fieldVisitRule.toLowerCase(), <span className="small">{x.requiredDocs.replace(/,/g, ', ').replace(/\|/g, ' or ')}</span>,
           <span className="small">{VKYC_LABEL[x.videoKycRule] ?? x.videoKycRule}{x.videoKycRule === 'ABOVE_AMOUNT' ? ` ${inr(x.videoKycThreshold)}` : ''} · {BANK_LABEL[x.bankDataSource] ?? x.bankDataSource}
-            {x.autoSanctionLimit ? ` · auto-sanction up to ${inr(x.autoSanctionLimit)}` : ''}</span>,
+            {x.autoSanctionLimit ? ` · auto-sanction up to ${inr(x.autoSanctionLimit)}` : ''}
+            {' · '}<Link to={`/admin/workflows?product=${x.code}`} data-product-workflow={x.code}>stages</Link></span>,
           <Pill s={x.status === 'LIVE' ? 'SUCCESS' : 'WITHDRAWN'} />, user?.role === 'ADMIN' ? <button className="btn sm" onClick={() => setEdit(x)}>Edit</button> : '',
         ])} />
       </div>

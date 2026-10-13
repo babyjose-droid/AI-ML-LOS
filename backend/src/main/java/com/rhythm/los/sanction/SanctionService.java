@@ -26,10 +26,12 @@ public class SanctionService {
     private final AuditService audit;
     private final String mockOtp;
     private final com.rhythm.los.document.DocumentService documents;
+    private final com.rhythm.los.flow.WorkflowService workflow;
 
     public SanctionService(ApplicationService apps, DecisionService decisions, SanctionRecordRepository records,
                            AuditService audit, @Value("${rhythm.kfs.otp}") String mockOtp,
-                           com.rhythm.los.document.DocumentService documents) {
+                           com.rhythm.los.document.DocumentService documents, com.rhythm.los.flow.WorkflowService workflow) {
+        this.workflow = workflow;
         this.documents = documents;
         this.apps = apps;
         this.decisions = decisions;
@@ -57,6 +59,7 @@ public class SanctionService {
         String level = pendingLevel(a);
         checkAuthority(level, by);
         if (!"CLEAR".equals(a.getFraudState())) throw ApiException.conflict("FRAUD_NOT_CLEARED", "Fraud review must be cleared before sanction");
+        workflow.requireNothingPendingBefore(a, "sanction");
         DecisionRecord d = decisions.latest(appId).orElseThrow(() -> ApiException.conflict("NO_DECISION", "Run the decision engine first"));
         Product p = apps.product(a);
 
@@ -109,7 +112,7 @@ public class SanctionService {
                 && !"REQUIRED".equals(a.getFieldState())
                 && d.getRecommendedAmount().compareTo(a.getLoanAmount()) == 0
                 && a.getLoanAmount().compareTo(p.getAutoSanctionLimit()) <= 0;
-        if (!clean) return java.util.Optional.empty();
+        if (!clean || !workflow.pendingBefore(a, "sanction").isEmpty()) return java.util.Optional.empty();
         CurrentUser sys = CurrentUser.SYSTEM;
         Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), a.getLoanAmount().doubleValue(),
                 d.getRate().doubleValue(), a.getTenureMonths(), p.getProcessingFeePct().doubleValue());

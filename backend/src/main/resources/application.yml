@@ -57,6 +57,10 @@ rhythm:
   kfs:
     otp: ${KFS_MOCK_OTP:123456}
   demo-data: ${DEMO_DATA:true}
+  workflow:
+    # how often stage SLAs are checked; a breached stage gets its on-failure action (queue, escalate, reject, pause)
+    sla-check-ms: ${WORKFLOW_SLA_CHECK_MS:60000}
+    sla-initial-delay-ms: ${WORKFLOW_SLA_INITIAL_DELAY_MS:60000}
   document-ai:
     # URL of the AI document service. Empty = filename-based mock reader and mock KYC (used by unit tests).
     url: ${DOCUMENT_AI_URL:}

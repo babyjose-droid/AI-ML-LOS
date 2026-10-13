@@ -210,7 +210,7 @@ public class ApplicationController {
     public LoanApplication verifyDocs(@PathVariable Long id) { return docs.verify(id, CurrentUser.get()); }
 
     @PostMapping("/{id}/field-visit")
-    @PreAuthorize("hasAnyRole('OPERATIONS','CREDIT_OFFICER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATIONS','CREDIT_OFFICER','FIELD_OFFICER','ADMIN')")
     @Transactional
     public LoanApplication fieldVisit(@PathVariable Long id, @RequestBody NoteRequest r) {
         if (r.note() == null || r.note().trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Write field visit notes of at least 10 characters");

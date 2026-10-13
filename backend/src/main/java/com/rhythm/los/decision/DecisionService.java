@@ -35,12 +35,14 @@ public class DecisionService {
     private final DataSnapshotRepository snapshots;
     private final DocumentService documents;
     private final com.rhythm.los.vkyc.VkycSessionRepository vkyc;
+    private final com.rhythm.los.model.ModelService models;
     private final PolicyService policy;
     private final DecisionRecordRepository decisions;
 
     public DecisionService(ApplicationService apps, LoanApplicationRepository appRepo, DataSnapshotRepository snapshots,
                            DocumentService documents, PolicyService policy, DecisionRecordRepository decisions,
-                           com.rhythm.los.vkyc.VkycSessionRepository vkyc) {
+                           com.rhythm.los.vkyc.VkycSessionRepository vkyc, com.rhythm.los.model.ModelService models) {
+        this.models = models;
         this.vkyc = vkyc;
         this.apps = apps;
         this.appRepo = appRepo;
@@ -79,7 +81,7 @@ public class DecisionService {
         Product p = apps.product(a);
         PolicyParams pol = policy.live();
         EngineInput in = buildInput(a, p, pol);
-        EngineResult r = UnderwritingEngine.underwrite(in, pol);
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion().orElse(null));
         Delegation.Level lvl = Delegation.of(r);
 
         DecisionRecord d = new DecisionRecord();

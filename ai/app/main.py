@@ -100,3 +100,19 @@ async def analyze_vkyc(frames: list[UploadFile] = File(...), id_images: list[Upl
             return None
 
     return vkyc.analyse(fin, ids, read_pan, expected_pan)
+
+
+@app.post("/v1/models/train")
+async def train_model(body: dict):
+    """Fits a PD model on the loan book the LOS sends: {features: [...], rows: [{features: {...}, bad, championPd}], l2?}."""
+    from . import train
+    feats = body.get("features") or []
+    rows = body.get("rows") or []
+    if not feats or not rows:
+        raise HTTPException(422, "features and rows are required")
+    if len(rows) > 200_000:
+        raise HTTPException(413, "Too many rows (max 200,000)")
+    try:
+        return train.train(rows, feats, float(body.get("l2", 1.0)))
+    except ValueError as e:
+        raise HTTPException(422, str(e))

@@ -13,6 +13,7 @@ import Audit from './pages/Audit'
 import { Branches, Users, Products } from './pages/Admin'
 import PolicyStudio from './pages/PolicyStudio'
 import Reports from './pages/Reports'
+import Models from './pages/Models'
 import StateMachinePage from './pages/StateMachine'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
@@ -33,6 +34,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/admin/users', label: 'Users', roles: ['ADMIN'] },
     { to: '/admin/products', label: 'Products' },
     { to: '/admin/policy', label: 'Credit policy studio' },
+    { to: '/admin/models', label: 'Risk models', roles: ['CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
   ]],
 ]
 
@@ -91,6 +93,7 @@ export default function App() {
             <Route path="/admin/users" element={<Users />} />
             <Route path="/admin/products" element={<Products />} />
             <Route path="/admin/policy" element={<PolicyStudio />} />
+            <Route path="/admin/models" element={<Models />} />
             <Route path="*" element={<Navigate to="/my-work" replace />} />
           </Routes>
         </main>

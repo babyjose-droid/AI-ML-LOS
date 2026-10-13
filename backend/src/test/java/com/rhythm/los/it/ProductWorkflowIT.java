@@ -119,7 +119,7 @@ class ProductWorkflowIT {
     void cleanSmallLoanIsAutoSanctionedWhenTheProductAllowsIt() throws Exception {
         String admin = staff("admin"), sales = staff("sales1"), ops = staff("ops1");
         Map<String, Object> pl = product(admin, "PL");
-        pl.put("autoSanctionLimit", 600000);
+        pl.put("autoSanctionLimit", 400000);
         assertThat(call(put("/api/admin/products/PL"), admin, Map.of()).status()).isEqualTo(400);
         Map<String, Object> bad = new java.util.LinkedHashMap<>(pl);
         bad.put("autoSanctionLimit", 9_000_000);

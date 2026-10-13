@@ -16,6 +16,7 @@ const PAGES: [string, string, string[]][] = [
   ['products', '/admin/products', ['admin']],
   ['policy', '/admin/policy', ['admin']],
   ['reports', '/reports', ['cro1']],
+  ['models', '/admin/models', ['cro1']],
 ]
 const TABS = ['Overview', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations']
 

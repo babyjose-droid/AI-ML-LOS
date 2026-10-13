@@ -37,8 +37,11 @@ public class PolicyStudioService {
     private final HistoricalLoanRepository book;
     private final DecisionRecordRepository decisions;
     private final AuditService audit;
+    private final com.rhythm.los.model.ModelService models;
 
-    public PolicyStudioService(PolicyRepository repo, PolicyService policy, HistoricalLoanRepository book, DecisionRecordRepository decisions, AuditService audit) {
+    public PolicyStudioService(PolicyRepository repo, PolicyService policy, HistoricalLoanRepository book, DecisionRecordRepository decisions, AuditService audit,
+                               com.rhythm.los.model.ModelService models) {
+        this.models = models;
         this.repo = repo;
         this.policy = policy;
         this.book = book;
@@ -175,13 +178,14 @@ public class PolicyStudioService {
 
     /** Runs the decision engine with the live and the draft policy on the loan book and on recent applications. */
     public Map<String, Object> simulation(PolicyParams live, PolicyParams draft) {
+        com.rhythm.los.decision.engine.PdModel pd = models.champion().orElse(null);
         Agg hl = new Agg(), hd = new Agg(), rl = new Agg(), rd = new Agg();
         int swapIn = 0, swapInBad = 0, swapOut = 0, swapOutBad = 0;
         Map<String, int[]> ruleHits = new TreeMap<>();
         Map<String, Map<String, Integer>> segments = new TreeMap<>();
         for (HistoricalLoan h : book.findAllByOrderByIdAsc()) {
             EngineInput in = Json.read(h.getInputJson(), EngineInput.class);
-            EngineResult a = UnderwritingEngine.underwrite(in, live), b = UnderwritingEngine.underwrite(in, draft);
+            EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
             hl.add(a, in, live, h.isOutcomeBad());
             hd.add(b, in, draft, h.isOutcomeBad());
             boolean ia = approved(a), ib = approved(b);
@@ -202,7 +206,7 @@ public class PolicyStudioService {
         for (DecisionRecord r : latest.values().stream().sorted(Comparator.comparing(DecisionRecord::getId).reversed()).toList()) {
             EngineInput in;
             try { in = Json.read(r.getInputJson(), EngineInput.class); } catch (Exception e) { continue; }
-            EngineResult a = UnderwritingEngine.underwrite(in, live), b = UnderwritingEngine.underwrite(in, draft);
+            EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
             rl.add(a, in, live, null);
             rd.add(b, in, draft, null);
             if (!a.decision().equals(b.decision()) || Math.abs(a.recAmt() - b.recAmt()) >= 1 || Math.abs(a.rate() - b.rate()) >= 0.01) {

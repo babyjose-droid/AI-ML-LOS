@@ -28,6 +28,11 @@ public final class UnderwritingEngine {
     private UnderwritingEngine() {}
 
     public static EngineResult underwrite(EngineInput a, PolicyParams p) {
+        return underwrite(a, p, null);
+    }
+
+    /** With a trained PD model (the approved champion), its coefficients replace the built-in ones; everything else is the same. */
+    public static EngineResult underwrite(EngineInput a, PolicyParams p, PdModel model) {
         List<EngineResult.Step> steps = new ArrayList<>();
         List<EngineResult.RuleResult> rules = new ArrayList<>();
         Set<String> reasons = new LinkedHashSet<>();
@@ -109,6 +114,15 @@ public final class UnderwritingEngine {
         }
         if ("MICROFINANCE".equalsIgnoreCase(a.segment()) && a.jlg()) {
             c.add(new EngineResult.Contribution("JLG group repayment record", -0.35, null));
+        }
+        if (model != null) {
+            Map<String, Double> fx = Features.of(a);
+            c.clear();
+            for (PdModel.Term t : model.terms()) {
+                Features.Def d = Features.def(t.feature());
+                c.add(new EngineResult.Contribution(d.label(), t.weight() * (fx.getOrDefault(t.feature(), 0.0) - t.mean()), d.reasonCode()));
+            }
+            intercept = model.intercept();
         }
         double z = intercept + c.stream().mapToDouble(EngineResult.Contribution::value).sum();
         double pd = sigmoid(z);
@@ -193,7 +207,7 @@ public final class UnderwritingEngine {
         return new EngineResult(decision, pd, score, band, fraud, fraudStatus, kycStatus, idScore, income, stab, negMonths,
                 existing, surplus, foirEx, foirPost, maxEmi, reqEmi, maxLoan, recAmt, recEmi, rate, lgd,
                 round(pd * lgd * recAmt), steps, rules, c, intercept, conditions, narrative.toString().trim(),
-                new ArrayList<>(reasons), thick ? MODEL_THICK : MODEL_NTC, p.version());
+                new ArrayList<>(reasons), model != null ? model.label() : thick ? MODEL_THICK : MODEL_NTC, p.version());
     }
 
     private static final class RuleBook {

@@ -22,10 +22,12 @@ public class MyWorkService {
     private final com.rhythm.los.policy.PolicyRepository policies;
     private final com.rhythm.los.flow.WorkflowService workflow;
     private final com.rhythm.los.flow.WorkflowDesignService design;
+    private final com.rhythm.los.flow.StageAccess access;
 
     public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc,
                          com.rhythm.los.policy.PolicyRepository policies, com.rhythm.los.flow.WorkflowService workflow,
-                         com.rhythm.los.flow.WorkflowDesignService design) {
+                         com.rhythm.los.flow.WorkflowDesignService design, com.rhythm.los.flow.StageAccess access) {
+        this.access = access;
         this.workflow = workflow;
         this.design = design;
         this.policies = policies;
@@ -49,30 +51,27 @@ public class MyWorkService {
                     if ("SANCTIONED".equals(a.getSanctionState())) add(out, a, "Get the borrower to accept the KFS", "acceptKfs", 48);
                     if ("DEFICIENT".equals(a.getDocsState())) add(out, a, "Collect missing or clearer documents", "uploadDocument", 24);
                 }
-                case OPERATIONS, ADMIN -> {
-                    if ("SUBMITTED".equals(st)) add(out, a, "Run automated checks", "process", 4);
-                    if ("REVIEW".equals(a.getKycState())) add(out, a, "KYC review: do video KYC and resolve", "resolveKyc", 8);
-                    if (List.of("FAILED", "PARTIAL").contains(a.getDataState())) add(out, a, "Data fetch failed: retry from integration log", "fetchData", 4);
-                    if ("DEFICIENT".equals(a.getDocsState())) add(out, a, "Documents deficient: follow up", "verifyDocuments", 24);
-                    if ("IN_REVIEW".equals(a.getDocsState())) add(out, a, "Document review: AI was not sure", "reviewDocuments", 4);
-                    if ("REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st)) add(out, a, "Field visit required", "fieldVisit", 48);
-                    if ("READY".equals(a.getDisbState())) add(out, a, "Disburse", "disburse", 8);
-                    if ("FAILED".equals(a.getDisbState())) add(out, a, "Disbursement failed: fix and retry", "retryDisbursement", 4);
-                }
                 case CREDIT_OFFICER, CREDIT_MANAGER, CRO -> {
                     String s = a.getSanctionState();
                     if (s.startsWith("PENDING_") && Delegation.rank(s.substring(8)) == r.sanctionLevel())
                         add(out, a, "Sanction decision (" + s.substring(8) + ")", "sanction", 24);
-                    if (r == Role.CREDIT_OFFICER && "REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st))
-                        add(out, a, "Field visit required", "fieldVisit", 48);
-                }
-                case FIELD_OFFICER -> {
-                    if ("REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st)) add(out, a, "Field visit required", "fieldVisit", 48);
                 }
                 case FRAUD_ANALYST -> {
                     if ("REVIEW".equals(a.getFraudState())) add(out, a, "Fraud referral: investigate", "fraudDisposition", 24);
                 }
                 default -> { }
+            }
+            // processing tasks go to the role the product's workflow assigns to each stage
+            if (List.of("SUBMITTED", "UNDERWRITING").contains(st) || "READY".equals(a.getDisbState()) || "FAILED".equals(a.getDisbState())) {
+                boolean intake = access.canAny(a, u, "kyc", "docs", "uw");
+                if ("SUBMITTED".equals(st) && intake) add(out, a, "Run automated checks", "process", 4);
+                if ("REVIEW".equals(a.getKycState()) && access.can(a, "kyc", u)) add(out, a, "KYC review: do video KYC and resolve", "resolveKyc", 8);
+                if (List.of("FAILED", "PARTIAL").contains(a.getDataState()) && intake) add(out, a, "Data fetch failed: retry from integration log", "fetchData", 4);
+                if ("DEFICIENT".equals(a.getDocsState()) && r != Role.SALES && access.can(a, "docs", u)) add(out, a, "Documents deficient: follow up", "verifyDocuments", 24);
+                if ("IN_REVIEW".equals(a.getDocsState()) && access.can(a, "docs", u)) add(out, a, "Document review: AI was not sure", "reviewDocuments", 4);
+                if ("REQUIRED".equals(a.getFieldState()) && !"SUBMITTED".equals(st) && access.can(a, "field", u)) add(out, a, "Field visit required", "fieldVisit", 48);
+                if ("READY".equals(a.getDisbState()) && access.can(a, "disb", u)) add(out, a, "Disburse", "disburse", 8);
+                if ("FAILED".equals(a.getDisbState()) && access.can(a, "disb", u)) add(out, a, "Disbursement failed: fix and retry", "retryDisbursement", 4);
             }
         }
         for (var t : workflow.tasks(u)) {

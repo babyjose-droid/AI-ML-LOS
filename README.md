@@ -188,6 +188,7 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 
 - Each product has a stage sequence. Per stage: who does it, SLA in hours, mode (automatic, automatic with a person confirming, manual), what happens on failure or SLA breach (send to queue, escalate, reject, pause and notify borrower) and a skip rule such as `segment = SALARIED AND amount <= 5,00,000 AND incomeVerifiedViaAA = true`.
 - Checks before approval: starts with Lead, ends with Disbursement, KYC and Sanction mandatory, KYC before Underwriting before Sanction, valid SLAs and rules.
+- The role on each stage decides who acts: the Run automated checks, KYC, document review, field visit and disbursement buttons, the API permission and the My work task all follow it (an admin can always act; video KYC stays with operations, as RBI V-CIP needs a trained official).
 - Stages a person records (JLG group formation and GRT, vehicle valuation, gold appraisal, legal) hold the decision, sanction and disbursement until done. A failed GRT rejects the application.
 - Every application shows its stages (strip above the tabs, **Workflow** tab). New applications follow the published version; earlier ones keep theirs.
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.

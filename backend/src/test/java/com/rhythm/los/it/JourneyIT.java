@@ -219,13 +219,15 @@ class JourneyIT {
 
     @Test
     void referredCaseNeedsFieldVisitAndReasonedOverrideAtL3() throws Exception {
-        String sales = login("sales1"), ops = login("ops1"), cm = login("cm1"), cro = login("cro1");
+        String sales = login("sales1"), ops = login("ops1"), cm = login("cm1"), cro = login("cro1"), field = login("field1");
         long id = create(sales, app("BL-UNS", "Suresh Yadav", "SURPY1004S", "9811000007", 45, 95000, 600000, 36), "PAN", "AADHAAR", "UDYAM");
         JsonNode steps = ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps");
         assertThat(steps.toString()).contains("Field visit pending");
 
-        assertThat(call(post("/api/applications/" + id + "/field-visit"), ops, Map.of("note", "short")).status()).isEqualTo(422);
-        ok(post("/api/applications/" + id + "/field-visit"), ops, Map.of("note", "Visited depot, three trucks on site"));
+        // the BL-UNS workflow assigns the field visit to the field officer
+        assertThat(call(post("/api/applications/" + id + "/field-visit"), ops, Map.of("note", "Visited depot, three trucks on site")).body().toString()).contains("NOT_YOUR_STAGE");
+        assertThat(call(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "short")).status()).isEqualTo(422);
+        ok(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "Visited depot, three trucks on site"));
         ok(post("/api/applications/" + id + "/process"), ops, null);
         JsonNode st = states(id, ops);
         assertThat(st.get("DECISION").asText()).isEqualTo("REFER");

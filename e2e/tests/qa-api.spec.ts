@@ -63,7 +63,10 @@ test('role matrix: every protected action allows only its roles', async ({ reque
     admin: 'ADMIN', sales1: 'SALES', ops1: 'OPERATIONS', co1: 'CREDIT_OFFICER', cm1: 'CREDIT_MANAGER',
     cro1: 'CRO', fraud1: 'FRAUD_ANALYST', comp1: 'COMPLIANCE',
   }
-  // application 999999 does not exist: an allowed role gets 404 (or a validation error), a forbidden role gets 403
+  // application 999999 does not exist: an allowed role gets 404 (or a validation error), a forbidden role gets 403.
+  // Processing steps are open to every staff role at the door; the product's workflow decides per application
+  // (WorkflowIT covers that), so for a missing application everyone gets 404.
+  const STAGE = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE']
   const matrix: [string, string, string[], unknown?][] = [
     ['GET', '/api/admin/users', ['ADMIN']],
     ['POST', '/api/admin/branches', ['ADMIN'], { code: 'QA', name: 'x', level: 'NOPE' }],
@@ -73,16 +76,16 @@ test('role matrix: every protected action allows only its roles', async ({ reque
     ['POST', '/api/integrations/logs/999999/retry', ['ADMIN', 'OPERATIONS']],
     ['POST', '/api/applications', ['SALES', 'OPERATIONS', 'ADMIN'], {}],
     ['POST', '/api/applications/999999/submit', ['SALES', 'OPERATIONS', 'ADMIN']],
-    ['POST', '/api/applications/999999/process', ['OPERATIONS', 'ADMIN']],
-    ['POST', '/api/applications/999999/kyc/run', ['OPERATIONS', 'ADMIN']],
-    ['POST', '/api/applications/999999/decision/run', ['OPERATIONS', 'ADMIN']],
-    ['POST', '/api/applications/999999/documents/1/review', ['OPERATIONS', 'ADMIN'], { action: 'APPROVE', note: 'x' }],
-    ['POST', '/api/applications/999999/field-visit', ['OPERATIONS', 'CREDIT_OFFICER', 'ADMIN'], { note: 'visited the shop today' }],
+    ['POST', '/api/applications/999999/process', STAGE],
+    ['POST', '/api/applications/999999/kyc/run', STAGE],
+    ['POST', '/api/applications/999999/decision/run', STAGE],
+    ['POST', '/api/applications/999999/documents/1/review', STAGE, { action: 'APPROVE', note: 'x' }],
+    ['POST', '/api/applications/999999/field-visit', STAGE, { note: 'visited the shop today' }],
     ['POST', '/api/applications/999999/fraud/disposition', ['FRAUD_ANALYST'], { clear: true, note: 'checked and cleared' }],
     ['POST', '/api/applications/999999/sanction', ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO'], {}],
     ['POST', '/api/applications/999999/sanction/decline', ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO'], { note: 'x' }],
     ['POST', '/api/applications/999999/kfs/accept', ['SALES', 'OPERATIONS', 'ADMIN'], { otp: '1' }],
-    ['POST', '/api/applications/999999/disburse', ['OPERATIONS', 'ADMIN']],
+    ['POST', '/api/applications/999999/disburse', STAGE],
   ]
   const failures: string[] = []
   for (const [user, role] of Object.entries(roles)) {

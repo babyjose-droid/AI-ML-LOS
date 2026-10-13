@@ -59,11 +59,8 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/applications/*/fraud/**").hasRole("FRAUD_ANALYST")
                     .requestMatchers(HttpMethod.POST, "/api/applications/*/sanction", "/api/applications/*/sanction/**")
                         .hasAnyRole("CREDIT_OFFICER", "CREDIT_MANAGER", "CRO")
-                    .requestMatchers(HttpMethod.POST, "/api/applications/*/field-visit").hasAnyRole("OPERATIONS", "CREDIT_OFFICER", "FIELD_OFFICER", "ADMIN")
-                    .requestMatchers(HttpMethod.POST, "/api/applications/*/process", "/api/applications/*/kyc/**",
-                            "/api/applications/*/data/**", "/api/applications/*/documents/verify", "/api/applications/*/documents/*/review",
-                            "/api/applications/*/decision/**", "/api/applications/*/disburse", "/api/applications/*/disburse/**")
-                        .hasAnyRole("OPERATIONS", "ADMIN")
+                    // processing steps (KYC, documents, data, decision, field visit, disbursement) are open to staff here;
+                    // the controller checks the role the product's workflow assigns to the stage (StageAccess)
                     .requestMatchers(HttpMethod.POST, "/api/applications", "/api/applications/*/submit", "/api/applications/*/withdraw",
                             "/api/applications/*/documents", "/api/applications/*/kfs/**").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
                     .requestMatchers(HttpMethod.PUT, "/api/applications/*").hasAnyRole("SALES", "OPERATIONS", "ADMIN")

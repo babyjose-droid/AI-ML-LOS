@@ -91,6 +91,6 @@ export interface WorkflowDetail extends WorkflowSummary { productCode: string; s
 export interface AppStage {
   key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; kind: 'STATE' | 'RECORDED'; help: string; dataFields: string[]
   status: string; startedAt?: string; dueAt?: string; completedAt?: string; completedBy?: string; outcome?: string; note?: string; data?: Record<string, unknown>
-  skipReason?: string; breachedAt?: string; breachAction?: string; escalatedTo?: string; reviewedBy?: string; canComplete: boolean; canReview: boolean
+  skipReason?: string; breachedAt?: string; breachAction?: string; escalatedTo?: string; reviewedBy?: string; canComplete: boolean; canReview: boolean; assignedToMe?: boolean
 }
 export interface AppStages { product: string; version?: number; stages: AppStage[] }

@@ -3,6 +3,7 @@ package com.rhythm.los.workflow;
 import com.rhythm.los.application.ApplicationService;
 import com.rhythm.los.application.LoanApplication;
 import com.rhythm.los.decision.Delegation;
+import com.rhythm.los.flow.StageAccess;
 import com.rhythm.los.org.Role;
 import com.rhythm.los.security.CurrentUser;
 
@@ -12,11 +13,14 @@ import java.util.Set;
 
 import static com.rhythm.los.org.Role.*;
 
-/** Which actions the current user can take on an application right now. Drives the buttons in the UI. */
+/**
+ * Which actions the current user can take on an application right now. Drives the buttons in the UI. Processing steps
+ * follow the roles the product's workflow assigns to each stage (KYC, documents, underwriting, field visit, disbursement).
+ */
 public final class ActionPolicy {
     private ActionPolicy() {}
 
-    public static List<String> actions(LoanApplication a, CurrentUser u) {
+    public static List<String> actions(LoanApplication a, CurrentUser u, StageAccess access) {
         Role r = u.role();
         List<String> out = new ArrayList<>();
         boolean front = is(r, SALES, OPERATIONS, ADMIN);
@@ -27,17 +31,19 @@ public final class ActionPolicy {
         if ("DRAFT".equals(app) && front) { out.add("edit"); out.add("submit"); out.add("withdraw"); }
         if ("SUBMITTED".equals(app) && front) out.add("withdraw");
         if (Set.of("DRAFT", "SUBMITTED", "UNDERWRITING").contains(app) && front) out.add("uploadDocument");
-        if (active && ops) {
+        boolean intake = access.canAny(a, u, "kyc", "docs", "uw");
+        if (active && intake) {
             out.add("process");
-            if ("NOT_STARTED".equals(a.getKycState())) out.add("runKyc");
+            if ("NOT_STARTED".equals(a.getKycState()) && access.can(a, "kyc", u)) out.add("runKyc");
             if (!"FETCHED".equals(a.getDataState())) out.add("fetchData");
-            if (!"COMPLETE".equals(a.getDocsState())) out.add("verifyDocuments");
+            if (!"COMPLETE".equals(a.getDocsState()) && access.can(a, "docs", u)) out.add("verifyDocuments");
             if (!a.getSanctionState().equals("SANCTIONED")) out.add("runDecision");
         }
-        if (active && "REVIEW".equals(a.getKycState()) && ops) out.add("resolveKyc");
+        if (active && "REVIEW".equals(a.getKycState()) && access.can(a, "kyc", u)) out.add("resolveKyc");
+        // video KYC stays with operations: RBI V-CIP needs a trained official of the lender
         if (ApplicationService.isOpen(a) && !"FAILED".equals(a.getKycState()) && ops) out.add("videoKyc");
-        if (ApplicationService.isOpen(a) && "IN_REVIEW".equals(a.getDocsState()) && ops) out.add("reviewDocuments");
-        if (active && "REQUIRED".equals(a.getFieldState()) && is(r, OPERATIONS, CREDIT_OFFICER, FIELD_OFFICER, ADMIN)) out.add("fieldVisit");
+        if (ApplicationService.isOpen(a) && "IN_REVIEW".equals(a.getDocsState()) && access.can(a, "docs", u)) out.add("reviewDocuments");
+        if (active && "REQUIRED".equals(a.getFieldState()) && access.can(a, "field", u)) out.add("fieldVisit");
         if ("REVIEW".equals(a.getFraudState()) && is(r, FRAUD_ANALYST)) out.add("fraudDisposition");
         if (a.getSanctionState().startsWith("PENDING_")) {
             String lvl = a.getSanctionState().substring(8);
@@ -48,8 +54,8 @@ public final class ActionPolicy {
             }
         }
         if ("SANCTIONED".equals(a.getSanctionState()) && front) out.add("acceptKfs");
-        if ("READY".equals(a.getDisbState()) && ops) out.add("disburse");
-        if ("FAILED".equals(a.getDisbState()) && ops) out.add("retryDisbursement");
+        if ("READY".equals(a.getDisbState()) && access.can(a, "disb", u)) out.add("disburse");
+        if ("FAILED".equals(a.getDisbState()) && access.can(a, "disb", u)) out.add("retryDisbursement");
         return out;
     }
 

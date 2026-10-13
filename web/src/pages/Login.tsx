@@ -5,7 +5,7 @@ import type { User } from '../types'
 
 const DEMO = [
   ['sales1', 'Sales / DSA'], ['ops1', 'Operations'], ['co1', 'Credit officer (L1)'], ['cm1', 'Credit manager (L2)'],
-  ['cro1', 'CRO (L3)'], ['fraud1', 'Fraud analyst'], ['comp1', 'Compliance'], ['admin', 'Tenant admin'],
+  ['cro1', 'CRO (L3)'], ['fraud1', 'Fraud analyst'], ['comp1', 'Compliance'], ['field1', 'Field officer'], ['admin', 'Tenant admin'],
 ]
 
 export default function Login({ onLogin }: { onLogin: (u: User) => void }) {

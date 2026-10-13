@@ -38,6 +38,8 @@ import java.util.*;
 public class ApplicationController {
     private static final String FRONT = "hasAnyRole('SALES','OPERATIONS','ADMIN')";
     private static final String OPS = "hasAnyRole('OPERATIONS','ADMIN')";
+    /** Any staff role reaches the endpoint; the workflow decides per application who may act (StageAccess). */
+    private static final String STAFF = "hasAnyRole('ADMIN','SALES','OPERATIONS','CREDIT_OFFICER','CREDIT_MANAGER','CRO','FRAUD_ANALYST','COMPLIANCE','FIELD_OFFICER')";
     private static final String CREDIT = "hasAnyRole('CREDIT_OFFICER','CREDIT_MANAGER','CRO')";
 
     private final ApplicationService apps;
@@ -53,11 +55,13 @@ public class ApplicationController {
     private final DataSnapshotRepository snapshots;
     private final IntegrationLogRepository logs;
     private final KycCheckRepository kycChecks;
+    private final com.rhythm.los.flow.StageAccess access;
 
     public ApplicationController(KycCheckRepository kycChecks, ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
                                  DecisionService decisions, FraudReviewService fraud, SanctionService sanctions,
                                  SanctionRecordRepository sanctionRecords, DisbursementService disbursements,
-                                 ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs) {
+                                 ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs, com.rhythm.los.flow.StageAccess access) {
+        this.access = access;
         this.apps = apps;
         this.repo = repo;
         this.data = data;
@@ -97,7 +101,7 @@ public class ApplicationController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("application", a);
         m.put("states", a.states());
-        m.put("actions", ActionPolicy.actions(a, CurrentUser.get()));
+        m.put("actions", ActionPolicy.actions(a, CurrentUser.get(), access));
         m.put("blockers", decisions.blockers(a));
         m.put("missingDocuments", docs.missing(a));
         m.put("product", apps.product(a));
@@ -132,8 +136,9 @@ public class ApplicationController {
     public List<KycCheck> kycChecks(@PathVariable Long id) { return kycChecks.findByApplicationIdOrderByIdAsc(id); }
 
     @PostMapping("/{id}/documents/{docId}/review")
-    @PreAuthorize(OPS)
+    @PreAuthorize(STAFF)
     public AppDocument reviewDocument(@PathVariable Long id, @PathVariable Long docId, @RequestBody DocumentService.ReviewRequest r) {
+        access.require(apps.get(id), CurrentUser.get(), "docs");
         return docs.review(id, docId, r, CurrentUser.get());
     }
 
@@ -182,37 +187,49 @@ public class ApplicationController {
         return docs.upload(id, type, file, password, CurrentUser.get());
     }
 
-    // ---- processing (operations) ----
+    // ---- processing (by the roles the product's workflow assigns) ----
 
     @PostMapping("/{id}/process")
-    @PreAuthorize(OPS)
+    @PreAuthorize(STAFF)
     public Map<String, Object> process(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "kyc", "docs", "uw");
         var steps = process.process(id, CurrentUser.get());
         return Map.of("steps", steps, "view", view(id));
     }
 
     @PostMapping("/{id}/kyc/run")
-    @PreAuthorize(OPS)
-    public LoanApplication runKyc(@PathVariable Long id) { return data.runKyc(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public LoanApplication runKyc(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "kyc");
+        return data.runKyc(id, CurrentUser.get());
+    }
 
     @PostMapping("/{id}/kyc/resolve")
-    @PreAuthorize(OPS)
+    @PreAuthorize(STAFF)
     public LoanApplication resolveKyc(@PathVariable Long id, @RequestBody ResolveRequest r) {
+        access.require(apps.get(id), CurrentUser.get(), "kyc");
         return data.resolveKyc(id, r.verified(), r.note(), CurrentUser.get());
     }
 
     @PostMapping("/{id}/data/fetch")
-    @PreAuthorize(OPS)
-    public LoanApplication fetch(@PathVariable Long id) { return data.fetchData(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public LoanApplication fetch(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "kyc", "docs", "uw");
+        return data.fetchData(id, CurrentUser.get());
+    }
 
     @PostMapping("/{id}/documents/verify")
-    @PreAuthorize(OPS)
-    public LoanApplication verifyDocs(@PathVariable Long id) { return docs.verify(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public LoanApplication verifyDocs(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "docs");
+        return docs.verify(id, CurrentUser.get());
+    }
 
     @PostMapping("/{id}/field-visit")
-    @PreAuthorize("hasAnyRole('OPERATIONS','CREDIT_OFFICER','FIELD_OFFICER','ADMIN')")
+    @PreAuthorize(STAFF)
     @Transactional
     public LoanApplication fieldVisit(@PathVariable Long id, @RequestBody NoteRequest r) {
+        access.require(apps.get(id), CurrentUser.get(), "field");
         if (r.note() == null || r.note().trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Write field visit notes of at least 10 characters");
         LoanApplication a = apps.get(id);
         apps.transition(a, Domain.FIELD, "DONE", "field.visit_completed", CurrentUser.get(), r.note());
@@ -220,8 +237,11 @@ public class ApplicationController {
     }
 
     @PostMapping("/{id}/decision/run")
-    @PreAuthorize(OPS)
-    public DecisionRecord runDecision(@PathVariable Long id) { return decisions.run(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public DecisionRecord runDecision(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "kyc", "docs", "uw");
+        return decisions.run(id, CurrentUser.get());
+    }
 
     // ---- risk and credit ----
 
@@ -252,12 +272,18 @@ public class ApplicationController {
     // ---- disbursement ----
 
     @PostMapping("/{id}/disburse")
-    @PreAuthorize(OPS)
-    public Disbursement disburse(@PathVariable Long id) { return disbursements.disburse(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public Disbursement disburse(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "disb");
+        return disbursements.disburse(id, CurrentUser.get());
+    }
 
     @PostMapping("/{id}/disburse/retry")
-    @PreAuthorize(OPS)
-    public LoanApplication retryDisbursement(@PathVariable Long id) { return disbursements.retry(id, CurrentUser.get()); }
+    @PreAuthorize(STAFF)
+    public LoanApplication retryDisbursement(@PathVariable Long id) {
+        access.require(apps.get(id), CurrentUser.get(), "disb");
+        return disbursements.retry(id, CurrentUser.get());
+    }
 
     private Map<String, Object> summary(LoanApplication a) {
         Map<String, Object> m = new LinkedHashMap<>();

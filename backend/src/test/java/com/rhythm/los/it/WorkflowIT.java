@@ -245,4 +245,35 @@ class WorkflowIT {
         ok(post("/api/applications/" + id + "/stages/cgt/complete"), co, Map.of("outcome", "PASS", "note", "Officer completed group training on visit"));
         assertThat(stage(id, co, "cgt").get("status").asText()).isEqualTo("DONE");
     }
+
+    @Test
+    void stageRolesFromTheWorkflowDecideWhoActs() throws Exception {
+        String admin = staff("admin"), cro = staff("cro1"), sales = staff("sales1"), ops = staff("ops1");
+        JsonNode draft = ok(post("/api/workflows/drafts"), admin, Map.of("productCode", "PL")).body();
+        long vid = draft.get("id").asLong();
+        List<Map<String, Object>> stages = Json.MAPPER.convertValue(draft.get("stages"), List.class);
+        stages.forEach(s -> { if (List.of("kyc", "docs").contains(s.get("key"))) s.put("role", "SALES"); });
+        ok(put("/api/workflows/" + vid), admin, Map.of("stages", stages, "notes", "Branch sales staff run KYC and documents"));
+        ok(post("/api/workflows/" + vid + "/submit"), admin, null);
+        ok(post("/api/workflows/" + vid + "/decision"), cro, Map.of("approve", true, "note", "Sales owns KYC and documents now"));
+
+        Map<String, Object> a = application("PL", "Nisha Rao", "NISPR6666N", "9811190006", 200000, 24);
+        a.put("businessName", "Coastal Systems Pvt Ltd");
+        long id = ok(post("/api/applications"), sales, a).body().get("id").asLong();
+        upload(id, sales, "PAN", "AADHAAR", "SALARY_SLIP");
+        ok(post("/api/applications/" + id + "/submit"), sales, null);
+
+        assertThat(ok(get("/api/applications/" + id), ops, null).body().get("actions").toString()).doesNotContain("process");
+        assertThat(ok(get("/api/my-work"), ops, null).body().toString()).doesNotContain("Nisha Rao");
+        Res denied = call(post("/api/applications/" + id + "/process"), ops, null);
+        assertThat(denied.status()).isEqualTo(403);
+        assertThat(denied.body().toString()).contains("NOT_YOUR_STAGE").contains("sales");
+        assertThat(call(post("/api/applications/" + id + "/kyc/run"), ops, null).status()).isEqualTo(403);
+
+        assertThat(ok(get("/api/applications/" + id), sales, null).body().get("actions").toString()).contains("process");
+        assertThat(ok(get("/api/my-work"), sales, null).body().toString()).contains("Run automated checks");
+        ok(post("/api/applications/" + id + "/process"), sales, null);
+        assertThat(ok(get("/api/applications/" + id), sales, null).body().get("states").get("KYC").asText()).isNotEqualTo("NOT_STARTED");
+        assertThat(stage(id, sales, "kyc").get("role").asText()).isEqualTo("SALES");
+    }
 }

@@ -25,13 +25,16 @@ export function StageStrip({ data, onOpen }: { data: AppStages; onOpen: () => vo
     <div className="panel" data-testid="stage-strip">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
         <b className="small">Workflow {data.product}{data.version ? ` v${data.version}` : ' (default)'}</b>
+        {mine.length === 0 && data.stages.some(s => s.assignedToMe && s.kind === 'STATE') && (
+          <span className="small" data-stage-assigned>Your stage: {data.stages.filter(s => s.assignedToMe).map(s => s.name).join(', ')}</span>
+        )}
         {mine.length > 0 && <button className="btn sm primary" data-stage-mine onClick={onOpen}>Your turn: {mine.map(s => s.name).join(', ')}</button>}
       </div>
       <div className="stepper">
         {data.stages.map(s => (
           <button key={s.key} className={'s-' + s.status} data-stage={s.key} data-stage-status={s.status} onClick={onOpen} title={s.skipReason ? `Skipped: ${s.skipReason}` : s.help}>
             <b>{s.name}</b>
-            <span>{label(s.status)}{s.breachedAt ? ' · SLA breached' : ''}</span>
+            <span>{label(s.status)}{s.breachedAt ? ' · SLA breached' : ''}{s.assignedToMe ? ' · you' : ''}</span>
           </button>
         ))}
       </div>

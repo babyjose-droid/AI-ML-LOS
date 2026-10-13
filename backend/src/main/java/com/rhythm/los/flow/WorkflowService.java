@@ -243,6 +243,7 @@ public class WorkflowService {
             }
             m.put("canComplete", open && recorded && mine && !Set.of("DONE", "SKIPPED", "CLOSED").contains(status) && !earlierPersonStageOpen);
             m.put("canReview", open && "REVIEW".equals(status) && mine);
+            m.put("assignedToMe", open && mine && by.role() != Role.ADMIN && Set.of("ACTIVE", "REVIEW", "FAILED").contains(status));
             list.add(m);
             if ((recorded || "AUTO_REVIEW".equals(s.mode())) && !Set.of("DONE", "SKIPPED").contains(status)) earlierPersonStageOpen = true;
         }

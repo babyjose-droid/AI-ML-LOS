@@ -54,7 +54,7 @@ public class DocumentKycProvider implements Vendors.KycProvider {
         if (pan != null) {
             panOnCard = v(pan, "pan");
             idMatch = a.getPan().equalsIgnoreCase(panOnCard) ? 1.0 : 0.0;
-            out.add(new KycCheck(id, "PAN on card matches application", idMatch, a.getPan(), panOnCard, "PAN"));
+            out.add(new KycCheck(id, "PAN on card matches application", idMatch, com.rhythm.los.common.Mask.pan(a.getPan()), com.rhythm.los.common.Mask.pan(panOnCard), "PAN"));
             nameOnPan = v(pan, "name");
             if (nameOnPan != null) {
                 panName = NameMatch.score(a.getApplicantName(), nameOnPan);

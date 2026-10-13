@@ -224,6 +224,9 @@ class JourneyIT {
         JsonNode steps = ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps");
         assertThat(steps.toString()).contains("Field visit pending");
 
+        // the decision is provisional while the field visit is pending; sanction waits for the visit (FSD 13.2)
+        assertThat(steps.toString()).contains("Field visit pending");
+        assertThat(call(post("/api/applications/" + id + "/sanction"), cro, Map.of("note", "Trying before the visit")).body().toString()).contains("FIELD_VISIT_PENDING");
         // the BL-UNS workflow assigns the field visit to the field officer
         assertThat(call(post("/api/applications/" + id + "/field-visit"), ops, Map.of("note", "Visited depot, three trucks on site")).body().toString()).contains("NOT_YOUR_STAGE");
         assertThat(call(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "short")).status()).isEqualTo(422);

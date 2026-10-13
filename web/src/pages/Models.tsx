@@ -8,7 +8,7 @@ import { pct, when } from '../format'
 // and the CRO (not the trainer) makes it the champion used by the decision engine.
 
 interface ModelVersion {
-  id: number; name: string; version: string; status: string; dataSource: string; rowsUsed: number
+  id: number; name: string; version: string; status: string; kind?: string; dataSource: string; rowsUsed: number
   trainedBy: string; trainedAt: string; decidedBy?: string; decidedAt?: string; decisionNote?: string
 }
 interface Score { auc: number; gini: number; ks: number; brier: number; avgPd: number; badRate: number }
@@ -27,14 +27,21 @@ export default function Models() {
   const [error, setError] = useState<unknown>()
   const [busy, setBusy] = useState(false)
   const models = list.data ?? []
-  const champion = models.find(m => m.status === 'CHAMPION')
+  const champions = models.filter(m => m.status === 'CHAMPION')
+  const champion = champions[0]
+  const [skipped, setSkipped] = useState<string[]>([])
   const current = sel ?? models.find(m => m.status === 'CANDIDATE')?.id ?? champion?.id ?? models[0]?.id ?? null
   const canTrain = !!user && ['CREDIT_MANAGER', 'CRO', 'ADMIN'].includes(user.role)
 
   async function train() {
     setBusy(true)
     setError(undefined)
-    try { const v = await api.post<ModelVersion>('/api/models/train'); setSel(v.id); setRev(r => r + 1) } catch (e) { setError(e) } finally { setBusy(false) }
+    try {
+      const v = await api.post<{ candidates: ModelVersion[]; skipped: string[] }>('/api/models/train')
+      setSel(v.candidates[0]?.id ?? null)
+      setSkipped(v.skipped)
+      setRev(r => r + 1)
+    } catch (e) { setError(e) } finally { setBusy(false) }
   }
   async function retire() {
     const note = window.prompt('Why go back to the built-in model? (at least 10 characters)')
@@ -49,13 +56,18 @@ export default function Models() {
       </Head>
       <ErrorBox error={error ?? list.error} />
       <div className="panel small">
-        In use now: <b data-model="inuse">{champion ? `${champion.name} ${champion.version} (trained, approved by ${champion.decidedBy})` : 'built-in illustrative model (RHY-PD-THICK / RHY-PD-NTC)'}</b>
+        In use now: <b data-model="inuse">{['THICK', 'NTC'].map(k => {
+          const c = champions.find(m => m.kind === k)
+          return c ? `${k === 'THICK' ? 'bureau record' : 'new to credit'}: ${c.name} ${c.version} (approved by ${c.decidedBy})` : `${k === 'THICK' ? 'bureau record' : 'new to credit'}: built-in ${k === 'THICK' ? 'RHY-PD-THICK' : 'RHY-PD-NTC'}`
+        }).join(' · ')}</b>
+        <div className="small muted">Separate models score applicants with a bureau record (THICK) and new-to-credit applicants (NTC).</div>
+        {skipped.length > 0 && <div className="small muted">Not trained this time: {skipped.join('; ')}</div>}
         {champion && user?.role === 'CRO' && <> · <a href="#" onClick={e => { e.preventDefault(); retire() }}>go back to the built-in model</a></>}
       </div>
       <div className="policy-layout">
         <div className="panel flush">
           <Table head={['Model', 'Status', 'Loans']} onRow={i => setSel(models[i].id)} rows={models.map(m => [
-            <b className={m.id === current ? '' : 'muted'}>{m.version}</b>, <Pill s={m.status} />, <span className="small">{m.rowsUsed} · {m.dataSource.toLowerCase()}</span>,
+            <span><b className={m.id === current ? '' : 'muted'}>{m.kind ?? ''} {m.version}</b></span>, <Pill s={m.status} />, <span className="small">{m.rowsUsed} · {m.dataSource.toLowerCase()}</span>,
           ])} empty="No trained models yet." />
         </div>
         <div>{current && <ModelDetail key={current + ':' + rev} id={current} onChange={() => setRev(r => r + 1)} />}</div>

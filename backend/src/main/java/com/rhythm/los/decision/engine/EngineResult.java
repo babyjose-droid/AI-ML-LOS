@@ -3,7 +3,7 @@ package com.rhythm.los.decision.engine;
 import java.util.List;
 
 public record EngineResult(
-        String decision,              // APPROVE, APPROVE_WITH_CONDITIONS, REFER, REJECT
+        String decision,              // APPROVE, APPROVE_WITH_CONDITIONS, REFER, REJECT, INCOMPLETE
         double pd,
         int score,
         String band,
@@ -34,7 +34,8 @@ public record EngineResult(
         String narrative,
         List<String> reasonCodes,
         String modelVersion,
-        String policyVersion) {
+        String policyVersion,
+        List<String> missingData) {    // named minimum inputs that are missing or stale (decision INCOMPLETE)
 
     public record Step(String name, String value, String status) {}
     public record RuleResult(String id, String description, boolean pass, String action) {}

@@ -24,7 +24,7 @@ public class ModelController {
 
     @PostMapping("/train")
     @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN')")
-    public ModelVersion train() { return models.train(CurrentUser.get()); }
+    public Map<String, Object> train() { return models.train(CurrentUser.get()); }
 
     @PostMapping("/{id}/decision")
     @PreAuthorize("hasRole('CRO')")

@@ -22,6 +22,12 @@ export interface Product {
   minAmount: number; maxAmount: number; minTenure: number; maxTenure: number; minAge: number; maxAge: number
   processingFeePct: number; rateMin: number; rateMax: number; fieldVisitRule: string; fieldVisitThreshold?: number; requiredDocs: string
   videoKycRule: string; videoKycThreshold?: number; bankDataSource: string; autoSanctionLimit?: number
+  minVintageYears?: number; minMonthlyIncome?: number; repaymentFrequency?: string; moratoriumMonths?: number
+  minProcessingFee?: number; foreclosurePct?: number; bounceCharge?: number; penalRatePct?: number; optionalDocs?: string; scoringModel?: string
+}
+export interface ProductVersionView {
+  id: number; productCode: string; version: number; status: string; notes?: string; createdBy: string; createdAt: string
+  approvedBy?: string; approvedAt?: string; decisionNote?: string; definition: Product; changes?: string[]
 }
 
 export interface AppView {
@@ -36,7 +42,7 @@ export interface Decision {
   id: number; decision: string; pd: number; score: number; riskBand: string; fraudScore: number; fraudStatus: string; kycStatus: string
   sustainableIncome: number; maxEmi: number; requestedEmi: number; recommendedAmount: number; recommendedEmi: number; rate: number
   foirPost: number; expectedLoss: number; delegationLevel?: string; rulesJson: string; contributionsJson: string; stepsJson: string
-  reasonCodes: string; conditionsJson: string; narrative: string; creditMemo: string; modelVersion: string; policyVersion: string
+  reasonCodes: string; missingData?: string; conditionsJson: string; narrative: string; creditMemo: string; modelVersion: string; policyVersion: string
   inputHash: string; createdBy: string; createdAt: string
 }
 

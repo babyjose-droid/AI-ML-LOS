@@ -23,6 +23,11 @@ public final class Delegation {
         return new Level("L1", "CREDIT_OFFICER", dev);
     }
 
+    /** The level an amount alone needs (the same thresholds as {@link #of}). */
+    public static String levelForAmount(double amount) {
+        return amount > 1_000_000 ? "L3" : amount > 200_000 ? "L2" : "L1";
+    }
+
     public static int rank(String level) {
         return switch (level) { case "L1" -> 1; case "L2" -> 2; case "L3" -> 3; default -> 99; };
     }

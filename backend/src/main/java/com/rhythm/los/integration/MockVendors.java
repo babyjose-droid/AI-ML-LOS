@@ -109,6 +109,8 @@ public class MockVendors implements Vendors.KycProvider, Vendors.AccountAggregat
                     list(p.inflows()), list(p.outflows()), p.avgBalance(), p.bounces(), p.detectedEmi());
         }
         Random r = rng(app);
+        // PAN digits 9601-9699: the account has only 4 months of history (decision INCOMPLETE)
+        if (in(code, 9601, 9699)) months = Math.min(months, 4);
         double base = app.getDeclaredMonthlyIncome().doubleValue() * (in(code, 9401, 9499) ? 0.4 : 0.95);
         List<Double> inflows = new ArrayList<>(), outflows = new ArrayList<>();
         for (int i = 0; i < months; i++) {

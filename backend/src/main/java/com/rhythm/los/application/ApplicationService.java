@@ -22,9 +22,12 @@ public class ApplicationService {
     private final AuditService audit;
     private final WorkflowDefinitions workflows;
     private final ApplicationEventPublisher events;
+    private final com.rhythm.los.product.ProductService productVersions;
 
     public ApplicationService(LoanApplicationRepository apps, StateHistoryRepository history,
-                              ProductRepository products, AuditService audit, WorkflowDefinitions workflows, ApplicationEventPublisher events) {
+                              ProductRepository products, AuditService audit, WorkflowDefinitions workflows, ApplicationEventPublisher events,
+                              com.rhythm.los.product.ProductService productVersions) {
+        this.productVersions = productVersions;
         this.apps = apps;
         this.history = history;
         this.products = products;
@@ -37,8 +40,9 @@ public class ApplicationService {
         return apps.findById(id).orElseThrow(() -> ApiException.notFound("Application " + id));
     }
 
+    /** The product as it was when the application was created (its pinned version), never a later edit. */
     public Product product(LoanApplication a) {
-        return products.findByCode(a.getProductCode()).orElseThrow(() -> ApiException.notFound("Product " + a.getProductCode()));
+        return productVersions.definition(a.getProductCode(), a.getProductVersion());
     }
 
     /** The only way a state changes. Invalid moves are refused and nothing is written. */
@@ -66,8 +70,9 @@ public class ApplicationService {
         a.setCreatedBy(by.username());
         a.setBranchId(by.branchId());
         workflows.published(p.getCode()).ifPresent(w -> a.setWorkflowVersion(w.getVersion()));
+        a.setProductVersion(p.getVersion());
         if (apps.countActiveByPanExcluding(a.getPan(), -1L) > 0) {
-            throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + a.getPan());
+            throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + com.rhythm.los.common.Mask.pan(a.getPan()));
         }
         LoanApplication saved = apps.save(a);
         saved.setAppNo(String.format("APP-%06d", 300000 + saved.getId()));
@@ -88,8 +93,9 @@ public class ApplicationService {
         apply(a, r, p);
         // a draft moved to another product takes that product's published workflow; nothing has started yet
         if (productChanged) a.setWorkflowVersion(workflows.published(p.getCode()).map(w -> w.getVersion()).orElse(null));
+        a.setProductVersion(p.getVersion());
         if (apps.countActiveByPanExcluding(a.getPan(), a.getId()) > 0) {
-            throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + a.getPan());
+            throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + com.rhythm.los.common.Mask.pan(a.getPan()));
         }
         audit.record(by, "application.updated", "APPLICATION", a.getAppNo(), a.getId(), null);
         return apps.save(a);

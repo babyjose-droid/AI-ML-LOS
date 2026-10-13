@@ -11,6 +11,8 @@ public class ModelVersion {
     private String name;
     private String version;
     private String status;
+    /** THICK (bureau record) or NTC (new to credit). */
+    private String kind;
     private double intercept;
     @Column(name = "terms_json") private String termsJson;
     @Column(name = "metrics_json") private String metricsJson;
@@ -27,6 +29,8 @@ public class ModelVersion {
     public void setName(String v) { this.name = v; }
     public String getVersion() { return version; }
     public void setVersion(String v) { this.version = v; }
+    public String getKind() { return kind; }
+    public void setKind(String v) { this.kind = v; }
     public String getStatus() { return status; }
     public void setStatus(String v) { this.status = v; }
     public double getIntercept() { return intercept; }

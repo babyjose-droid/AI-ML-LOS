@@ -56,12 +56,15 @@ public class ApplicationController {
     private final IntegrationLogRepository logs;
     private final KycCheckRepository kycChecks;
     private final com.rhythm.los.flow.StageAccess access;
+    private final com.rhythm.los.org.DataScope scope;
 
     public ApplicationController(KycCheckRepository kycChecks, ApplicationService apps, LoanApplicationRepository repo, DataFetchService data, DocumentService docs,
                                  DecisionService decisions, FraudReviewService fraud, SanctionService sanctions,
                                  SanctionRecordRepository sanctionRecords, DisbursementService disbursements,
-                                 ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs, com.rhythm.los.flow.StageAccess access) {
+                                 ProcessService process, DataSnapshotRepository snapshots, IntegrationLogRepository logs, com.rhythm.los.flow.StageAccess access,
+                                 com.rhythm.los.org.DataScope scope) {
         this.access = access;
+        this.scope = scope;
         this.apps = apps;
         this.repo = repo;
         this.data = data;
@@ -88,7 +91,9 @@ public class ApplicationController {
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(required = false) String state, @RequestParam(required = false) String q) {
         String needle = q == null ? null : q.trim().toLowerCase();
+        java.util.Set<Long> visible = scope.visibleBranches(CurrentUser.get());
         return repo.findAllByOrderByIdDesc().stream()
+                .filter(a -> com.rhythm.los.org.DataScope.canSee(visible, a))
                 .filter(a -> state == null || state.isBlank() || state.equals(a.getAppState()))
                 .filter(a -> needle == null || needle.isEmpty() || a.getApplicantName().toLowerCase().contains(needle)
                         || a.getPan().toLowerCase().contains(needle) || (a.getAppNo() != null && a.getAppNo().toLowerCase().contains(needle)))
@@ -106,6 +111,18 @@ public class ApplicationController {
         m.put("missingDocuments", docs.missing(a));
         m.put("product", apps.product(a));
         m.put("documentAi", docs.aiEnabled());
+        return m;
+    }
+
+    /** The draft's own values for the edit form, including PAN and account number in full (drafts only). */
+    @GetMapping("/{id}/draft")
+    @PreAuthorize(FRONT)
+    public Map<String, Object> draft(@PathVariable Long id) {
+        LoanApplication a = apps.get(id);
+        if (!"DRAFT".equals(a.getAppState())) throw ApiException.conflict("NOT_EDITABLE", "Only draft applications can be edited");
+        Map<String, Object> m = new LinkedHashMap<>(com.rhythm.los.common.Json.read(com.rhythm.los.common.Json.write(a), Map.class));
+        m.put("pan", a.getPan());
+        m.put("bankAccountNo", a.getBankAccountNo());
         return m;
     }
 
@@ -292,7 +309,7 @@ public class ApplicationController {
         m.put("id", a.getId());
         m.put("appNo", a.getAppNo());
         m.put("applicantName", a.getApplicantName());
-        m.put("pan", a.getPan());
+        m.put("pan", com.rhythm.los.common.Mask.pan(a.getPan()));
         m.put("productCode", a.getProductCode());
         m.put("workflowVersion", a.getWorkflowVersion());
         m.put("segment", a.getSegment());

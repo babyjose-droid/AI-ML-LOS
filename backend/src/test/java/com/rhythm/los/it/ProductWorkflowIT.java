@@ -92,12 +92,55 @@ class ProductWorkflowIT {
         return Json.MAPPER.convertValue(ok(get("/api/products/" + code), admin, null).body(), Map.class);
     }
 
+    /** Product changes are drafts until the CRO approves them (maker-checker), then they apply to new applications. */
+    void publish(String code, Map<String, Object> body) throws Exception {
+        String admin = staff("admin"), cro = staff("cro1");
+        ok(put("/api/admin/products/" + code), admin, body);
+        ok(post("/api/admin/products/" + code + "/submit"), admin, Map.of("notes", "Change for the integration test"));
+        ok(post("/api/products/" + code + "/decision"), cro, Map.of("approve", true, "note", "Reviewed and approved for test"));
+    }
+
+    @Test
+    void productChangesNeedApprovalAndApplicationsKeepTheirVersion() throws Exception {
+        String admin = staff("admin"), cro = staff("cro1"), sales = staff("sales1");
+        Map<String, Object> gl = product(admin, "GL");
+        int before = ((Number) gl.get("version")).intValue();
+        Map<String, Object> a = application("Old Terms", "OLDPT1111T");
+        a.put("productCode", "GL"); a.put("mobile", "9811180010"); a.put("loanAmount", 100000); a.put("tenureMonths", 6);
+        long oldApp = ok(post("/api/applications"), sales, a).body().get("id").asLong();
+        ok(post("/api/applications/" + oldApp + "/submit"), sales, null);
+
+        gl.put("processingFeePct", 1.5);
+        gl.put("foreclosurePct", 2);
+        JsonNode draft = ok(put("/api/admin/products/GL"), admin, gl).body();
+        assertThat(draft.get("status").asText()).isEqualTo("DRAFT");
+        assertThat(draft.get("version").asInt()).isEqualTo(before + 1);
+        assertThat(draft.get("changes").toString()).contains("processingFeePct");
+        // still the old terms until approved
+        assertThat(((Number) product(admin, "GL").get("version")).intValue()).isEqualTo(before);
+        assertThat(call(post("/api/admin/products/GL/submit"), admin, Map.of("notes", "short")).status()).isEqualTo(422);
+        ok(post("/api/admin/products/GL/submit"), admin, Map.of("notes", "Lower fee to match competitors"));
+        assertThat(call(put("/api/admin/products/GL"), admin, gl).body().toString()).contains("PENDING_APPROVAL");
+        assertThat(call(post("/api/products/GL/decision"), admin, Map.of("approve", true, "note", "Approving my own change")).status()).isEqualTo(403);
+        ok(post("/api/products/GL/decision"), cro, Map.of("approve", true, "note", "Fee change reviewed with finance"));
+        assertThat(((Number) product(admin, "GL").get("version")).intValue()).isEqualTo(before + 1);
+        assertThat(ok(get("/api/products/GL/versions"), admin, null).body().toString()).contains("SUPERSEDED").contains("PUBLISHED");
+
+        Map<String, Object> b = application("New Terms", "NEWPT2222T");
+        b.put("productCode", "GL"); b.put("mobile", "9811180011"); b.put("loanAmount", 100000); b.put("tenureMonths", 6);
+        long newApp = ok(post("/api/applications"), sales, b).body().get("id").asLong();
+        assertThat(ok(get("/api/applications/" + oldApp), sales, null).body().get("application").get("productVersion").asInt()).isEqualTo(before);
+        assertThat(ok(get("/api/applications/" + newApp), sales, null).body().get("application").get("productVersion").asInt()).isEqualTo(before + 1);
+        assertThat(ok(get("/api/applications/" + oldApp), sales, null).body().get("product").get("processingFeePct").asDouble()).isNotEqualTo(1.5);
+        assertThat(ok(get("/api/applications/" + newApp), sales, null).body().get("product").get("processingFeePct").asDouble()).isEqualTo(1.5);
+    }
+
     @Test
     void videoKycRequiredByProductBlocksTheDecision() throws Exception {
         String admin = staff("admin"), sales = staff("sales1"), ops = staff("ops1");
         Map<String, Object> pl = product(admin, "PL");
         pl.put("videoKycRule", "ALWAYS");
-        ok(put("/api/admin/products/PL"), admin, pl);
+        publish("PL", pl);
 
         Map<String, Object> a = application("Deepa Menon", "DEEPM4321D");
         a.put("mobile", "9811180001");
@@ -109,10 +152,17 @@ class ProductWorkflowIT {
         assertThat(ok(get("/api/applications/" + id), ops, null).body().get("states").get("DECISION").asText()).isEqualTo("PENDING");
 
         pl.put("videoKycRule", "ON_KYC_REVIEW");
-        ok(put("/api/admin/products/PL"), admin, pl);
-        steps = ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps").toString();
+        publish("PL", pl);
+        // the application in progress keeps the product version it started on
+        assertThat(ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps").toString()).contains("Video KYC required for this product");
+        Map<String, Object> c = application("Kavya Rao", "KAVPR5555K");
+        c.put("mobile", "9811180004");
+        c.put("declaredMonthlyIncome", 80000); c.put("essentialExpenses", 25000); c.put("loanAmount", 200000); c.put("dob", "1990-04-15");
+        long id2 = ok(post("/api/applications"), sales, c).body().get("id").asLong();
+        upload(id2, sales, "PAN", "AADHAAR", "SALARY_SLIP");
+        steps = ok(post("/api/applications/" + id2 + "/process"), ops, null).body().get("steps").toString();
         assertThat(steps).contains("Decision engine");
-        assertThat(ok(get("/api/applications/" + id), ops, null).body().get("states").get("DECISION").asText()).isNotEqualTo("PENDING");
+        assertThat(ok(get("/api/applications/" + id2), ops, null).body().get("states").get("DECISION").asText()).isNotEqualTo("PENDING");
     }
 
     @Test
@@ -124,7 +174,7 @@ class ProductWorkflowIT {
         Map<String, Object> bad = new java.util.LinkedHashMap<>(pl);
         bad.put("autoSanctionLimit", 9_000_000);
         assertThat(call(put("/api/admin/products/PL"), admin, bad).body().toString()).contains("BAD_AUTO_SANCTION");
-        ok(put("/api/admin/products/PL"), admin, pl);
+        publish("PL", pl);
 
         Map<String, Object> a = application("Arjun Pillai", "ARJPP4321A");
         a.put("mobile", "9811180002");
@@ -144,7 +194,7 @@ class ProductWorkflowIT {
         }
         // never auto-sanctioned above the limit
         pl.put("autoSanctionLimit", 100000);
-        ok(put("/api/admin/products/PL"), admin, pl);
+        publish("PL", pl);
         Map<String, Object> b = application("Neha Kapoor", "NEHPK4321N");
         b.put("mobile", "9811180003");
         b.put("declaredMonthlyIncome", 80000); b.put("essentialExpenses", 25000); b.put("loanAmount", 200000); b.put("dob", "1990-04-15");
@@ -154,7 +204,7 @@ class ProductWorkflowIT {
 
         Map<String, Object> bl = product(admin, "BL-UNS");
         bl.put("bankDataSource", "STATEMENT_ONLY");
-        ok(put("/api/admin/products/BL-UNS"), admin, bl);
+        publish("BL-UNS", bl);
         assertThat(product(admin, "BL-UNS").get("requiredDocs").toString()).contains("BANK_STATEMENT");
     }
 }

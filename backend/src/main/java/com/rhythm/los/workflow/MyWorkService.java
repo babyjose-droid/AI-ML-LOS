@@ -23,11 +23,14 @@ public class MyWorkService {
     private final com.rhythm.los.flow.WorkflowService workflow;
     private final com.rhythm.los.flow.WorkflowDesignService design;
     private final com.rhythm.los.flow.StageAccess access;
+    private final com.rhythm.los.org.DataScope scope;
 
     public MyWorkService(LoanApplicationRepository apps, IntegrationLogRepository logs, com.rhythm.los.vkyc.VkycSessionRepository vkyc,
                          com.rhythm.los.policy.PolicyRepository policies, com.rhythm.los.flow.WorkflowService workflow,
-                         com.rhythm.los.flow.WorkflowDesignService design, com.rhythm.los.flow.StageAccess access) {
+                         com.rhythm.los.flow.WorkflowDesignService design, com.rhythm.los.flow.StageAccess access,
+                         com.rhythm.los.org.DataScope scope) {
         this.access = access;
+        this.scope = scope;
         this.workflow = workflow;
         this.design = design;
         this.policies = policies;
@@ -42,9 +45,11 @@ public class MyWorkService {
     public List<Task> tasks(CurrentUser u) {
         Role r = u.role();
         List<Task> out = new ArrayList<>();
+        java.util.Set<Long> visible = scope.visibleBranches(u);
         for (LoanApplication a : apps.findAllByOrderByIdDesc()) {
             String st = a.getAppState();
             if (List.of("REJECTED", "WITHDRAWN", "DISBURSED").contains(st)) continue;
+            if (!com.rhythm.los.org.DataScope.canSee(visible, a)) continue;
             switch (r) {
                 case SALES -> {
                     if ("DRAFT".equals(st)) add(out, a, "Complete and submit the application", "submit", 24);
@@ -76,6 +81,7 @@ public class MyWorkService {
         }
         for (var t : workflow.tasks(u)) {
             LoanApplication a = (LoanApplication) t.get("application");
+            if (!com.rhythm.los.org.DataScope.canSee(visible, a)) continue;
             out.add(0, new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
                     (String) t.get("task"), "stage", (Long) t.get("ageHours"), (Integer) t.get("slaHours")));
         }

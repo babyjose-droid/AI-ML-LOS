@@ -33,6 +33,18 @@ public class Product {
     @Column(name = "video_kyc_threshold") private BigDecimal videoKycThreshold;
     @Column(name = "bank_data_source") private String bankDataSource = "AA_OR_STATEMENT";
     @Column(name = "auto_sanction_limit") private BigDecimal autoSanctionLimit;
+    @Column(name = "min_vintage_years") private BigDecimal minVintageYears;
+    @Column(name = "min_monthly_income") private BigDecimal minMonthlyIncome;
+    @Column(name = "repayment_frequency") private String repaymentFrequency = "MONTHLY";
+    @Column(name = "moratorium_months") private int moratoriumMonths;
+    @Column(name = "min_processing_fee") private BigDecimal minProcessingFee;
+    @Column(name = "foreclosure_pct") private BigDecimal foreclosurePct;
+    @Column(name = "bounce_charge") private BigDecimal bounceCharge;
+    @Column(name = "penal_rate_pct") private BigDecimal penalRatePct;
+    /** Optional documents (asked for, never blocking); required_docs holds the mandatory ones. */
+    @Column(name = "optional_docs") private String optionalDocs;
+    /** AUTO (bureau model if a bureau record, else new-to-credit), THICK, NTC, RULES (policy rules only, no PD model). */
+    @Column(name = "scoring_model") private String scoringModel = "AUTO";
     @Column(name = "updated_at") private Instant updatedAt = Instant.now();
 
     public List<String> requiredDocList() {
@@ -100,5 +112,33 @@ public class Product {
     public boolean videoKycRequired(double amount) {
         return "ALWAYS".equals(videoKycRule)
                 || "ABOVE_AMOUNT".equals(videoKycRule) && videoKycThreshold != null && amount > videoKycThreshold.doubleValue();
+    }
+    public BigDecimal getMinVintageYears() { return minVintageYears; }
+    public void setMinVintageYears(BigDecimal v) { this.minVintageYears = v; }
+    public BigDecimal getMinMonthlyIncome() { return minMonthlyIncome; }
+    public void setMinMonthlyIncome(BigDecimal v) { this.minMonthlyIncome = v; }
+    public String getRepaymentFrequency() { return repaymentFrequency; }
+    public void setRepaymentFrequency(String v) { this.repaymentFrequency = v; }
+    public int getMoratoriumMonths() { return moratoriumMonths; }
+    public void setMoratoriumMonths(int v) { this.moratoriumMonths = v; }
+    public BigDecimal getMinProcessingFee() { return minProcessingFee; }
+    public void setMinProcessingFee(BigDecimal v) { this.minProcessingFee = v; }
+    public BigDecimal getForeclosurePct() { return foreclosurePct; }
+    public void setForeclosurePct(BigDecimal v) { this.foreclosurePct = v; }
+    public BigDecimal getBounceCharge() { return bounceCharge; }
+    public void setBounceCharge(BigDecimal v) { this.bounceCharge = v; }
+    public BigDecimal getPenalRatePct() { return penalRatePct; }
+    public void setPenalRatePct(BigDecimal v) { this.penalRatePct = v; }
+    public String getOptionalDocs() { return optionalDocs; }
+    public void setOptionalDocs(String v) { this.optionalDocs = v; }
+    public String getScoringModel() { return scoringModel; }
+    public void setScoringModel(String v) { this.scoringModel = v; }
+
+    /** Fees and charges for the KFS. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public com.rhythm.los.sanction.KfsCalculator.Charges charges() {
+        return new com.rhythm.los.sanction.KfsCalculator.Charges(processingFeePct == null ? 0 : processingFeePct.doubleValue(),
+                minProcessingFee == null ? 0 : minProcessingFee.doubleValue(), foreclosurePct == null ? 0 : foreclosurePct.doubleValue(),
+                bounceCharge == null ? 0 : bounceCharge.doubleValue(), penalRatePct == null ? 0 : penalRatePct.doubleValue(), repaymentFrequency);
     }
 }

@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @TestPropertySource(properties = {
         "rhythm.demo-data=false",
         "rhythm.synthetic-book.enabled=true",
-        "rhythm.synthetic-book.size=300",
+        "rhythm.synthetic-book.size=1600",
         "rhythm.integration.backoff-ms=0",
         "rhythm.storage.path=target/test-documents-models"
 })
@@ -115,16 +115,23 @@ class ModelRegistryIT {
     void trainApproveUseAndRetire() throws Exception {
         String cm = staff("cm1"), cro = staff("cro1"), ops = staff("ops1"), sales = staff("sales1");
         assertThat(call(post("/api/models/train"), ops, null).status()).isEqualTo(403);
-        JsonNode cand = ok(post("/api/models/train"), cm, null).body();
+        JsonNode trained = ok(post("/api/models/train"), cm, null).body();
+        // separate models for applicants with a bureau record (THICK) and new to credit (NTC), BR-11
+        assertThat(trained.get("candidates")).hasSize(2);
+        JsonNode cand = trained.get("candidates").get(0), ntc = trained.get("candidates").get(1);
         long id = cand.get("id").asLong();
+        assertThat(cand.get("kind").asText()).isEqualTo("THICK");
+        assertThat(cand.get("name").asText()).isEqualTo("RHY-PD-THICK-TRAINED");
+        assertThat(ntc.get("kind").asText()).isEqualTo("NTC");
         assertThat(cand.get("status").asText()).isEqualTo("CANDIDATE");
         assertThat(cand.get("version").asText()).isEqualTo("1.1");
         assertThat(cand.get("dataSource").asText()).isEqualTo("SYNTHETIC");
-        assertThat(cand.get("rowsUsed").asInt()).isEqualTo(300);
+        assertThat(cand.get("rowsUsed").asInt() + ntc.get("rowsUsed").asInt()).isEqualTo(1600);
         @SuppressWarnings("unchecked") List<Map<String, Object>> rows = (List<Map<String, Object>>) SEEN.get(0).get("rows");
-        assertThat(rows).hasSize(300);
+        assertThat(rows).hasSize(cand.get("rowsUsed").asInt());
         assertThat(rows.get(0)).containsKeys("features", "bad", "championPd");
-        assertThat((List<?>) SEEN.get(0).get("features")).hasSize(17);
+        assertThat((List<?>) SEEN.get(0).get("features")).hasSize(16).doesNotContain("thinFile");
+        assertThat((List<?>) SEEN.get(1).get("features")).hasSize(11).doesNotContain("bureauScoreGap", "dpd12");
 
         JsonNode detail = ok(get("/api/models/" + id), cm, null).body();
         assertThat(detail.get("terms").get(0).get("label").asText()).isEqualTo("EMI/cheque bounces (12m)");
@@ -137,11 +144,12 @@ class ModelRegistryIT {
 
         long app = application(sales, "Model Person", "MODPP1234M", "9811191001");
         ok(post("/api/applications/" + app + "/process"), ops, null);
-        assertThat(ok(get("/api/applications/" + app + "/decision"), ops, null).body().get("modelVersion").asText()).isEqualTo("RHY-PD-TRAINED 1.1");
+        assertThat(ok(get("/api/applications/" + app + "/decision"), ops, null).body().get("modelVersion").asText())
+                .isIn("RHY-PD-THICK-TRAINED 1.1", com.rhythm.los.decision.engine.UnderwritingEngine.MODEL_NTC);
         assertThat(ok(get("/api/audit"), staff("comp1"), null).body().toString()).contains("model.approved_champion");
 
         // a second candidate is compared with the trained champion; retiring the champion restores the built-in model
-        JsonNode cand2 = ok(post("/api/models/train"), cro, null).body();
+        JsonNode cand2 = ok(post("/api/models/train"), cro, null).body().get("candidates").get(0);
         assertThat(cand2.get("version").asText()).isEqualTo("1.2");
         assertThat(call(post("/api/models/" + cand2.get("id").asLong() + "/decision"), cro, Map.of("approve", true, "note", "Approving my own retrain")).body().toString()).contains("MAKER_CHECKER");
         assertThat(call(post("/api/models/champion/retire"), cro, Map.of("note", "Back to built-in for audit")).status()).isEqualTo(204);

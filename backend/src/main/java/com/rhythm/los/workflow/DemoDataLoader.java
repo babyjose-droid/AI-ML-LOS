@@ -43,6 +43,7 @@ public class DemoDataLoader {
     static final CurrentUser SALES = new CurrentUser("sales1", Role.SALES, "Sameer Kulkarni", 4L);
     static final CurrentUser OPS = new CurrentUser("ops1", Role.OPERATIONS, "Neha Joshi", 4L);
     static final CurrentUser CM = new CurrentUser("cm1", Role.CREDIT_MANAGER, "Anita Rao", 3L);
+    static final CurrentUser FIELD = new CurrentUser("field1", Role.FIELD_OFFICER, "Ganesh Pawar", 4L);
 
     public DemoDataLoader(@Value("${rhythm.demo-data}") boolean enabled, LoanApplicationRepository repo, ApplicationService apps,
                           DocumentService docs, ProcessService process, SanctionService sanctions,
@@ -65,6 +66,9 @@ public class DemoDataLoader {
             LoanApplication a = create("BL-UNS", "Ramesh Patil", "RAMPP1001R", "9822001001", "1985-06-15", "422013", "Nashik", "Patil Kirana Stores", 8, 62000, 21000, 300000, 24, "Stock purchase for festival season");
             docs(a, "ramesh", "PAN", "AADHAAR", "UDYAM");
             process.process(a.getId(), OPS);
+            // no bureau record (new to credit), so the field visit is mandatory before sanction (FSD 13.2)
+            if ("REQUIRED".equals(apps.get(a.getId()).getFieldState()))
+                apps.recordFieldVisit(a.getId(), "Visited the shop: stock on shelves, owner present, 8 years at this address", FIELD);
         });
         step("Priya", () -> {
             LoanApplication a = create("PL", "Priya Nair", "PRIPN1002P", "9822001002", "1992-03-02", "682020", "Kochi", null, 6, 72000, 30000, 500000, 24, "Home renovation");

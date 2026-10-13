@@ -200,6 +200,11 @@ public class WorkflowService {
         return out;
     }
 
+    /** True when the applicant's joint liability group passed its recognition test (GRT) in this application's workflow. */
+    public boolean groupRecognised(LoanApplication a) {
+        return a.getId() != null && rows.findByApplicationIdAndStageKey(a.getId(), "grt").map(r -> "PASS".equals(r.getOutcome())).orElse(false);
+    }
+
     public void requireNothingPendingBefore(LoanApplication a, String gateKey) {
         List<String> p = pendingBefore(a, gateKey);
         if (!p.isEmpty()) throw ApiException.conflict("WORKFLOW_PENDING", String.join("; ", p));

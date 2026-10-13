@@ -59,6 +59,8 @@ public class SanctionService {
         String level = pendingLevel(a);
         checkAuthority(level, by);
         if (!"CLEAR".equals(a.getFraudState())) throw ApiException.conflict("FRAUD_NOT_CLEARED", "Fraud review must be cleared before sanction");
+        if ("REQUIRED".equals(a.getFieldState()))
+            throw ApiException.conflict("FIELD_VISIT_PENDING", "The decision is provisional: record the field visit before sanction");
         workflow.requireNothingPendingBefore(a, "sanction");
         DecisionRecord d = decisions.latest(appId).orElseThrow(() -> ApiException.conflict("NO_DECISION", "Run the decision engine first"));
         Product p = apps.product(a);
@@ -71,9 +73,15 @@ public class SanctionService {
         if (amt.compareTo(p.getMinAmount()) < 0 || amt.compareTo(p.getMaxAmount()) > 0 || amt.compareTo(a.getLoanAmount()) > 0) {
             throw ApiException.unprocessable("AMOUNT_OUT_OF_RANGE", "Sanction amount must be within product limits and not above the amount applied for");
         }
+        // the amount actually sanctioned decides the authority needed, not the recommended amount the case was routed on
+        String needed = Delegation.levelForAmount(amt.doubleValue());
+        if (Delegation.rank(needed) > Delegation.rank(level)) {
+            level = needed;
+            checkAuthority(level, by);
+        }
 
         Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), amt.doubleValue(),
-                d.getRate().doubleValue(), a.getTenureMonths(), p.getProcessingFeePct().doubleValue());
+                d.getRate().doubleValue(), a.getTenureMonths(), p.charges());
 
         SanctionRecord s = new SanctionRecord();
         s.setApplicationId(appId);
@@ -115,7 +123,7 @@ public class SanctionService {
         if (!clean || !workflow.pendingBefore(a, "sanction").isEmpty()) return java.util.Optional.empty();
         CurrentUser sys = CurrentUser.SYSTEM;
         Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), a.getLoanAmount().doubleValue(),
-                d.getRate().doubleValue(), a.getTenureMonths(), p.getProcessingFeePct().doubleValue());
+                d.getRate().doubleValue(), a.getTenureMonths(), p.charges());
         SanctionRecord s = new SanctionRecord();
         s.setApplicationId(appId);
         s.setDecisionId(d.getId());

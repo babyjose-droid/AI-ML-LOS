@@ -35,9 +35,12 @@ public final class StateMachine {
         init(Domain.FIELD, "NOT_EVALUATED");
         allow(Domain.FIELD, "NOT_EVALUATED", "NOT_REQUIRED", "REQUIRED");
         allow(Domain.FIELD, "REQUIRED", "DONE");
+        // a new-to-credit applicant (no bureau hit) needs a field visit even when the amount rule did not ask for one (FSD 13.2)
+        allow(Domain.FIELD, "NOT_REQUIRED", "REQUIRED");
 
         init(Domain.DECISION, "PENDING");
-        allow(Domain.DECISION, "PENDING", "APPROVE", "APPROVE_WITH_CONDITIONS", "REFER", "REJECT");
+        allow(Domain.DECISION, "PENDING", "APPROVE", "APPROVE_WITH_CONDITIONS", "REFER", "REJECT", "INCOMPLETE");
+        allow(Domain.DECISION, "INCOMPLETE", "PENDING");
         allow(Domain.DECISION, "APPROVE", "PENDING");
         allow(Domain.DECISION, "APPROVE_WITH_CONDITIONS", "PENDING");
         allow(Domain.DECISION, "REFER", "PENDING");

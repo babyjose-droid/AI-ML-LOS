@@ -23,8 +23,10 @@ public class LoanApplication {
     private String createdBy;
     private String channel = "BRANCH";
     @Column(name = "workflow_version") private Integer workflowVersion;
+    @Column(name = "product_version") private Integer productVersion;
     @Column(name = "applicant_name")
     private String applicantName;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.rhythm.los.common.Mask.PanSerializer.class)
     private String pan;
     private String mobile;
     private String email;
@@ -48,6 +50,7 @@ public class LoanApplication {
     private int tenureMonths;
     private String purpose;
     @Column(name = "bank_account_no")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.rhythm.los.common.Mask.AccountSerializer.class)
     private String bankAccountNo;
     @Column(name = "bank_ifsc")
     private String bankIfsc;
@@ -133,6 +136,8 @@ public class LoanApplication {
     public String getMobile() { return mobile; }
     public String getChannel() { return channel; }
     public void setChannel(String v) { this.channel = v; }
+    public Integer getProductVersion() { return productVersion; }
+    public void setProductVersion(Integer v) { this.productVersion = v; }
     public Integer getWorkflowVersion() { return workflowVersion; }
     public void setWorkflowVersion(Integer v) { this.workflowVersion = v; }
     public void setMobile(String v) { this.mobile = v; }

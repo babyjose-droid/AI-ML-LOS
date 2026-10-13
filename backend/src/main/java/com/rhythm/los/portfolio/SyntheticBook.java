@@ -85,7 +85,7 @@ public final class SyntheticBook {
             boolean jlg = "MICROFINANCE".equals(seg);
             EngineInput.Bank bank = new EngineInput.Bank(in, outF, avgBal, bounces, detectedEmi);
             EngineInput input = new EngineInput("HIST-" + (i + 1), "Synthetic borrower " + (i + 1), seg, age, vintage, kyc, declared, essential,
-                    bank, bureau, gst, internal, jlg, false, new EngineInput.Fraud(dup, tamper, velocity), new EngineInput.Loan(amount, tenure));
+                    bank, bureau, gst, internal, jlg, false, new EngineInput.Fraud(dup, tamper, velocity), new EngineInput.Loan(amount, tenure), null);
 
             // hidden "true" risk: depends on the same signals, with different weights, interactions and noise
             double emiNew = amount / tenure * 1.12;

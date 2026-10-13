@@ -31,7 +31,8 @@ public final class CreditMemoWriter {
 
         m.append("3. Data used\n");
         m.append("KYC identity match ").append(Math.round(r.idScore() * 100)).append("% (").append(r.kycStatus()).append("). ");
-        m.append("Bank data: ").append(in.bank().inflows().size()).append(" months via Account Aggregator. ");
+        m.append("Bank data: ").append(in.bank().inflows().size()).append(" months via ")
+                .append("bank statement".equals(in.bank().source()) ? "an uploaded bank statement read by AI" : "Account Aggregator").append(". ");
         m.append(in.bureau() == null ? "Bureau: no hit (thin file) - assessed on cash flow. " :
                 "Bureau score " + in.bureau().score() + ", " + in.bureau().active() + " active lines, max DPD (12m) " + in.bureau().maxDpd12() + ". ");
         if (in.gst() != null) m.append("GST filing regularity ").append(Math.round(in.gst().filing() * 100)).append("%. ");

@@ -109,7 +109,7 @@ public class DisbursementService {
     private static Map<String, Object> lmsPayload(LoanApplication a, Kfs k, String utr) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("externalRef", a.getAppNo());
-        m.put("customer", Map.of("name", a.getApplicantName(), "pan", a.getPan(), "mobile", a.getMobile()));
+        m.put("customer", Map.of("name", a.getApplicantName(), "pan", com.rhythm.los.common.Mask.pan(a.getPan()), "mobile", a.getMobile()));
         m.put("product", a.getProductCode());
         m.put("principal", k.sanctionedAmount());
         m.put("ratePa", k.ratePa());

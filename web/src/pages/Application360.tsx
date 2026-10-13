@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
-import { inr, label, pct, when } from '../format'
+import { REASON, inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
 import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
 import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
@@ -490,8 +490,13 @@ function DecisionTab({ id, rev }: { id: string; rev: number }) {
   const steps: Step[] = JSON.parse(x.stepsJson)
   const conditions: string[] = JSON.parse(x.conditionsJson)
   const maxAbs = Math.max(...contrib.map(c => Math.abs(c.value)), 0.01)
+  const missing: string[] = x.missingData ? JSON.parse(x.missingData) : []
+  const codes = (x.reasonCodes || '').split(',').filter(Boolean)
   return (
     <>
+      {missing.length > 0 && <div className="alert warn" data-decision-missing>Decision incomplete. Needed: {missing.join('; ')}</div>}
+      {codes.length > 0 && <div className="row" style={{ marginBottom: 12 }} data-reason-codes>
+        {codes.map(c => <span key={c} className="pill muted" title={REASON[c] ?? c}>{c} · {REASON[c] ?? ''}</span>)}</div>}
       <div className="kpis">
         <div className="kpi"><span>Decision</span><b style={{ fontSize: 18 }}><Pill s={x.decision} /></b></div>
         <div className="kpi"><span>Probability of default</span><b>{pct(x.pd)}</b></div>

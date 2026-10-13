@@ -178,13 +178,13 @@ public class PolicyStudioService {
 
     /** Runs the decision engine with the live and the draft policy on the loan book and on recent applications. */
     public Map<String, Object> simulation(PolicyParams live, PolicyParams draft) {
-        com.rhythm.los.decision.engine.PdModel pd = models.champion().orElse(null);
         Agg hl = new Agg(), hd = new Agg(), rl = new Agg(), rd = new Agg();
         int swapIn = 0, swapInBad = 0, swapOut = 0, swapOutBad = 0;
         Map<String, int[]> ruleHits = new TreeMap<>();
         Map<String, Map<String, Integer>> segments = new TreeMap<>();
         for (HistoricalLoan h : book.findAllByOrderByIdAsc()) {
             EngineInput in = Json.read(h.getInputJson(), EngineInput.class);
+            com.rhythm.los.decision.engine.PdModel pd = models.modelFor(in);
             EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
             hl.add(a, in, live, h.isOutcomeBad());
             hd.add(b, in, draft, h.isOutcomeBad());
@@ -206,6 +206,7 @@ public class PolicyStudioService {
         for (DecisionRecord r : latest.values().stream().sorted(Comparator.comparing(DecisionRecord::getId).reversed()).toList()) {
             EngineInput in;
             try { in = Json.read(r.getInputJson(), EngineInput.class); } catch (Exception e) { continue; }
+            com.rhythm.los.decision.engine.PdModel pd = models.modelFor(in);
             EngineResult a = UnderwritingEngine.underwrite(in, live, pd), b = UnderwritingEngine.underwrite(in, draft, pd);
             rl.add(a, in, live, null);
             rd.add(b, in, draft, null);
@@ -251,7 +252,7 @@ public class PolicyStudioService {
 
     /** Aggregates engine results for one policy. Bad rate only where outcomes are known (the loan book). */
     static final class Agg {
-        int n, approve, conditional, refer, reject, bad, withOutcome;
+        int n, approve, conditional, refer, reject, incomplete, bad, withOutcome;
         double amount, expectedLoss, pdSum;
 
         void add(EngineResult r, EngineInput in, PolicyParams p, Boolean isBad) {
@@ -260,6 +261,7 @@ public class PolicyStudioService {
                 case "APPROVE" -> approve++;
                 case "APPROVE_WITH_CONDITIONS" -> conditional++;
                 case "REFER" -> refer++;
+                case "INCOMPLETE" -> incomplete++;
                 default -> reject++;
             }
             if (approved(r)) {
@@ -277,6 +279,7 @@ public class PolicyStudioService {
             m.put("conditional", conditional);
             m.put("refer", refer);
             m.put("reject", reject);
+            m.put("incomplete", incomplete);
             m.put("approvalRate", rate(appr, n));
             m.put("referRate", rate(refer, n));
             m.put("rejectRate", rate(reject, n));

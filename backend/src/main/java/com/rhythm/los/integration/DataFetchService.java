@@ -80,7 +80,7 @@ public class DataFetchService {
         if (panMismatch(k, a)) {
             // a PAN card with a different number is never cleared by a reviewer: the application must be corrected
             to = "FAILED";
-            note = "PAN on the card (" + k.pan().pan() + ") does not match the application (" + a.getPan() + ")";
+            note = "PAN on the card (" + com.rhythm.los.common.Mask.pan(k.pan().pan()) + ") does not match the application (" + com.rhythm.los.common.Mask.pan(a.getPan()) + ")";
         }
         apps.transition(a, Domain.KYC, to, "kyc.completed", by, note);
         return a;

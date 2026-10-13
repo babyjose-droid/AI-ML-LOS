@@ -31,7 +31,8 @@ export default function NewApplication() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (id) api.get<AppView>('/api/applications/' + id).then(v => setF(fromApp(v.application))).catch(setError)
+    // the draft endpoint returns PAN and account number in full for editing; everywhere else they are masked
+    if (id) api.get<AppView['application']>('/api/applications/' + id + '/draft').then(a => setF(fromApp(a))).catch(setError)
   }, [id])
 
   const p = (products.data ?? []).find(x => x.code === f.productCode)

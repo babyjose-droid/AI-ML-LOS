@@ -25,6 +25,9 @@ public final class UnderwritingEngine {
 
     private static final double[][] ANCHORS = {{0.003, 900}, {0.01, 850}, {0.03, 780}, {0.07, 700}, {0.15, 620}, {0.5, 300}};
 
+    /** Rules that are gates in the FSD decision order: they decide even when other data is missing. */
+    static final Set<String> GATES = Set.of("R01", "R02", "R04", "R16", "R17", "R18");
+
     private UnderwritingEngine() {}
 
     public static EngineResult underwrite(EngineInput a, PolicyParams p) {
@@ -137,7 +140,11 @@ public final class UnderwritingEngine {
         double bandAdj = switch (band) { case "A" -> 0; case "B" -> 0.5; case "C" -> 1.5; case "D" -> 3; default -> 5; };
         double rawRate = p.baseRate() + pd * lgd * 100 + p.opexRate() * (a.loan().amount() < 100000 ? 1.5 : 1) + bandAdj
                 - (a.internal() != null && a.internal().maxDpd() <= 30 ? 0.5 : 0);
-        double rate = clamp(new BigDecimal(rawRate).setScale(2, RoundingMode.HALF_UP).doubleValue(), p.baseRate(), p.maxRate());
+        // inside the product's rate band (FSD 14.1 step 9, BR-18); the policy's band only when no product is given
+        EngineInput.Eligibility el = a.eligibility();
+        double floor = el != null && el.rateMin() > 0 ? el.rateMin() : p.baseRate();
+        double cap = el != null && el.rateMax() > 0 ? el.rateMax() : p.maxRate();
+        double rate = clamp(new BigDecimal(rawRate).setScale(2, RoundingMode.HALF_UP).doubleValue(), floor, Math.max(floor, cap));
 
         // 8. Affordability
         double foirCap = p.maxFoir() * income - existing;
@@ -152,12 +159,32 @@ public final class UnderwritingEngine {
 
         // 9. Policy rules: hard rejects first, then refers, then counter-offer
         RuleBook rb = new RuleBook(rules, reasons);
-        rb.rule("R01", "Age within " + p.minAge() + "–" + p.maxAge(), a.age() >= p.minAge() && a.age() <= p.maxAge(), "REJECT", "RC-013");
+        int minAge = el != null && el.minAge() > 0 ? el.minAge() : p.minAge();
+        int maxAge = el != null && el.maxAge() > 0 ? el.maxAge() : p.maxAge();
+        if (el != null && el.maxAge() > 0) {
+            double atMaturity = a.age() + a.loan().tenure() / 12.0;
+            rb.rule("R01", "Age " + minAge + " or more, and " + maxAge + " or less at maturity (product " + el.product() + ")",
+                    a.age() >= minAge && atMaturity <= maxAge, "REJECT", "RC-022");
+        } else {
+            rb.rule("R01", "Age within " + minAge + "–" + maxAge, a.age() >= minAge && a.age() <= maxAge, "REJECT", "RC-013");
+        }
+        if (el != null && el.minVintage() > 0)
+            rb.rule("R16", "Business / employment vintage ≥ " + fmt(el.minVintage()) + " years (product " + el.product() + ")",
+                    a.vintage() >= el.minVintage(), "REJECT", "RC-022");
+        if (el != null && el.minIncome() > 0)
+            rb.rule("R17", "Monthly income ≥ ₹" + inr(el.minIncome()) + " (product " + el.product() + ")",
+                    Math.min(a.declaredIncome(), income) >= el.minIncome(), "REJECT", "RC-022");
+        if (el != null && el.served() != null)
+            rb.rule("R18", "Applicant's PIN code is served by a branch offering the product", el.served(), "REJECT", "RC-022");
         rb.rule("R02", "KYC identity match ≥ " + Math.round(p.kycFail() * 100) + "%", idScore >= p.kycFail(), "REJECT", "RC-011");
         rb.rule("R03", "KYC identity match ≥ " + Math.round(p.kycReview() * 100) + "%", idScore >= p.kycReview(), "REFER", "RC-011");
         rb.rule("R04", "Fraud score < " + fmt(p.fraudBlock()), fraud < p.fraudBlock(), "REJECT", "RC-012");
         rb.rule("R05", "Fraud score < " + fmt(p.fraudReview()), fraud < p.fraudReview(), "REFER", "RC-012");
-        rb.rule("R06", "Bank data ≥ " + p.minBankMonths() + " months", n >= p.minBankMonths(), "REFER", "RC-013");
+        // data sufficiency (FSD 14.1 step 4, 13.2): too little bank data makes the decision INCOMPLETE, never a referral
+        List<String> missing = new ArrayList<>();
+        rb.rule("R06", "Bank data ≥ " + p.minBankMonths() + " months", n >= p.minBankMonths(), "INCOMPLETE", "RC-013");
+        if (n < p.minBankMonths())
+            missing.add("Bank statement or AA data covering at least " + p.minBankMonths() + " months (have " + n + "): re-consent AA with another account or upload a PDF");
         if (thick) {
             rb.rule("R07", "No " + p.dpdReject() + "+ DPD in 12m", b.maxDpd12() < p.dpdReject(), "REJECT", "RC-005");
             rb.rule("R08", "Enquiries (6m) ≤ " + p.maxEnq6(), b.enq6() <= p.maxEnq6(), "REFER", "RC-006");
@@ -170,16 +197,20 @@ public final class UnderwritingEngine {
         if (a.bank().employerMismatch())
             rb.rule("R15", "Salary slip employer matches the salary credits in the bank statement", false, "REFER", "RC-010");
         if (a.bank().gambling() > 0)
-            rb.rule("R14", "No betting / gambling transactions in the bank statement", false, "REFER", "RC-020");
+            rb.rule("R14", "No betting / gambling transactions in the bank statement", false, "REFER", "RC-021");
         if (!thick) reasons.add("RC-015");
+        if (p.exposureCap() < Math.min(a.loan().amount(), maxLoan)) reasons.add("RC-016");
 
         // 10. Decision
         String decision;
-        if (rb.hard != null) decision = "REJECT";
+        // gates (KYC, fraud, product eligibility) reject even on partial data; everything else waits for the data
+        boolean gateReject = rules.stream().anyMatch(x -> !x.pass() && "REJECT".equals(x.action()) && GATES.contains(x.id()));
+        if (!missing.isEmpty() && !gateReject) decision = "INCOMPLETE";
+        else if (rb.hard != null) decision = "REJECT";
         else if (!rb.refer.isEmpty()) decision = "REFER";
         else if (reqEmi > maxEmi) decision = "APPROVE_WITH_CONDITIONS";
         else decision = "APPROVE";
-        if (reqEmi > maxEmi && !"REJECT".equals(decision)) reasons.add("RC-003");
+        if (reqEmi > maxEmi && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision)) reasons.add("RC-003");
 
         List<EngineResult.Contribution> sorted = new ArrayList<>(c);
         sorted.sort((x, y) -> Double.compare(y.value(), x.value()));
@@ -187,27 +218,29 @@ public final class UnderwritingEngine {
         List<EngineResult.Contribution> positiveAll = new ArrayList<>(sorted.stream().filter(x -> x.value() < -0.05).toList());
         Collections.reverse(positiveAll);
         List<EngineResult.Contribution> positive = positiveAll.stream().limit(4).toList();
-        for (EngineResult.Contribution x : adverse) if (x.reasonCode() != null && !"APPROVE".equals(decision)) reasons.add(x.reasonCode());
+        for (EngineResult.Contribution x : adverse)
+            if (x.reasonCode() != null && !"APPROVE".equals(decision) && !"INCOMPLETE".equals(decision)) reasons.add(x.reasonCode());
 
         List<String> conditions = new ArrayList<>();
         if ("APPROVE_WITH_CONDITIONS".equals(decision))
             conditions.add("Sanction capped at ₹" + inr(recAmt) + " (EMI ₹" + inr(recEmi) + ") to stay within affordability");
-        if (!thick && !"REJECT".equals(decision)) conditions.add("NACH mandate on primary account used for cash-flow analysis");
-        if ("MSME".equalsIgnoreCase(a.segment()) && !"REJECT".equals(decision))
+        if (!thick && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision)) conditions.add("NACH mandate on primary account used for cash-flow analysis");
+        if ("MSME".equalsIgnoreCase(a.segment()) && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision))
             conditions.add("Re-pull AA statement at month 6 for early-warning monitoring");
 
         StringBuilder narrative = new StringBuilder();
         if (!adverse.isEmpty()) narrative.append("Main risk drivers: ").append(labels(adverse)).append(". ");
         if (!positive.isEmpty()) narrative.append("Supporting factors: ").append(labels(positive)).append(".");
-        if ("REFER".equals(decision)) {
+        if ("REFER".equals(decision) && !rb.refer.isEmpty()) {
             narrative.append(" Referred because: ").append(String.join("; ", rb.refer.stream().map(id -> rb.desc(id)).toList())).append(" not met.");
         }
         if ("REJECT".equals(decision)) narrative.append(" Hard rule failed: ").append(rb.desc(rb.hard)).append(".");
+        if ("INCOMPLETE".equals(decision)) narrative.append(" No decision yet: ").append(String.join("; ", missing)).append(".");
 
         return new EngineResult(decision, pd, score, band, fraud, fraudStatus, kycStatus, idScore, income, stab, negMonths,
                 existing, surplus, foirEx, foirPost, maxEmi, reqEmi, maxLoan, recAmt, recEmi, rate, lgd,
                 round(pd * lgd * recAmt), steps, rules, c, intercept, conditions, narrative.toString().trim(),
-                new ArrayList<>(reasons), model != null ? model.label() : thick ? MODEL_THICK : MODEL_NTC, p.version());
+                new ArrayList<>(reasons), model != null ? model.label() : thick ? MODEL_THICK : MODEL_NTC, p.version(), missing);
     }
 
     private static final class RuleBook {

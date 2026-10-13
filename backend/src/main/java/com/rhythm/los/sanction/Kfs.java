@@ -21,7 +21,10 @@ public record Kfs(
         int coolingOffDays,
         String repaymentMode,
         String grievanceOfficer,
-        List<Row> schedule) {
+        List<Row> schedule,
+        List<Charge> contingentCharges) {
 
     public record Row(int month, double emi, double interest, double principal, double balance) {}
+    /** Charges that apply only if something happens (foreclosure, a bounced EMI, overdue): shown in the KFS, not in the APR. */
+    public record Charge(String name, String amount) {}
 }

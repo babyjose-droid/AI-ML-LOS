@@ -126,6 +126,7 @@ The four digits in the PAN choose how the mock vendors respond. This lets you re
 | `9201`–`9299` | Account Aggregator fails until retried manually from Integration logs (dead-letter queue) |
 | `9301`–`9399` | KYC address and contact mismatch, which goes to KYC review |
 | `9401`–`9499` | Declared income far above bank inflows (fraud signal) |
+| `9601`–`9699` | Only 4 months of bank history: the decision is INCOMPLETE and names what is missing |
 | `9501`–`9599` | Penny drop name mismatch, so disbursement fails and can be retried |
 
 Demo case **Kiran Joshi** has a password-protected bank statement with online rummy payments, which shows R14. `e2e/fixtures/sunil-statement-locked.pdf` (password `SUNI1402`) can be uploaded on the draft for Sunil Wagh. To make more specimen statements, use `ai/tools/statements_gen.py`. Accuracy is measured by `cd ai && python -m tools.evaluate_statements 3`.

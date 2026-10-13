@@ -40,12 +40,14 @@ public class DecisionService {
     private final DecisionRecordRepository decisions;
 
     private final com.rhythm.los.flow.WorkflowService workflow;
+    private final com.rhythm.los.flow.WorkflowDefinitions defs;
 
     public DecisionService(ApplicationService apps, LoanApplicationRepository appRepo, DataSnapshotRepository snapshots,
                            DocumentService documents, PolicyService policy, DecisionRecordRepository decisions,
                            com.rhythm.los.vkyc.VkycSessionRepository vkyc, com.rhythm.los.model.ModelService models,
-                           com.rhythm.los.flow.WorkflowService workflow) {
+                           com.rhythm.los.flow.WorkflowService workflow, com.rhythm.los.flow.WorkflowDefinitions defs) {
         this.workflow = workflow;
+        this.defs = defs;
         this.models = models;
         this.vkyc = vkyc;
         this.apps = apps;
@@ -67,7 +69,6 @@ public class DecisionService {
         if (!"FETCHED".equals(a.getDataState())) b.add("External data not fetched (" + a.getDataState() + ")");
         if ("IN_REVIEW".equals(a.getDocsState())) b.add("Documents waiting for review");
         else if (!"COMPLETE".equals(a.getDocsState())) b.add("Documents not complete (" + a.getDocsState() + ")");
-        if ("REQUIRED".equals(a.getFieldState())) b.add("Field visit pending");
         Product prod = apps.product(a);
         if (prod.videoKycRequired(a.getLoanAmount().doubleValue())
                 && vkyc.findByApplicationIdOrderByIdDesc(a.getId()).stream().noneMatch(s -> "APPROVED".equals(s.getStatus())))
@@ -86,8 +87,19 @@ public class DecisionService {
         Product p = apps.product(a);
         PolicyParams pol = policy.live();
         EngineInput in = buildInput(a, p, pol);
-        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion().orElse(null));
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
         Delegation.Level lvl = Delegation.of(r);
+        String hash = sha256(Json.write(in) + "|" + Json.write(pol));
+        DecisionRecord prev = latest(appId).orElse(null);
+        // nothing new since the last INCOMPLETE: do not record the same answer again
+        if ("INCOMPLETE".equals(r.decision()) && prev != null && "INCOMPLETE".equals(prev.getDecision()) && hash.equals(prev.getInputHash())) return prev;
+        boolean decided = !"REJECT".equals(r.decision()) && !"INCOMPLETE".equals(r.decision());
+        // new to credit (no bureau record): the field visit becomes mandatory (FSD 13.2), unless the product never visits
+        boolean needFieldNtc = decided && in.bureau() == null && "NOT_REQUIRED".equals(a.getFieldState())
+                && !"NEVER".equals(p.getFieldVisitRule()) && defs.stages(a).stream().anyMatch(x -> "field".equals(x.key()));
+        boolean provisional = decided && ("REQUIRED".equals(a.getFieldState()) || needFieldNtc);
+        List<String> conditions = new ArrayList<>(r.conditions());
+        if (provisional) conditions.add(0, "Provisional: field visit pending. Sanction is blocked until the visit is submitted");
 
         DecisionRecord d = new DecisionRecord();
         d.setApplicationId(a.getId());
@@ -106,19 +118,20 @@ public class DecisionService {
         d.setRate(bd(r.rate(), 2));
         d.setFoirPost(bd(Math.min(r.foirPost(), 99), 4));
         d.setExpectedLoss(bd(r.expectedLoss(), 2));
-        d.setDelegationLevel("REJECT".equals(r.decision()) ? null : lvl.level());
+        d.setDelegationLevel("REJECT".equals(r.decision()) || "INCOMPLETE".equals(r.decision()) ? null : lvl.level());
+        d.setMissingData(r.missingData().isEmpty() ? null : Json.write(r.missingData()));
         d.setRulesJson(Json.write(r.rules()));
         d.setContributionsJson(Json.write(r.contributions()));
         d.setStepsJson(Json.write(r.steps()));
         d.setReasonCodes(String.join(",", r.reasonCodes()));
-        d.setConditionsJson(Json.write(r.conditions()));
+        d.setConditionsJson(Json.write(conditions));
         d.setNarrative(r.narrative().length() > 2000 ? r.narrative().substring(0, 2000) : r.narrative());
         d.setCreditMemo(CreditMemoWriter.write(a, p, in, r, lvl));
         d.setModelVersion(r.modelVersion());
         d.setPolicyVersion(r.policyVersion());
         String inputJson = Json.write(in);
         d.setInputJson(inputJson);
-        d.setInputHash(sha256(inputJson + "|" + Json.write(pol)));
+        d.setInputHash(hash);
         d.setCreatedBy(by.username());
         d = decisions.save(d);
 
@@ -127,11 +140,19 @@ public class DecisionService {
         if (a.getSanctionState().startsWith("PENDING_")) apps.transition(a, Domain.SANCTION, "NOT_STARTED", "sanction.reset", by, "Decision re-run");
         if ("SUBMITTED".equals(a.getAppState())) apps.transition(a, Domain.APP, "UNDERWRITING", "application.underwriting", by, null);
         apps.transition(a, Domain.DECISION, r.decision(), "decision.made", by,
-                "PD " + String.format("%.1f%%", r.pd() * 100) + ", band " + r.band() + ", " + r.decision());
+                "INCOMPLETE".equals(r.decision()) ? "Missing: " + String.join("; ", r.missingData())
+                        : "PD " + String.format("%.1f%%", r.pd() * 100) + ", band " + r.band() + ", " + r.decision() + (provisional ? " (provisional: field visit pending)" : ""));
         if (!a.getFraudState().equals(r.fraudStatus()) || "NOT_CHECKED".equals(a.getFraudState())) {
             if (StateMachineGuard.fraudAllowed(a.getFraudState(), r.fraudStatus()))
                 apps.transition(a, Domain.FRAUD, r.fraudStatus(), "fraud.scored", by, "Fraud score " + r.fraud());
         }
+        if ("INCOMPLETE".equals(r.decision())) {
+            // no sanction routing on partial data; the application waits for the named items (FSD 14.1 step 4)
+            return d;
+        }
+        if (needFieldNtc)
+            apps.transition(a, Domain.FIELD, "REQUIRED", "field.required_no_bureau", CurrentUser.SYSTEM,
+                    "No bureau record (new to credit): field visit is mandatory");
         if ("REJECT".equals(r.decision())) {
             String rule = r.rules().stream().filter(x -> !x.pass() && "REJECT".equals(x.action())).findFirst()
                     .map(x -> x.id() + " " + x.description()).orElse("policy");
@@ -171,11 +192,19 @@ public class DecisionService {
                 b != null && b.hit() ? new EngineInput.Bureau(b.score(), b.activeLines(), b.maxDpd12(), b.ever90(), b.enquiries6m(), b.historyMonths(), b.totalEmi()) : null,
                 g == null ? null : new EngineInput.Gst(g.filingRegularity(), g.turnoverGrowth(), g.bankGstGap()),
                 null,
-                "MICROFINANCE".equals(a.getSegment()),
+                "MICROFINANCE".equals(a.getSegment()) && workflow.groupRecognised(a),
                 p.isSecured(),
                 fraud,
-                new EngineInput.Loan(a.getLoanAmount().doubleValue(), a.getTenureMonths()));
+                new EngineInput.Loan(a.getLoanAmount().doubleValue(), a.getTenureMonths()),
+                new EngineInput.Eligibility(p.getCode(), p.getMinAge(), p.getMaxAge(),
+                        p.getMinVintageYears() == null ? 0 : p.getMinVintageYears().doubleValue(),
+                        p.getMinMonthlyIncome() == null ? 0 : p.getMinMonthlyIncome().doubleValue(),
+                        served(a, p),
+                        p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()));
     }
+
+    /** Geography (FSD 14.1 step 3): null until branches carry their PIN codes and products (Branch hierarchy). */
+    Boolean served(LoanApplication a, Product p) { return null; }
 
     private <T> Optional<T> snap(LoanApplication a, String kind, Class<T> type) {
         return snapshots.findFirstByApplicationIdAndKindOrderByIdDesc(a.getId(), kind)

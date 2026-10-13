@@ -19,7 +19,15 @@ public record EngineInput(
         boolean jlg,
         boolean secured,
         Fraud fraud,
-        Loan loan) {
+        Loan loan,
+        Eligibility eligibility) {
+
+    /**
+     * The product's eligibility and price band (FSD 14.1 step 3 and step 9). Zero limits mean "no limit set"; maxAge is the
+     * age at loan maturity. served is whether a branch offering the product serves the applicant's PIN code (null = not checked).
+     */
+    public record Eligibility(String product, int minAge, int maxAge, double minVintage, double minIncome, Boolean served,
+                              double rateMin, double rateMax) {}
 
     public record Kyc(double name, double dob, double id, double address, double contact) {}
     /**

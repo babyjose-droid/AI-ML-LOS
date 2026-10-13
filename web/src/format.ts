@@ -19,3 +19,14 @@ export function tone(s: string): 'ok' | 'bad' | 'warn' | 'muted' {
   if (WARN.includes(s)) return 'warn'
   return 'muted'
 }
+
+/** Reason codes (FSD 26) plus lender extensions RC-021 and RC-022. */
+export const REASON: Record<string, string> = {
+  'RC-001': 'High probability of default', 'RC-002': 'High existing debt obligation', 'RC-003': 'FOIR above policy threshold',
+  'RC-004': 'Income insufficient or unstable', 'RC-005': 'Recent delinquency', 'RC-006': 'High credit enquiry velocity',
+  'RC-007': 'High credit utilisation', 'RC-008': 'Short credit history', 'RC-009': 'Cash-flow stress', 'RC-010': 'Document inconsistency',
+  'RC-011': 'Identity / KYC mismatch', 'RC-012': 'Fraud risk above review threshold', 'RC-013': 'Application data incomplete',
+  'RC-014': 'Policy exception needs human approval', 'RC-015': 'External data unavailable (thin file)', 'RC-016': 'Exposure limit exceeded',
+  'RC-017': 'Business cash-flow volatility', 'RC-018': 'Recent borrowing increase', 'RC-019': 'Negative internal repayment history',
+  'RC-020': 'Model or data quality error', 'RC-021': 'Betting / gambling transactions in bank statement', 'RC-022': 'Not eligible for this product',
+}

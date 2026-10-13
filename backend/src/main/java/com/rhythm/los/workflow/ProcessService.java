@@ -85,10 +85,14 @@ public class ProcessService {
         }
         a = apps.get(appId);
         List<String> blockers = decisions.blockers(a);
-        if (blockers.isEmpty() && "PENDING".equals(a.getDecisionState())) {
+        if (blockers.isEmpty() && List.of("PENDING", "INCOMPLETE").contains(a.getDecisionState())) {
             var d = decisions.run(appId, by);
-            log.add(new StepLog("Decision engine", d.getDecision() + " · band " + d.getRiskBand() +
-                    (d.getDelegationLevel() == null ? "" : " · routed to " + d.getDelegationLevel())));
+            boolean provisional = d.getConditionsJson() != null && d.getConditionsJson().contains("Provisional");
+            log.add(new StepLog("Decision engine", "INCOMPLETE".equals(d.getDecision())
+                    ? "Incomplete, missing: " + String.join("; ", com.rhythm.los.common.Json.read(d.getMissingData(), String[].class))
+                    : d.getDecision() + " · band " + d.getRiskBand() +
+                    (d.getDelegationLevel() == null ? "" : " · routed to " + d.getDelegationLevel()) +
+                    (provisional ? " · Field visit pending: sanction blocked until it is submitted" : "")));
             sanctions.autoSanction(appId).ifPresent(s -> log.add(new StepLog("Sanction", "Auto-sanctioned (product rule): ₹" + s.getAmount().toPlainString())));
         } else if (!blockers.isEmpty()) {
             log.add(new StepLog("Decision engine", "Waiting: " + String.join("; ", blockers)));

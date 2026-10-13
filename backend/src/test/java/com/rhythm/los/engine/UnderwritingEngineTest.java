@@ -29,19 +29,19 @@ class UnderwritingEngineTest {
         Map<String, EngineInput> m = new LinkedHashMap<>();
         m.put("APP-100231", new EngineInput("APP-100231", "Ramesh Patil", "MSME", 41, 8, new EngineInput.Kyc(0.97, 1, 1, 0.9, 1), 62000, 21000,
                 new EngineInput.Bank(l(54e3, 58e3, 61e3, 57e3, 66e3, 72e3, 59e3, 55e3, 63e3, 60e3, 68e3, 64e3), l(50e3, 52e3, 57e3, 55e3, 58e3, 64e3, 61e3, 51e3, 56e3, 55e3, 60e3, 58e3), 21000, 1, 4500),
-                null, new EngineInput.Gst(0.92, 0.12, 0.08), null, false, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(300000, 24)));
+                null, new EngineInput.Gst(0.92, 0.12, 0.08), null, false, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(300000, 24), null));
         m.put("APP-100232", new EngineInput("APP-100232", "Priya Nair", "SALARIED", 34, 6, new EngineInput.Kyc(1, 1, 1, 0.95, 1), 72000, 30000,
                 new EngineInput.Bank(l(72e3, 72e3, 74e3, 72e3, 72e3, 85e3, 72e3, 72e3, 72e3, 74e3, 72e3, 72e3), l(66e3, 64e3, 70e3, 65e3, 63e3, 79e3, 66e3, 67e3, 64e3, 69e3, 65e3, 66e3), 26000, 0, 10000),
-                new EngineInput.Bureau(742, 3, 0, false, 4, 62, 10000), null, null, false, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(500000, 24)));
+                new EngineInput.Bureau(742, 3, 0, false, 4, 62, 10000), null, null, false, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(500000, 24), null));
         m.put("APP-100233", new EngineInput("APP-100233", "Lakshmi Devi", "MICROFINANCE", 36, 5, new EngineInput.Kyc(0.95, 1, 1, 0.85, 1), 22000, 9000,
                 new EngineInput.Bank(l(15e3, 14e3, 21e3, 26e3, 27e3, 23e3, 16e3, 13e3, 19e3, 24e3, 26e3, 21e3), l(15e3, 16e3, 18e3, 20e3, 21e3, 20e3, 17e3, 17e3, 17e3, 18e3, 20e3, 19e3), 5200, 0, 1800),
-                null, null, new EngineInput.Internal(2, 0), true, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(50000, 18)));
+                null, null, new EngineInput.Internal(2, 0), true, false, new EngineInput.Fraud(0, false, 1), new EngineInput.Loan(50000, 18), null));
         m.put("APP-100234", new EngineInput("APP-100234", "Suresh Yadav", "MSME", 45, 4, new EngineInput.Kyc(0.96, 1, 1, 0.8, 1), 95000, 38000,
                 new EngineInput.Bank(l(92e3, 78e3, 98e3, 74e3, 88e3, 104e3, 70e3, 92e3, 80e3, 97e3, 76e3, 86e3), l(88e3, 80e3, 90e3, 76e3, 84e3, 95e3, 73e3, 87e3, 79e3, 90e3, 74e3, 82e3), 14000, 1, 14000),
-                new EngineInput.Bureau(702, 5, 30, false, 7, 84, 16500), new EngineInput.Gst(0.75, -0.05, 0.18), null, false, true, new EngineInput.Fraud(0, false, 2), new EngineInput.Loan(600000, 36)));
+                new EngineInput.Bureau(702, 5, 30, false, 7, 84, 16500), new EngineInput.Gst(0.75, -0.05, 0.18), null, false, true, new EngineInput.Fraud(0, false, 2), new EngineInput.Loan(600000, 36), null));
         m.put("APP-100235", new EngineInput("APP-100235", "Anil Kumar", "SALARIED", 29, 1, new EngineInput.Kyc(0.82, 1, 1, 0.55, 0.6), 95000, 18000,
                 new EngineInput.Bank(l(38e3, 37e3, 40e3, 38e3, 36e3, 41e3, 39e3, 38e3), l(36e3, 37e3, 39e3, 37e3, 35e3, 40e3, 38e3, 37e3), 3500, 0, 0),
-                new EngineInput.Bureau(705, 1, 0, false, 5, 14, 2500), null, null, false, false, new EngineInput.Fraud(3, true, 4), new EngineInput.Loan(400000, 36)));
+                new EngineInput.Bureau(705, 1, 0, false, 5, 14, 2500), null, null, false, false, new EngineInput.Fraud(3, true, 4), new EngineInput.Loan(400000, 36), null));
         return m;
     }
 
@@ -123,12 +123,12 @@ class UnderwritingEngineTest {
             EngineInput.Bank b = in.bank();
             EngineInput with = new EngineInput(in.id(), in.name(), in.segment(), in.age(), in.vintage(), in.kyc(), in.declaredIncome(), in.essential(),
                     new EngineInput.Bank(b.inflows(), b.outflows(), b.avgBalance(), b.bounces(), b.detectedEmi(), 2),
-                    in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan());
+                    in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan(), null);
             EngineResult base = UnderwritingEngine.underwrite(in, PolicyParams.defaults());
             EngineResult r = UnderwritingEngine.underwrite(with, PolicyParams.defaults());
             assertThat(base.rules()).noneMatch(x -> x.id().equals("R14"));
             assertThat(r.rules()).anyMatch(x -> x.id().equals("R14") && !x.pass());
-            assertThat(r.reasonCodes()).contains("RC-020");
+            assertThat(r.reasonCodes()).contains("RC-021").doesNotContain("RC-020");
             assertThat(r.pd()).isEqualTo(base.pd());
             assertThat(r.decision()).isIn("REFER", "REJECT");
             if (base.decision().startsWith("APPROVE")) assertThat(r.decision()).isEqualTo("REFER");
@@ -141,7 +141,7 @@ class UnderwritingEngineTest {
         EngineInput.Bank b = in.bank();
         EngineInput with = new EngineInput(in.id(), in.name(), in.segment(), in.age(), in.vintage(), in.kyc(), in.declaredIncome(), in.essential(),
                 new EngineInput.Bank(b.inflows(), b.outflows(), b.avgBalance(), b.bounces(), b.detectedEmi(), 0, "bank statement", true),
-                in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan());
+                in.bureau(), in.gst(), in.internal(), in.jlg(), in.secured(), in.fraud(), in.loan(), null);
         EngineResult r = UnderwritingEngine.underwrite(with, PolicyParams.defaults());
         assertThat(r.rules()).anyMatch(x -> x.id().equals("R15") && !x.pass());
         assertThat(r.reasonCodes()).contains("RC-010");

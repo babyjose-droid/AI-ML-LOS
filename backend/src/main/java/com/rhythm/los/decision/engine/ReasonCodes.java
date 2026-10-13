@@ -22,6 +22,11 @@ public final class ReasonCodes {
             Map.entry("RC-015", "External data unavailable (bureau thin-file)"),
             Map.entry("RC-016", "Exposure limit exceeded"),
             Map.entry("RC-017", "Business cash-flow volatility"),
+            Map.entry("RC-007", "High credit utilisation"),
+            Map.entry("RC-018", "Recent borrowing increase"),
             Map.entry("RC-019", "Negative internal repayment history"),
-            Map.entry("RC-020", "Betting / gambling transactions in bank statement"));
+            Map.entry("RC-020", "Model or data quality error"),
+            // lender-specific extensions beyond the FSD's standard list (RC-001 to RC-020)
+            Map.entry("RC-021", "Betting / gambling transactions in bank statement"),
+            Map.entry("RC-022", "Not eligible for this product"));
 }

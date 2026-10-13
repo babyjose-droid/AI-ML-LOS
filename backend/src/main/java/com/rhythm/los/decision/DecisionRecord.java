@@ -52,6 +52,7 @@ public class DecisionRecord {
     @Column(name = "conditions_json")
     private String conditionsJson;
     private String narrative;
+    @jakarta.persistence.Column(name = "missing_data") private String missingData;
     @Column(name = "credit_memo")
     private String creditMemo;
     @Column(name = "model_version")
@@ -112,6 +113,8 @@ public class DecisionRecord {
     public void setReasonCodes(String v) { this.reasonCodes = v; }
     public String getConditionsJson() { return conditionsJson; }
     public void setConditionsJson(String v) { this.conditionsJson = v; }
+    public String getMissingData() { return missingData; }
+    public void setMissingData(String v) { this.missingData = v; }
     public String getNarrative() { return narrative; }
     public void setNarrative(String v) { this.narrative = v; }
     public String getCreditMemo() { return creditMemo; }

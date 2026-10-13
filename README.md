@@ -195,6 +195,42 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Phase 1 close (prototype v3.1 review)
+
+Corrections:
+- Pricing stays inside the product's rate band. Product eligibility covers age at maturity, vintage, minimum income and geography (R18 once branches have PIN codes).
+- Missing minimum data gives an **INCOMPLETE** decision with the missing items; the decision never runs on partial data.
+- A new-to-credit applicant needs a field visit; the decision is provisional and sanction waits for the visit.
+- The sanction amount is re-checked against the approver's authority.
+- Separate trained models for bureau-hit (THICK) and new-to-credit (NTC) applicants.
+- Product changes are versioned and need CRO approval; each application keeps the product version it started on.
+- PAN and account numbers are masked everywhere except the draft form. Staff see their own branch and the units under it.
+
+Credit and process:
+- Sanction: approve, approve with conditions, send back to credit (decision re-opened, the underwriter gets a My work task), escalate, or decline.
+- **Review queue**: case cards with band, PD, reason codes, deviations and SLA.
+- **Consent ledger**: one record per source with purpose, scope, validity, channel and language. Withdrawal stops further pulls and records its effect. Disbursement re-checks consents and new links.
+- **Credit memo**: edit, justify each deviation, sign and lock. Versions are kept, and numbers not found in the file are flagged.
+- **Data capture by stage** (FSD 11–12) on the Workflow tab, and the preferred language on the form.
+- **Decision API**: `POST /api/v1/credit/decision` runs the same engine statelessly.
+- **Credit policy**:
+  - per-segment and per-product overrides
+  - effective dates
+  - CRO rollback and cancel
+  - Simulation B on the live book (classification, behaviour PD, top-up and renewal effect, drill-down)
+
+Admin and security:
+- **Branches**: edit, deactivate, PIN codes and products per branch. Portal applications route by PIN code.
+- **Masters**: holiday calendar (SLA clocks skip holidays), and a roles and permissions matrix with sanction limits as data.
+- **Sign-in**: lockout after five failed sign-ins, MFA with an authenticator app (My account), admin unlock and MFA reset, and idle sign-out after 15 minutes (`rhythm.security.idle-timeout-minutes`).
+- **Integration hub**:
+  - per-connector on/off, timeout, attempts and circuit breaker
+  - correlation IDs
+  - masked log bodies
+  - bulk retry
+- **Audit trail**: append-only in the database, with CSV export.
+- **Screens**: Overview, stage board, Customer 360 tab.
+
 ## Roadmap
 
 | Phase | Scope |

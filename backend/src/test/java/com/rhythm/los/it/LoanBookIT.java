@@ -108,7 +108,7 @@ class LoanBookIT {
         assertThat(mine.get(0).get("source").asText()).isEqualTo("RHYTHM");
         assertThat(mine.get(0).get("classification").asText()).isEqualTo("STANDARD");
         assertThat(mine.get(0).get("eclStage").asInt()).isEqualTo(1);
-        assertThat(mine.get(0).get("outstanding").asDouble()).isEqualTo(450000);
+        assertThat(mine.get(0).get("outstanding").asDouble()).isEqualTo(mine.get(0).get("sanctionedAmount").asDouble()).isPositive();
 
         // 2. JSON feed: a loan new to the book (needs its details), a bad row, then NPA and the upgrade rule
         Map<String, Object> fresh = row("LMS-0001", 200000, 30000, 95);

@@ -93,3 +93,34 @@ def read_statement_page(image_png: bytes) -> list | None:
     except Exception as e:  # noqa: BLE001
         log.warning("Claude statement fallback failed: %s", e)
         return None
+
+
+_PAN = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.I)
+_AADHAAR = re.compile(r"(?<!\d)\d{4}\s?\d{4}\s?\d{4}(?!\d)")
+_MOBILE = re.compile(r"(?<!\d)[6-9]\d{9}(?!\d)")
+
+
+def mask_text(s: str) -> str:
+    """Defence in depth: the LOS masks before sending; mask identifiers again before anything reaches the model."""
+    return _MOBILE.sub("[MOBILE]", _AADHAAR.sub("[AADHAAR]", _PAN.sub("[PAN]", s or "")))
+
+
+def answer_question(question: str, passages: list[dict]) -> str | None:
+    """A short answer to a policy question written only from the given passages, citing them as [id]. None if unavailable."""
+    if not enabled() or not question or not passages:
+        return None
+    ctx = "\n".join(f"[{mask_text(str(p.get('id')))}] {mask_text(str(p.get('title')))}: {mask_text(str(p.get('text')))}" for p in passages[:8])
+    prompt = ("You answer questions from staff of an Indian NBFC about its credit policy, products, delegation of authority, "
+              "underwriting rules, reason codes and decisions. Use ONLY the passages below. Cite each fact with its [id]. "
+              "If the passages do not answer the question, say so plainly. Keep it under 150 words, in plain English, "
+              "with numbers exactly as given.\n\nPassages:\n" + ctx + "\n\nQuestion: " + mask_text(question))
+    body = {"model": MODEL, "max_tokens": 500, "messages": [{"role": "user", "content": prompt}]}
+    headers = {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    try:
+        r = httpx.post(API_URL, json=body, headers=headers, timeout=float(os.getenv("CLAUDE_TIMEOUT", "30")))
+        r.raise_for_status()
+        text = "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text").strip()
+        return text or None
+    except Exception as e:  # noqa: BLE001
+        log.warning("Claude assistant failed: %s", e)
+        return None

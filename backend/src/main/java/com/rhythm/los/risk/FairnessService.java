@@ -40,7 +40,7 @@ public class FairnessService {
 
     static String ageBand(int age) { return age < 25 ? "Under 25" : age < 35 ? "25–34" : age < 45 ? "35–44" : age < 55 ? "45–54" : "55 and over"; }
 
-    static String region(String pin) {
+    public static String region(String pin) {
         if (pin == null || pin.isBlank()) return "Not given";
         return PIN_REGION.getOrDefault(pin.charAt(0), "Other");
     }

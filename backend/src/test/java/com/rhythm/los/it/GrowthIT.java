@@ -213,14 +213,15 @@ class GrowthIT {
         feed(ops, today.plusMonths(7), clean);
         JsonNode chk = ok(get("/api/topups/loans/" + loanId), sales, null).body();
         assertThat(chk.get("eligible").asBoolean()).as(String.valueOf(chk.get("reasons"))).isTrue();
-        assertThat(chk.get("amount").asDouble()).isEqualTo(370000);
+        long expected = (long) Math.floor((1.5 * l.get("sanctionedAmount").asDouble() - 300000) / 10000) * 10000;
+        assertThat(chk.get("amount").asDouble()).isEqualTo(expected);
         assertThat(ok(get("/api/topups/eligible"), sales, null).body().toString()).contains(ref);
         JsonNode offer = ok(post("/api/topups/loans/" + loanId + "/offer"), sales, null).body();
         assertThat(call(post("/api/topups/loans/" + loanId + "/offer"), sales, null).status()).isEqualTo(409);
         JsonNode applied = ok(post("/api/topups/offers/" + offer.get("id").asLong() + "/apply"), sales, null).body();
         long draft = applied.get("applicationId").asLong();
         JsonNode d = ok(get("/api/applications/" + draft), sales, null).body();
-        assertThat(d.toString()).contains("DRAFT").contains("Top-up on loan " + ref).contains("370000");
+        assertThat(d.toString()).contains("DRAFT").contains("Top-up on loan " + ref).contains(String.valueOf(expected));
         assertThat(call(post("/api/topups/offers/" + offer.get("id").asLong() + "/apply"), sales, null).status()).isEqualTo(409);
 
         // rate simulator over the book

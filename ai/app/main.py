@@ -133,3 +133,14 @@ async def train_model(body: dict):
         return train.train(rows, feats, float(body.get("l2", 1.0)))
     except ValueError as e:
         raise HTTPException(422, str(e))
+
+
+@app.post("/v1/assistant/answer")
+async def assistant_answer(body: dict):
+    """Policy assistant: {question, passages: [{id, title, text}]} -> {answer} (answer is null without a Claude key)."""
+    q = str(body.get("question") or "")[:1000]
+    passages = body.get("passages") or []
+    if not q or not isinstance(passages, list):
+        raise HTTPException(422, "question and passages are required")
+    answer = llm.answer_question(q, passages)
+    return {"answer": answer, "engine": "claude" if answer else "none"}

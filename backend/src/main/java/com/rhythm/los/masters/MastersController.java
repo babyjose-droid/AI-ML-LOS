@@ -95,6 +95,8 @@ public class MastersController {
         CAPABILITIES.put(Role.CREDIT_MANAGER, List.of("Everything a credit officer does", "Sanction within L2 limits", "Draft credit policy and products", "Risk models"));
         CAPABILITIES.put(Role.CRO, List.of("Sanction any case (L3)", "Approve policy, product, workflow and model changes (checker)", "Policy rollback"));
         CAPABILITIES.put(Role.FRAUD_ANALYST, List.of("Fraud referrals: clear or confirm"));
+        CAPABILITIES.put(Role.LEGAL_REVIEWER, List.of("Collateral legal reviews: EC, title chain, open charges, ID mismatches (clear or uphold with a reason)"));
+        CAPABILITIES.put(Role.VALUER, List.of("Record empanelled valuations", "Valuation reviews: age and variance (clear or uphold with a reason)"));
         CAPABILITIES.put(Role.COMPLIANCE, List.of("Read-only: applications, audit trail and integration logs", "Audit export"));
         CAPABILITIES.put(Role.ADMIN, List.of("Users, branches, masters, products, workflows, connectors", "Every action (for support)"));
         for (Role r : Role.values()) SCOPE.put(r, "Own branch and the units under it; head office sees all");

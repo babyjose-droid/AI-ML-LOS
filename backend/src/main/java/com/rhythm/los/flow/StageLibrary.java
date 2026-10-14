@@ -48,6 +48,9 @@ public final class StageLibrary {
                 List.of("Valuation partner", "Vahan RC check"), a -> false, List.of("registrationNo", "valuation"), "Inspect the vehicle, check the RC and record the valuation"));
         add(new Def("gold", "Gold appraisal", "CREDIT_OFFICER", 1, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Purity analyser"), a -> false, List.of("netWeightGrams", "purityKarat", "value"), "Weigh and test the gold and record its value"));
+        add(new Def("col", "Collateral AI review", "CREDIT_OFFICER", 120, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
+                List.of("Collateral Document AI", "Collateral Vision AI", "Valuation AI"), a -> false, List.of(),
+                "Done when every collateral passes the collateral rules (CR-01 to CR-11), after legal, valuer and field reviews"));
         add(new Def("legal", "Legal & technical (property)", "CREDIT_MANAGER", 72, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Legal vendor", "Technical vendor"), a -> false, List.of("titleClear", "marketValue"), "Title search and technical valuation of the property"));
     }

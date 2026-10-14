@@ -144,3 +144,20 @@ async def assistant_answer(body: dict):
         raise HTTPException(422, "question and passages are required")
     answer = llm.answer_question(q, passages)
     return {"answer": answer, "engine": "claude" if answer else "none"}
+
+
+@app.post("/v1/collateral/documents/analyze")
+async def collateral_document(file: UploadFile = File(...), doc_type: str = Form(...)):
+    """Collateral Document AI: fields with confidence per document type; EC transactions."""
+    from . import collateral
+    data = await file.read()
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(413, "File too large")
+    return collateral.analyze_document(data, file.content_type or "application/pdf", doc_type.upper())
+
+
+@app.post("/v1/collateral/media/analyze")
+async def collateral_media(file: UploadFile = File(...)):
+    """Collateral Vision AI: EXIF time and GPS, quality and editing hints for one photo."""
+    from . import collateral
+    return collateral.analyze_media(await file.read())

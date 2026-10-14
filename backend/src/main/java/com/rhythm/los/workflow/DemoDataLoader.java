@@ -59,6 +59,7 @@ public class DemoDataLoader {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @org.springframework.core.annotation.Order(100)
     public void load() {
         if (!enabled || repo.count() > 0) return;
         log.info("Loading demo applications");
@@ -165,7 +166,7 @@ public class DemoDataLoader {
     }
 
     /** Minimal in-memory MultipartFile for seeding. */
-    record BytesFile(String name, byte[] bytes, String type) implements MultipartFile {
+    public record BytesFile(String name, byte[] bytes, String type) implements MultipartFile {
         @Override public String getName() { return "file"; }
         @Override public String getOriginalFilename() { return name; }
         @Override public String getContentType() { return type; }

@@ -212,3 +212,11 @@ input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6)
 .stepper .s-ACTIVE, .stepper .s-REVIEW { border-color: var(--warn); background: var(--warn-soft); }
 .stepper .s-FAILED { border-color: var(--bad); background: var(--bad-soft); }
 .stepper .s-SKIPPED b { text-decoration: line-through; color: var(--muted); }
+
+.facts { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.facts dt { color: var(--muted, #667); }
+.facts dd { margin: 0; }
+.warn-text { color: var(--warn, #b9770e); }
+.bar-row { margin-bottom: 8px; }
+.bar-row .bar { display: inline-block; width: 45%; vertical-align: middle; }
+.timeline li.flag { background: color-mix(in srgb, var(--warn, #d68910) 10%, transparent); }

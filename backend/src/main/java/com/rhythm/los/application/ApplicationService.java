@@ -95,6 +95,7 @@ public class ApplicationService {
         if (apps.countActiveByPanExcluding(a.getPan(), -1L) > 0) {
             throw ApiException.conflict("DUPLICATE_PAN", "An active application already exists for PAN " + com.rhythm.los.common.Mask.pan(a.getPan()));
         }
+        if (p.isCollateralRequired()) a.setCollateralState("PENDING");
         LoanApplication saved = apps.save(a);
         saved.setAppNo(String.format("APP-%06d", 300000 + saved.getId()));
         saved = apps.save(saved);

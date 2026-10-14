@@ -70,6 +70,8 @@ public class SanctionService {
         workflow.requireNothingPendingBefore(a, "sanction");
         DecisionRecord d = decisions.latest(appId).orElseThrow(() -> ApiException.conflict("NO_DECISION", "Run the decision engine first"));
         Product p = apps.product(a);
+        com.rhythm.los.collateral.CollateralService.SanctionCheck col = collateral == null ? null : collateral.sanctionCheck(a);
+        if (col != null && col.blocked()) throw ApiException.conflict("COLLATERAL_NOT_CLEARED", col.reason());
 
         BigDecimal amt = amount == null ? d.getRecommendedAmount() : amount;
         boolean override = "REFER".equals(d.getDecision()) || amt.compareTo(d.getRecommendedAmount()) > 0;
@@ -78,6 +80,14 @@ public class SanctionService {
         }
         if (amt.compareTo(p.getMinAmount()) < 0 || amt.compareTo(p.getMaxAmount()) > 0 || amt.compareTo(a.getLoanAmount()) > 0) {
             throw ApiException.unprocessable("AMOUNT_OUT_OF_RANGE", "Sanction amount must be within product limits and not above the amount applied for");
+        }
+        // COL-BR-13: above the collateral's maximum exposure (LTV cap) only L3 may sanction, with a reason
+        boolean ltvException = col != null && col.maxExposure() != null && amt.doubleValue() > col.maxExposure() + 0.5;
+        if (ltvException) {
+            if (note == null || note.trim().length() < 20)
+                throw ApiException.unprocessable("LTV_EXCEPTION_REASON", "Sanction above the collateral's maximum exposure ₹" + Math.round(col.maxExposure()) + " needs L3 and a reason of at least 20 characters");
+            level = "L3";
+            checkAuthority(level, by);
         }
         // the amount actually sanctioned decides the authority needed, not the recommended amount the case was routed on
         String needed = Delegation.levelForAmount(amt.doubleValue());
@@ -101,18 +111,24 @@ public class SanctionService {
         s.setNote(note);
         s.setKfsJson(Json.write(kfs));
         s.setActor(by.username());
-        if (extraConditions != null) {
-            java.util.List<String> c = extraConditions.stream().filter(x -> x != null && !x.isBlank()).map(String::trim).toList();
-            if (!c.isEmpty()) s.setConditionsJson(Json.write(c));
-        }
+        java.util.List<String> conds = new java.util.ArrayList<>();
+        if (extraConditions != null) extraConditions.stream().filter(x -> x != null && !x.isBlank()).map(String::trim).forEach(conds::add);
+        if (col != null) col.conditions().stream().filter(x -> !conds.contains(x)).forEach(conds::add);
+        if (!conds.isEmpty()) s.setConditionsJson(Json.write(conds));
         s = records.save(s);
 
         apps.transition(a, Domain.SANCTION, "SANCTIONED", "sanction.approved", by,
                 level + " · ₹" + amt.toPlainString() + (override ? " · OVERRIDE: " + note : ""));
         apps.transition(a, Domain.APP, "SANCTIONED", "application.sanctioned", by, null);
         if (override) audit.record(by, "sanction.override", "APPLICATION", a.getAppNo(), appId, note);
+        if (ltvException) audit.record(by, "collateral.ltv_exception", "APPLICATION", a.getAppNo(), appId, "₹" + amt.toPlainString() + " above maximum exposure ₹" + Math.round(col.maxExposure()) + " · " + note);
         return s;
     }
+
+    private com.rhythm.los.collateral.CollateralService collateral;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setCollateral(com.rhythm.los.collateral.CollateralService c) { this.collateral = c; }
 
     /**
      * Straight-through sanction for small, clean cases, when the product allows it: engine APPROVE (not conditional),
@@ -124,6 +140,8 @@ public class SanctionService {
         LoanApplication a = apps.get(appId);
         Product p = apps.product(a);
         if (p.getAutoSanctionLimit() == null || !"PENDING_L1".equals(a.getSanctionState())) return java.util.Optional.empty();
+        // secured products never sanction straight through: collateral needs its own clearance
+        if (!"NOT_REQUIRED".equals(a.getCollateralState())) return java.util.Optional.empty();
         DecisionRecord d = decisions.latest(appId).orElse(null);
         if (d == null || !"APPROVE".equals(d.getDecision())) return java.util.Optional.empty();
         boolean clean = "VERIFIED".equals(a.getKycState()) && "CLEAR".equals(a.getFraudState()) && !documents.anyTampered(appId)

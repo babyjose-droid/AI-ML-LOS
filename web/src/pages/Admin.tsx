@@ -6,7 +6,7 @@ import { ErrorBox, Head, Modal, Pill, Table, useLoad } from '../components/ui'
 import { inr } from '../format'
 import type { AppUser, Branch, Product, Role } from '../types'
 
-const ROLES: Role[] = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER']
+const ROLES: Role[] = ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER', 'LEGAL_REVIEWER', 'VALUER']
 
 export function Branches() {
   const { user } = useAuth()

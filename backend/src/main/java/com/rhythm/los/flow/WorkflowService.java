@@ -226,6 +226,24 @@ public class WorkflowService {
         refresh(a, by.username());
     }
 
+    /**
+     * Records the outcome of a stage that the system completes from other evidence (the Collateral AI review, or
+     * vehicle valuation and gold appraisal done in the collateral module). Does nothing when the workflow has no such stage.
+     */
+    @Transactional
+    public void recordAutomatic(LoanApplication a, String key, String outcome, String note) {
+        if (defs.stages(a).stream().noneMatch(s -> s.key().equals(key))) return;
+        refresh(a);
+        rows.findByApplicationIdAndStageKey(a.getId(), key).ifPresent(r -> {
+            if (Set.of("DONE", "SKIPPED").contains(r.getStatus()) && "PASS".equals(outcome)) return;
+            r.setOutcome(outcome);
+            r.setNote(note);
+            if ("PASS".equals(outcome)) r.setCompletedBy("system");
+            rows.save(r);
+        });
+        refresh(a, "system");
+    }
+
     /** True when the applicant's joint liability group passed its recognition test (GRT) in this application's workflow. */
     public boolean groupRecognised(LoanApplication a) {
         return a.getId() != null && rows.findByApplicationIdAndStageKey(a.getId(), "grt").map(r -> "PASS".equals(r.getOutcome())).orElse(false);

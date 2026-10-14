@@ -30,6 +30,7 @@ import Pricing from './pages/Pricing'
 import Compliance from './pages/Compliance'
 import Scores from './pages/Scores'
 import Assistant from './pages/Assistant'
+import CollateralOverview, { CollateralCase } from './collateral/Collateral'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -37,6 +38,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/overview', label: 'Overview' },
     { to: '/my-work', label: 'My work' },
     { to: '/field', label: 'Field visits', roles: ['FIELD_OFFICER', 'OPERATIONS', 'ADMIN'] },
+    { to: '/collateral', label: 'Collateral AI', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE', 'LEGAL_REVIEWER', 'VALUER', 'FIELD_OFFICER', 'SALES'] },
     { to: '/review-queue', label: 'Review queue', roles: ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
     { to: '/applications', label: 'Pipeline' },
     { to: '/board', label: 'Stage board' },
@@ -47,7 +49,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/pricing', label: 'Rate simulator', roles: ['ADMIN', 'CREDIT_MANAGER', 'CRO'] },
     { to: '/compliance', label: 'Compliance and returns', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/scores', label: 'Branch and officer scores', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS', 'COMPLIANCE'] },
-    { to: '/assistant', label: 'Policy assistant', roles: ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER'] },
+    { to: '/assistant', label: 'Policy assistant', roles: ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER', 'LEGAL_REVIEWER', 'VALUER'] },
   ]],
   ['Operations', [
     { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
@@ -139,6 +141,8 @@ export default function App() {
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/scores" element={<Scores />} />
             <Route path="/assistant" element={<Assistant />} />
+            <Route path="/collateral" element={<CollateralOverview />} />
+            <Route path="/collateral/:id" element={<CollateralCase />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />
             <Route path="/reports" element={<Reports />} />

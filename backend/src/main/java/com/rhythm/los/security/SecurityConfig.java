@@ -64,7 +64,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/applications", "/api/applications/*/submit", "/api/applications/*/withdraw",
                             "/api/applications/*/documents", "/api/applications/*/kfs/**").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
                     .requestMatchers(HttpMethod.PUT, "/api/applications/*").hasAnyRole("SALES", "OPERATIONS", "ADMIN")
-                    .requestMatchers("/api/**").hasAnyRole("ADMIN", "SALES", "OPERATIONS", "CREDIT_OFFICER", "CREDIT_MANAGER", "CRO", "FRAUD_ANALYST", "COMPLIANCE", "FIELD_OFFICER")
+                    .requestMatchers("/api/**").hasAnyRole("ADMIN", "SALES", "OPERATIONS", "CREDIT_OFFICER", "CREDIT_MANAGER", "CRO", "FRAUD_ANALYST", "COMPLIANCE", "FIELD_OFFICER", "LEGAL_REVIEWER", "VALUER")
                     .anyRequest().permitAll())
             .exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) ->
                     json(res, 403, "FORBIDDEN", "Your role is not allowed to do this")))

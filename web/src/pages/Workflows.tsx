@@ -10,7 +10,7 @@ import type { LibraryStage, ProductWorkflows, Stage, WorkflowDetail } from '../t
 // integrations per stage. Edited as a draft, checked, approved by the CRO (not the maker) and published as a new
 // version. Applications already in flight keep the version they started on.
 
-const ROLES = ['SALES', 'OPERATIONS', 'FIELD_OFFICER', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE']
+const ROLES = ['SALES', 'OPERATIONS', 'FIELD_OFFICER', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'LEGAL_REVIEWER', 'VALUER']
 const MODE_LABEL: Record<string, string> = { AUTO: 'Automatic', AUTO_REVIEW: 'Automatic, person confirms', MANUAL: 'Manual' }
 const FAIL_LABEL: Record<string, string> = { QUEUE: 'Send to queue', ESCALATE: 'Escalate to next level', REJECT: 'Reject application', PAUSE: 'Pause and notify borrower' }
 const MAKERS = ['ADMIN', 'CREDIT_MANAGER']

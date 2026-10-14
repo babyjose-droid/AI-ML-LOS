@@ -5,6 +5,10 @@ public enum Role {
     ADMIN, SALES, OPERATIONS, CREDIT_OFFICER, CREDIT_MANAGER, CRO, FRAUD_ANALYST, COMPLIANCE,
     /** Field visits, group formation (CGT) and vehicle valuation. */
     FIELD_OFFICER,
+    /** Reads title, EC and legal flags on collateral (does not certify title: the lender's empanelled advocate does). */
+    LEGAL_REVIEWER,
+    /** Empanelled valuation desk: records and reviews valuations. */
+    VALUER,
     /** A customer signed in to the borrower portal with mobile OTP. Never a staff user. */
     BORROWER;
 

@@ -45,6 +45,8 @@ public class Product {
     @Column(name = "optional_docs") private String optionalDocs;
     /** AUTO (bureau model if a bureau record, else new-to-credit), THICK, NTC, RULES (policy rules only, no PD model). */
     @Column(name = "scoring_model") private String scoringModel = "AUTO";
+    @Column(name = "collateral_types") private String collateralTypes;
+    @Column(name = "collateral_required") private boolean collateralRequired;
     @Column(name = "updated_at") private Instant updatedAt = Instant.now();
 
     public List<String> requiredDocList() {
@@ -140,5 +142,12 @@ public class Product {
         return new com.rhythm.los.sanction.KfsCalculator.Charges(processingFeePct == null ? 0 : processingFeePct.doubleValue(),
                 minProcessingFee == null ? 0 : minProcessingFee.doubleValue(), foreclosurePct == null ? 0 : foreclosurePct.doubleValue(),
                 bounceCharge == null ? 0 : bounceCharge.doubleValue(), penalRatePct == null ? 0 : penalRatePct.doubleValue(), repaymentFrequency);
+    }
+    public String getCollateralTypes() { return collateralTypes; }
+    public void setCollateralTypes(String v) { this.collateralTypes = v; }
+    public boolean isCollateralRequired() { return collateralRequired; }
+    public void setCollateralRequired(boolean v) { this.collateralRequired = v; }
+    public java.util.List<String> collateralTypeList() {
+        return collateralTypes == null || collateralTypes.isBlank() ? java.util.List.of() : java.util.Arrays.stream(collateralTypes.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
     }
 }

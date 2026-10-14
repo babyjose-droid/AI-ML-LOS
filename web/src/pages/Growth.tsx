@@ -99,10 +99,10 @@ export function Topups({ rev }: { rev: number }) {
         <Table head={['Borrower', 'Outstanding', 'EMIs paid', 'Top-up', 'Rate', '']} rows={(t.data ?? []).map(x => [
           <span>{x.borrowerName}<div className="small muted"><span className="mono">{x.loanRef}</span> · {x.productCode}</div></span>, inr(x.outstanding), x.paidEmis, inr(x.amount), x.rate + '%',
           x.offer ? <span className="row">
-            {x.canApply && <button className="btn small primary" onClick={() => act(async () => { const a = await api.post<{ applicationId: number }>(`/api/topups/offers/${x.offer!.id}/apply`); nav(`/applications/${a.applicationId}`) })}>Borrower accepts</button>}
-            <button className="btn small" onClick={() => act(() => api.post(`/api/topups/offers/${x.offer!.id}/decline`))}>Declined</button>
+            {x.canApply && <button className="btn sm primary" onClick={() => act(async () => { const a = await api.post<{ applicationId: number }>(`/api/topups/offers/${x.offer!.id}/apply`); nav(`/applications/${a.applicationId}`) })}>Borrower accepts</button>}
+            <button className="btn sm" onClick={() => act(() => api.post(`/api/topups/offers/${x.offer!.id}/decline`))}>Declined</button>
             <span className="small muted">offer valid to {x.offer.expiresOn}</span></span>
-            : <button className="btn small" data-action="offerTopup" onClick={() => act(() => api.post(`/api/topups/loans/${x.loanId}/offer`))}>Make offer</button>])}
+            : <button className="btn sm" data-action="offerTopup" onClick={() => act(() => api.post(`/api/topups/loans/${x.loanId}/offer`))}>Make offer</button>])}
           empty={t.loading ? 'Loading…' : 'No eligible borrowers yet.'} />
       </div>
     </>
@@ -132,8 +132,8 @@ export function Restructures({ rev }: { rev: number }) {
           <span>{x.borrowerName}<div className="small muted mono">{x.loanRef} · {x.dpd} DPD</div></span>,
           <span className="small">{label(x.proposal.kind)}: {x.proposal.newTenureMonths} months at {x.proposal.newRate}%{x.proposal.moratoriumMonths ? `, ${x.proposal.moratoriumMonths}-month moratorium` : ''}</span>,
           <span className="small">{inr(x.currentEmi)} → {inr(x.proposal.newEmi)}</span>, <span className="small">{x.proposal.reason}</span>, x.proposal.requestedBy,
-          checker && x.proposal.requestedBy !== user?.username ? <span className="row"><button className="btn small primary" onClick={() => decide(x.proposal.id, true)}>Approve</button>
-            <button className="btn small" onClick={() => decide(x.proposal.id, false)}>Reject</button></span> : <span className="small muted">{checker ? 'You proposed it' : 'Awaiting checker'}</span>])}
+          checker && x.proposal.requestedBy !== user?.username ? <span className="row"><button className="btn sm primary" onClick={() => decide(x.proposal.id, true)}>Approve</button>
+            <button className="btn sm" onClick={() => decide(x.proposal.id, false)}>Reject</button></span> : <span className="small muted">{checker ? 'You proposed it' : 'Awaiting checker'}</span>])}
           empty={p.loading ? 'Loading…' : 'Nothing waiting.'} />
       </div>
     </>

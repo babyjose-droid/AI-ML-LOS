@@ -89,6 +89,7 @@ public class LoanApplication {
     @Column(name = "field_state") private String fieldState;
     @Column(name = "decision_state") private String decisionState;
     @Column(name = "fraud_state") private String fraudState;
+    @Column(name = "collateral_state") private String collateralState = "NOT_REQUIRED";
     @Column(name = "sanction_state") private String sanctionState;
     @Column(name = "disb_state") private String disbState;
     @Column(name = "created_at") private Instant createdAt = Instant.now();
@@ -213,4 +214,6 @@ public class LoanApplication {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public long getVersion() { return version; }
+    public String getCollateralState() { return collateralState; }
+    public void setCollateralState(String v) { this.collateralState = v; }
 }

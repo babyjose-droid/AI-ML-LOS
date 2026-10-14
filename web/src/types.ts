@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'SALES' | 'OPERATIONS' | 'CREDIT_OFFICER' | 'CREDIT_MANAGER' | 'CRO' | 'FRAUD_ANALYST' | 'COMPLIANCE' | 'FIELD_OFFICER'
+export type Role = 'ADMIN' | 'SALES' | 'OPERATIONS' | 'CREDIT_OFFICER' | 'CREDIT_MANAGER' | 'CRO' | 'FRAUD_ANALYST' | 'COMPLIANCE' | 'FIELD_OFFICER' | 'LEGAL_REVIEWER' | 'VALUER'
 
 export interface User { username: string; name: string; role: Role; branchId: number; sanctionLevel: number }
 

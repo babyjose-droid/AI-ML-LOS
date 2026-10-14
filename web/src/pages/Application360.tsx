@@ -5,10 +5,11 @@ import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../comp
 import { REASON, inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
 import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
+import { ApplicationCollateralTab } from '../collateral/Collateral'
 import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '../flow/CasePanels'
 import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Customer', 'Workflow', 'Documents', 'Field visit', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Customer', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
@@ -110,6 +111,7 @@ export default function Application360() {
           {tab === 'Overview' && <Overview v={v} rev={rev} onChange={refresh} />}
           {tab === 'Customer' && <CustomerPanel id={id!} rev={rev} />}
           {tab === 'Field visit' && <FieldVisitsPanel id={id!} rev={rev} />}
+          {tab === 'Collateral' && <ApplicationCollateralTab id={id!} productCode={v.application.productCode} rev={rev} onChange={refresh} />}
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}

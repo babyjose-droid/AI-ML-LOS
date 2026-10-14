@@ -26,6 +26,12 @@ public class MyWorkService {
     private final com.rhythm.los.org.DataScope scope;
     private java.util.function.Predicate<LoanApplication> sentBack = a -> false;
 
+    private com.rhythm.los.collateral.CollateralReviewRepository colReviews;
+    private com.rhythm.los.collateral.CollateralRepository collaterals;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setCollateral(com.rhythm.los.collateral.CollateralReviewRepository r, com.rhythm.los.collateral.CollateralRepository c) { this.colReviews = r; this.collaterals = c; }
+
     @org.springframework.beans.factory.annotation.Autowired
     void setSanctions(@org.springframework.context.annotation.Lazy com.rhythm.los.sanction.SanctionService s) { this.sentBack = s::awaitingReassessment; }
 
@@ -113,6 +119,19 @@ public class MyWorkService {
             }
             long dlq = logs.countByStatus("DLQ");
             if (dlq > 0) out.add(0, new Task(null, null, null, null, 0, dlq + " integration call(s) in the dead-letter queue", "integrations", 0, 4));
+        }
+        // collateral reviews for the legal reviewer, the valuer, field officers and credit (SCR-147)
+        if (colReviews != null) {
+            java.util.Set<Long> vis = scope.visibleBranches(u);
+            for (var rv : colReviews.findByStatusOrderByDueAtAsc("OPEN")) {
+                if (!r.name().equals(rv.getRole()) && r != Role.ADMIN) continue;
+                var c = collaterals.findById(rv.getCollateralId()).orElse(null);
+                if (c == null) continue;
+                apps.findById(c.getApplicationId()).filter(a -> vis == null || a.getBranchId() == null || vis.contains(a.getBranchId())).ifPresent(a ->
+                        out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                                "Collateral " + c.getColNo() + " · " + rv.getRuleId() + ": " + rv.getReason(), "collateralReview:" + c.getId(),
+                                Duration.between(rv.getCreatedAt(), Instant.now()).toHours(), rv.getSlaHours())));
+            }
         }
         return out;
     }

@@ -22,7 +22,7 @@ export default function MyWork() {
               t.appNo ?? '—', t.applicant ?? '—', t.amount ? inr(t.amount) : '—', <b>{t.task}</b>,
               <span className={t.ageHours > t.slaHours ? 'pill bad' : 'pill muted'}>{t.ageHours} h</span>, `${t.slaHours} h`,
             ])}
-            onRow={i => tasks[i].action.startsWith('collateralReview:') ? nav('/collateral/' + tasks[i].action.split(':')[1]) : tasks[i].applicationId ? nav('/applications/' + tasks[i].applicationId) : nav(tasks[i].action === 'policy' ? '/admin/policy' : tasks[i].action === 'workflow' ? '/admin/workflows' : '/integrations')}
+            onRow={i => tasks[i].action.startsWith('collateralReview:') ? nav('/collateral/' + tasks[i].action.split(':')[1]) : tasks[i].applicationId ? nav('/applications/' + tasks[i].applicationId + (tasks[i].action === 'parties' ? '?tab=Parties' : '')) : nav(tasks[i].action === 'policy' ? '/admin/policy' : tasks[i].action === 'workflow' ? '/admin/workflows' : '/integrations')}
             empty="No tasks waiting for you."
           />
         )}

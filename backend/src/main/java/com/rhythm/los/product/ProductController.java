@@ -65,7 +65,8 @@ public class ProductController {
             BigDecimal penalRatePct,
             String optionalDocs,
             String scoringModel,
-            com.rhythm.los.party.PartyRules partyRules) {}
+            /** The party rules as an object, or as the JSON text the product carries (a product read back and saved again). */
+            Object partyRules) {}
 
     private static final Set<String> VKYC_RULES = Set.of("ON_KYC_REVIEW", "ALWAYS", "ABOVE_AMOUNT");
     private static final Set<String> BANK_SOURCES = Set.of("AA_OR_STATEMENT", "STATEMENT_ONLY", "AA_ONLY");
@@ -211,7 +212,16 @@ public class ProductController {
         p.setPenalRatePct(r.penalRatePct());
         p.setOptionalDocs(optional == null || optional.isBlank() ? null : optional);
         p.setScoringModel(model);
-        if (r.partyRules() != null) p.setPartyRules(com.rhythm.los.common.Json.write(com.rhythm.los.party.PartyRules.validated(r.partyRules())));
+        if (r.partyRules() != null) {
+            com.rhythm.los.party.PartyRules pr;
+            try {
+                pr = r.partyRules() instanceof String txt ? com.rhythm.los.common.Json.read(txt, com.rhythm.los.party.PartyRules.class)
+                        : com.rhythm.los.common.Json.MAPPER.convertValue(r.partyRules(), com.rhythm.los.party.PartyRules.class);
+            } catch (RuntimeException e) {
+                throw ApiException.unprocessable("BAD_PARTY_RULE", "Co-applicant and guarantor rules could not be read");
+            }
+            p.setPartyRules(com.rhythm.los.common.Json.write(com.rhythm.los.party.PartyRules.validated(pr)));
+        }
         p.setUpdatedAt(Instant.now());
     }
 }

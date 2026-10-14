@@ -5,11 +5,12 @@ import { useAuth } from '../auth'
 import { ErrorBox, Head, Pill, Table, useLoad } from '../components/ui'
 import { inr, label, when } from '../format'
 import type { Product, ProductVersionView } from '../types'
+import { PartyRulesEditor, parseRules } from '../parties/Parties'
 
 // Product builder (FSD 20.5): six tabs, saved as a draft of the next version, sent for approval and published by the
 // CRO (not the maker). Applications keep the product version they were created on.
 
-const TABS = ['Basics', 'Eligibility', 'Loan terms', 'Fees & charges', 'Documents', 'Credit'] as const
+const TABS = ['Basics', 'Eligibility', 'Loan terms', 'Fees & charges', 'Documents', 'Co-applicants & guarantors', 'Credit'] as const
 type Tab = typeof TABS[number]
 type F = Record<string, string | number | boolean | null | undefined>
 
@@ -77,9 +78,11 @@ function ProductEditor({ code, product, onChange }: { code: string; product: Pro
 
   async function save(): Promise<boolean> {
     setError(undefined); setMsg(undefined)
+    // party rules are kept as JSON text on the product and sent as an object
+    const body = { ...f, partyRules: f.partyRules ? parseRules(f.partyRules) : null }
     try {
-      if (isNew) { await api.post('/api/admin/products', f); setMsg('Draft v1 saved'); onChange(String(f.code)) }
-      else { const v = await api.put<ProductVersionView>('/api/admin/products/' + code, f); setMsg(`Draft v${v.version} saved`); versions.reload() }
+      if (isNew) { await api.post('/api/admin/products', body); setMsg('Draft v1 saved'); onChange(String(f.code)) }
+      else { const v = await api.put<ProductVersionView>('/api/admin/products/' + code, body); setMsg(`Draft v${v.version} saved`); versions.reload() }
       return true
     } catch (e) { setError(e); return false }
   }
@@ -120,6 +123,7 @@ function ProductEditor({ code, product, onChange }: { code: string; product: Pro
       <label className="fld">GST on fees<input disabled value="18% (from tax master)" /></label>
     </div><p className="small muted">All charges flow into the Key Fact Statement; the processing fee and GST into the APR.</p></>,
     'Documents': <DocGrid f={f} types={docTypes.data ?? []} editable={editable} onChange={(req, opt) => setF(x => ({ ...x, requiredDocs: req, optionalDocs: opt }))} />,
+    'Co-applicants & guarantors': <PartyRulesEditor value={f.partyRules} editable={editable} onChange={r => set('partyRules', JSON.stringify(r))} />,
     'Credit': <div className="form-grid">
       {pick('scoringModel', 'Scoring model', [['AUTO', 'RHY-PD-THICK if bureau record, else RHY-PD-NTC']])}
       <label className="fld">Credit policy version<input disabled value="Live policy (Credit policy studio)" /></label>

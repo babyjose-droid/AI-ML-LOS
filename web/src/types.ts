@@ -24,6 +24,7 @@ export interface Product {
   videoKycRule: string; videoKycThreshold?: number; bankDataSource: string; autoSanctionLimit?: number
   minVintageYears?: number; minMonthlyIncome?: number; repaymentFrequency?: string; moratoriumMonths?: number
   minProcessingFee?: number; foreclosurePct?: number; bounceCharge?: number; penalRatePct?: number; optionalDocs?: string; scoringModel?: string
+  partyRules?: string
 }
 export interface ProductVersionView {
   id: number; productCode: string; version: number; status: string; notes?: string; createdBy: string; createdAt: string

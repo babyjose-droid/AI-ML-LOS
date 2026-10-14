@@ -6,10 +6,11 @@ import { REASON, inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
 import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
 import { ApplicationCollateralTab } from '../collateral/Collateral'
+import { PartiesTab } from '../parties/Parties'
 import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '../flow/CasePanels'
 import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Customer', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
@@ -35,7 +36,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 export default function Application360() {
   const { id } = useParams()
-  const [tab, setTab] = useState<Tab>('Overview')
+  const [tab, setTab] = useState<Tab>(() => { const q = new URLSearchParams(window.location.search).get('tab'); return (TABS as readonly string[]).includes(q ?? '') ? q as Tab : 'Overview' })
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [error, setError] = useState<unknown>()
   const [msg, setMsg] = useState<string>()
@@ -110,6 +111,7 @@ export default function Application360() {
           </div>
           {tab === 'Overview' && <Overview v={v} rev={rev} onChange={refresh} />}
           {tab === 'Customer' && <CustomerPanel id={id!} rev={rev} />}
+          {tab === 'Parties' && <PartiesTab id={id!} rev={rev} onChange={refresh} />}
           {tab === 'Field visit' && <FieldVisitsPanel id={id!} rev={rev} />}
           {tab === 'Collateral' && <ApplicationCollateralTab id={id!} productCode={v.application.productCode} rev={rev} onChange={refresh} />}
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}

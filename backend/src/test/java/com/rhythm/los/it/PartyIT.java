@@ -108,13 +108,13 @@ class PartyIT {
         JsonNode view = ok(get("/api/applications/" + id + "/parties"), sales, null).body();
         assertThat(view.get("issues").toString()).contains("A guarantor is required before sanction");
 
-        // refused: the applicant's own mobile, a relative's income on a business loan, a director
+        // refused: the applicant's own mobile, a parent's income on a business loan, a guarantor's income
         assertThat(call(post("/api/applications/" + id + "/parties"), sales, party("CO_APPLICANT", "SPOUSE", "Asha Joint", "JNTPB4321K", "9855000001", 38, 40000, true)).body().get("code").asText())
                 .isEqualTo("SAME_MOBILE");
         assertThat(call(post("/api/applications/" + id + "/parties"), sales, party("CO_APPLICANT", "PARENT", "Old Joint", "JNTPD4321D", "9855000009", 62, 30000, true)).body().toString())
                 .contains("cannot be added");
-        assertThat(call(post("/api/applications/" + id + "/parties"), sales, party("CO_APPLICANT", "DIRECTOR", "Dir Joint", "JNTPE4321E", "9855000008", 45, null, false)).body().toString())
-                .contains("not allowed");
+        assertThat(call(post("/api/applications/" + id + "/parties"), sales, party("GUARANTOR", "FRIEND", "Friend Joint", "JNTPE4321E", "9855000008", 45, 50000, true)).body().toString())
+                .contains("guarantor's income is not counted");
 
         long asha = ok(post("/api/applications/" + id + "/parties"), sales, party("CO_APPLICANT", "SPOUSE", "Asha Joint", "JNTPB4321K", "9855000002", 38, 40000, true)).body().get("id").asLong();
         // PAN 9050: the mock bureau has no record for this guarantor

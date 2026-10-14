@@ -4,12 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import VideoKycCustomer from './vkyc/VideoKycCustomer'
 import BorrowerPortal from './borrower/BorrowerPortal'
+import PartyInvite from './parties/PartyInvite'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      {window.location.pathname.startsWith('/vkyc/') ? <VideoKycCustomer /> : window.location.pathname.startsWith('/apply') ? <BorrowerPortal /> : <App />}
+      {window.location.pathname.startsWith('/vkyc/') ? <VideoKycCustomer /> : window.location.pathname.startsWith('/party/') ? <PartyInvite /> : window.location.pathname.startsWith('/apply') ? <BorrowerPortal /> : <App />}
     </BrowserRouter>
   </React.StrictMode>,
 )

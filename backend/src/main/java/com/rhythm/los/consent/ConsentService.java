@@ -49,7 +49,8 @@ public class ConsentService {
     /** Records the consents given on the application form (once, at submission). */
     @Transactional
     public void recordFromApplication(LoanApplication a, CurrentUser by) {
-        if (!repo.findByApplicationIdOrderByIdAsc(a.getId()).isEmpty()) return;
+        // co-applicants' and guarantors' own consents (PARTY_*) may already be on file; the applicant's are recorded once
+        if (repo.findByApplicationIdOrderByIdAsc(a.getId()).stream().anyMatch(c -> !c.getSource().startsWith("PARTY_"))) return;
         String channel = "BORROWER_PORTAL".equals(a.getChannel()) ? "Borrower portal (OTP-verified mobile)" : "Branch / sales console";
         String lang = a.getPreferredLanguage() == null ? "en" : a.getPreferredLanguage();
         Instant now = Instant.now();
@@ -69,7 +70,7 @@ public class ConsentService {
 
     /** True when the source may be pulled now. Applications from before the ledger fall back to the form's tick boxes. */
     public boolean allows(LoanApplication a, String source) {
-        List<Consent> all = repo.findByApplicationIdOrderByIdAsc(a.getId());
+        List<Consent> all = repo.findByApplicationIdOrderByIdAsc(a.getId()).stream().filter(c -> !c.getSource().startsWith("PARTY_")).toList();
         if (all.isEmpty()) return switch (source) {
             case "KYC" -> a.isConsentKyc();
             case "AA" -> a.isConsentAa();

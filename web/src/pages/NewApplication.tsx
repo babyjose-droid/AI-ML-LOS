@@ -4,6 +4,7 @@ import { api } from '../api'
 import { ErrorBox, Head, useLoad } from '../components/ui'
 import { inr } from '../format'
 import type { AppView, LoanApplication, Product } from '../types'
+import { PartiesOnForm, partyBody, type PartyDraft } from '../parties/Parties'
 
 type Form = Record<string, string | boolean>
 
@@ -29,6 +30,9 @@ export default function NewApplication() {
   const [f, setF] = useState<Form>(EMPTY)
   const [error, setError] = useState<unknown>()
   const [busy, setBusy] = useState(false)
+  const [people, setPeople] = useState<PartyDraft[]>([])
+  // once saved, later saves update the same application (for example after fixing a co-applicant's details)
+  const [savedId, setSavedId] = useState<number>()
 
   useEffect(() => {
     // the draft endpoint returns PAN and account number in full for editing; everywhere else they are masked
@@ -54,7 +58,15 @@ export default function NewApplication() {
       addressLat: f.addressLat ? Number(f.addressLat) : null, addressLng: f.addressLng ? Number(f.addressLng) : null,
     }
     try {
-      const a = id ? await api.put<LoanApplication>('/api/applications/' + id, body) : await api.post<LoanApplication>('/api/applications', body)
+      const target = id ?? savedId
+      const a = target ? await api.put<LoanApplication>('/api/applications/' + target, body) : await api.post<LoanApplication>('/api/applications', body)
+      setSavedId(a.id)
+      const left = [...people]
+      while (left.length) {
+        await api.post(`/api/applications/${a.id}/parties`, partyBody(left[0]))
+        left.shift()
+        setPeople([...left])
+      }
       if (submit) await api.post('/api/applications/' + a.id + '/submit')
       nav('/applications/' + a.id)
     } catch (e) {
@@ -123,6 +135,7 @@ export default function NewApplication() {
           {txt('essentialExpenses', 'Essential household expenses (₹/month)', { type: 'number', min: 0 })}
         </div>
       </div>
+      {f.productCode && <PartiesOnForm productCode={String(f.productCode)} list={people} onChange={setPeople} />}
       <div className="panel">
         <h3>Disbursement account</h3>
         <div className="form">

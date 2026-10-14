@@ -1,7 +1,8 @@
 #!/bin/sh
-# Downloads the open face models used by video KYC and checks their SHA-256.
+# Downloads the open models used by video KYC and field-photo checks, and checks their SHA-256.
 #   YuNet face detector  - MIT licence        (opencv_zoo/models/face_detection_yunet)
 #   SFace face recogniser - Apache 2.0 licence (opencv_zoo/models/face_recognition_sface)
+#   MobileNetV2 ImageNet classifier - Apache 2.0 licence (opencv_zoo/models/image_classification_mobilenet)
 set -e
 DIR="${1:-models}"
 mkdir -p "$DIR"
@@ -13,3 +14,4 @@ fetch() {
 }
 fetch face_detection_yunet face_detection_yunet_2023mar.onnx 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
 fetch face_recognition_sface face_recognition_sface_2021dec.onnx 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+fetch image_classification_mobilenet image_classification_mobilenetv2_2022apr.onnx c0c3f76d93fa3fd6580652a45618618a220fced18babf65774ed169de0432ad5

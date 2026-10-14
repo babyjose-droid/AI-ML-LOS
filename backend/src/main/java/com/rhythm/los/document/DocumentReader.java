@@ -35,4 +35,9 @@ public interface DocumentReader {
     default String analyzeVideoKyc(java.util.List<Part> frames, java.util.List<Part> idImages, String expectedPan) {
         throw new UnsupportedOperationException("Video KYC analysis needs the AI service");
     }
+
+    /** Field-visit photo checks (scene, shelf fill, EXIF, owner face vs KYC); file names start with the photo kind. */
+    default String analyzeFieldPhotos(java.util.List<Part> photos, java.util.List<Part> idImages) {
+        throw new UnsupportedOperationException("Field photo analysis needs the AI service");
+    }
 }

@@ -102,6 +102,23 @@ async def analyze_vkyc(frames: list[UploadFile] = File(...), id_images: list[Upl
     return vkyc.analyse(fin, ids, read_pan, expected_pan)
 
 
+@app.post("/v1/field/photos/analyze")
+async def analyze_field_photos(photos: list[UploadFile] = File(...), id_images: list[UploadFile] = File(default=[])):
+    """
+    Field-visit photo checks. Each photo's file name starts with its kind (front-, inside-, stock-, owner-, animals-,
+    vehicle-, odometer-, residence-). id_images are KYC documents for the owner face check. Nothing is stored.
+    """
+    from . import fieldphotos
+    if len(photos) > 20:
+        raise HTTPException(413, "Too many photos (max 20)")
+    pin = []
+    for f in photos:
+        kind = (f.filename or "other").split("-")[0].split(".")[0].lower()
+        pin.append((f.filename or "photo", kind, await f.read()))
+    ids = [((f.filename or "ID").split(".")[0].upper(), await f.read()) for f in id_images]
+    return fieldphotos.analyse(pin, ids)
+
+
 @app.post("/v1/models/train")
 async def train_model(body: dict):
     """Fits a PD model on the loan book the LOS sends: {features: [...], rows: [{features: {...}, bad, championPd}], l2?}."""

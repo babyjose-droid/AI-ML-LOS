@@ -17,7 +17,7 @@ spring:
     multipart:
       # documents are limited to 10 MB in DocumentService; video KYC recordings may be larger
       max-file-size: 60MB
-      max-request-size: 61MB
+      max-request-size: 100MB
   jackson:
     default-property-inclusion: non_null
 

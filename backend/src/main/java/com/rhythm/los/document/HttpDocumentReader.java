@@ -90,6 +90,14 @@ public class HttpDocumentReader implements DocumentReader {
         return post("/v1/vkyc/analyze", form);
     }
 
+    @Override
+    public String analyzeFieldPhotos(List<Part> photos, List<Part> idImages) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        for (Part p : photos) form.add("photos", part(p));
+        for (Part p : idImages) form.add("id_images", part(p));
+        return post("/v1/field/photos/analyze", form);
+    }
+
     private static Object part(Part p) {
         org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
         h.setContentType(MediaType.parseMediaType(p.contentType() == null ? "image/jpeg" : p.contentType()));

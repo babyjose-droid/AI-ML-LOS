@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, getToken } from '../api'
 import { useAuth } from '../auth'
 import { Link } from 'react-router-dom'
 import { ErrorBox, Modal, Pill, Table, useLoad } from '../components/ui'
@@ -250,5 +250,55 @@ export function HouseholdPanel({ id, rev }: { id: string; rev: number }) {
         </div>
       )}
     </div>
+  )
+}
+
+interface FieldCheck { check: string; status: string; detail: string }
+interface FieldVisitView {
+  visit: { id: number; officer: string; checkinAt: string; distanceM?: number; locationCheck: string; capturedOffline: boolean; remarks: string; outcome: string; syncedAt: string }
+  answers: Record<string, unknown>; references: { name: string; phone: string; says: string }[]; checks: FieldCheck[]
+  photos: { photo: { id: number; kind: string; takenAt?: string; lat?: number; lng?: number }; checks: FieldCheck[] }[]
+}
+
+function AuthImg({ src, alt }: { src: string; alt: string }) {
+  const [url, setUrl] = useState<string>()
+  useEffect(() => {
+    let u: string | undefined
+    const t = getToken()
+    fetch(src, { headers: t ? { Authorization: 'Bearer ' + t } : {} }).then(r => r.ok ? r.blob() : null).then(b => { if (b) { u = URL.createObjectURL(b); setUrl(u) } }).catch(() => undefined)
+    return () => { if (u) URL.revokeObjectURL(u) }
+  }, [src])
+  return url ? <img src={url} alt={alt} style={{ width: '100%', borderRadius: 6 }} /> : <div className="small muted">Loading photo…</div>
+}
+
+const CHECK_PILL: Record<string, string> = { OK: 'ok', WARN: 'warn', FAIL: 'bad' }
+
+/** Field visits synced from the field officer app, with the location and photo checks. */
+export function FieldVisitsPanel({ id, rev }: { id: string; rev: number }) {
+  const v = useLoad(() => api.get<FieldVisitView[]>(`/api/applications/${id}/field-visits`), [id, rev])
+  if (!v.data) return <ErrorBox error={v.error} />
+  if (v.data.length === 0) return <div className="panel empty">No visit from the field officer app yet. Field officers see their visits under Field visits (works offline on the phone).</div>
+  return (
+    <>
+      {v.data.map(x => (
+        <div className="panel" key={x.visit.id} data-field-visit-view>
+          <h3 style={{ marginTop: 0 }}>Visit by {x.visit.officer} · {when(x.visit.checkinAt)} <span className={'pill ' + (x.visit.outcome === 'POSITIVE' ? 'ok' : x.visit.outcome === 'NEGATIVE' ? 'bad' : 'warn')}>{x.visit.outcome.toLowerCase()}</span>
+            {x.visit.capturedOffline && <span className="pill muted" style={{ marginLeft: 6 }}>captured offline</span>}</h3>
+          {x.checks.map(c => <div key={c.check} className="small"><span className={'pill ' + (CHECK_PILL[c.status] ?? '')}>{c.status}</span> {c.check}: {c.detail}</div>)}
+          <Table head={['Checklist', 'Answer']} rows={Object.entries(x.answers).map(([k, a]) => [k.replace(/([A-Z])/g, ' $1').toLowerCase(), typeof a === 'boolean' ? (a ? 'Yes' : 'No') : String(a)])} />
+          <p className="small"><b>Remarks:</b> {x.visit.remarks}</p>
+          {x.references.length > 0 && <p className="small"><b>References:</b> {x.references.map(r => `${r.name}${r.phone ? ' (' + r.phone + ')' : ''}${r.says ? ': ' + r.says : ''}`).join(' · ')}</p>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+            {x.photos.map(p => (
+              <div key={p.photo.id} className="panel" style={{ margin: 0, padding: 8 }} data-field-photo={p.photo.kind}>
+                <div className="small"><b>{p.photo.kind}</b>{p.photo.takenAt && ' · ' + new Date(p.photo.takenAt).toLocaleTimeString()}</div>
+                <AuthImg src={`/api/field/photos/${p.photo.id}/content`} alt={p.photo.kind} />
+                {p.checks.map(c => <div key={c.check} className="small"><span className={'pill ' + (CHECK_PILL[c.status] ?? '')}>{c.status}</span> {c.check}: {c.detail}</div>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   )
 }

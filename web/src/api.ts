@@ -10,6 +10,7 @@ export function setToken(t: string | null) {
   try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY) } catch { /* storage unavailable */ }
 }
 export const hasToken = () => !!token
+export const getToken = () => token
 
 export class ApiError extends Error {
   status: number

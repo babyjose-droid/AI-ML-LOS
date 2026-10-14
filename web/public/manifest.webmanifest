@@ -1,0 +1,11 @@
+{
+  "name": "Rhythm field visits",
+  "short_name": "Rhythm Field",
+  "description": "Field officer app: visits, checklists and geo-tagged photos, offline",
+  "start_url": "/field",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1f4e79",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

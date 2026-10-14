@@ -293,7 +293,9 @@ public class DecisionService {
     /** Small helper so a re-run with the same fraud status does not attempt an invalid self-transition. */
     static final class StateMachineGuard {
         static boolean fraudAllowed(String from, String to) {
-            return StateMachine.allowed(Domain.FRAUD, from, to) && !(from.equals(to) && !"CLEAR".equals(from));
+            // a fraud review is closed only by the fraud analyst, never by a re-run of the engine
+            return StateMachine.allowed(Domain.FRAUD, from, to) && !(from.equals(to) && !"CLEAR".equals(from))
+                    && !("REVIEW".equals(from) && "CLEAR".equals(to));
         }
     }
 }

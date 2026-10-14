@@ -195,6 +195,22 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Phase 2: AI copilot
+
+- **Money rotation and adjusted turnover:** the statement AI finds round trips with the same party within 7 days and cash deposited then withdrawn within 2 days. It also separates self transfers, loan credits and refunds. The engine's income is the adjusted turnover, and R19 refers the case when rotation is above 30% of credits.
+- **Household cash flow** (Customer tab): members, earners, expenses and repayments. For microfinance the household is the unit: R20 rejects household income above ₹3 lakh a year, and R21 caps all repayments at 50% of household income (RBI 2022).
+- **Network risk** (Customer tab): links other PANs through a shared mobile, bank account, device, email or address, two hops deep. Shared accounts and devices and links to fraud cases raise the 0–100 score. The score feeds the fraud score, and R22 refers the case at 60. Switch it off with `rhythm.network.enabled=false`.
+- **Industry scorecards** (kirana, dairy, transport, salaried, other MSME; Masters → Industry scorecards): a points table per industry, shown next to the PD model on every decision. They use field-visit readings such as stock against the loan, animals and vehicle age.
+- **Model governance:** every candidate model scores each decision in shadow, and the CRO sees band and decision agreement. Drift is measured per feature and on the PD (PSI) against the training data, or against the loan book for the built-in models.
+- **Fairness monitoring** (Operations → Fairness): approval rate, price and PD by gender, age band, PIN region and segment, with the four-fifths adverse-impact check.
+- **Sanction letter and KFS in the borrower's language** (Sanction & KFS tab → link): English plus Hindi, Marathi, Tamil, Malayalam, Kannada, Telugu, Bengali or Gujarati, ready to print. The language the KFS was accepted in is stored. The lender's compliance team must check the translations.
+- **Field officer app** (`/field`, installable on the phone):
+  - Assigned visits are cached on the phone. Visits captured offline are kept encrypted on the phone and synced when back online.
+  - Check-in GPS is checked to within 150 m of the business location saved on the application.
+  - Each visit has a checklist per industry and required photos taken with the camera.
+  - On sync, each photo is checked for time and place, reuse across all applications (reuse sends the case to fraud review), EXIF data, scene type, shelf fill and the owner's face against the KYC photo.
+  - A browser cannot fully block gallery photos, so photos whose time or place don't match the visit are flagged.
+
 ## Phase 1 close (prototype v3.1 review)
 
 Corrections:
@@ -239,7 +255,7 @@ Admin and security:
 | 2 (done) | **AI document and KYC OCR (in-house):** document classification; PAN, Aadhaar, voter ID, driving licence and passport extraction; Aadhaar masking; quality and tamper checks; cross-document matching; human review below a confidence threshold. Hybrid engine: self-hosted open-source OCR, with Claude vision for low-confidence cases |
 | 3 (done) | **AI bank statement analysis (in-house):** text and scanned PDFs, multi-bank table parsing, transaction categorisation, balance continuity and fraud checks, cash-flow features for the decision engine |
 | 4 (done) | **Video KYC with AI:** liveness, face match against the ID photo, geo-tag and timestamp, recording, and an agent console. RBI V-CIP requires a trained official to conduct the call; AI assists |
-| 5 (this) | Policy studio with simulation and maker-checker, trained PD model with champion/challenger, workflow per product, borrower portal, reports, **workflow designer** (per-product stages with role, SLA, mode, failure action, skip rules; CRO publishes versions; in-flight applications keep theirs; SLA breaches escalate). Still to come: import of the NBFC's loan history, a trained fraud model, field officer app |
+| 5 (done) | Policy studio with simulation and maker-checker, trained PD model with champion/challenger, workflow per product, borrower portal, reports, **workflow designer** (per-product stages with role, SLA, mode, failure action, skip rules; CRO publishes versions; in-flight applications keep theirs; SLA breaches escalate). Still to come: import of the NBFC's loan history, a trained fraud model, field officer app |
 | 6 | **Third-party integrations:** online PAN, Aadhaar and CKYC validation, Account Aggregator, bureaus, eSign and eStamp, eNACH and UPI Autopay, penny drop, payouts, WhatsApp and SMS. Replaces the mocks through the existing vendor ports |
 | 7 | Production hardening: multi-tenant, security audit and VAPT, monitoring, Kubernetes, DR |
 

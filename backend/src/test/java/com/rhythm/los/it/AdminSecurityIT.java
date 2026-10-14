@@ -217,7 +217,7 @@ class AdminSecurityIT {
     void integrationHubConnectorsBreakerBulkRetryAndMasking() throws Exception {
         String admin = login("admin"), ops = login("ops1"), sales = login("sales1");
         JsonNode cs = ok(get("/api/integrations/connectors"), ops, null).body();
-        assertThat(cs.size()).isEqualTo(9);
+        assertThat(cs.size()).isEqualTo(10);
         assertThat(cs.toString()).contains("\"connector\":\"bureau\"").contains("CLOSED");
         assertThat(call(put("/api/admin/connectors/bureau"), ops, Map.of("enabled", false)).status()).isEqualTo(403);
         assertThat(call(put("/api/admin/connectors/bureau"), admin, Map.of("timeoutMs", 10)).body().get("code").asText()).isEqualTo("OUT_OF_RANGE");

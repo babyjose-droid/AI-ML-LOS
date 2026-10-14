@@ -59,8 +59,15 @@ test('video KYC: customer joins by link, the official runs the call, AI checks, 
   await expect(officer.locator('.vkyc-frames figure')).toHaveCount(18)
   await expect(officer.getByText(/Play \(\d+ KB\)/)).toBeVisible()
 
-  // approving against the AI needs the code confirmed and a reasoned override
+  // the product's questions are shown to the official and each must be confirmed
+  await expect(officer.locator('[data-vkyc-question]')).toHaveCount(3)
   await officer.locator('input[name=codeHeard]').check()
+  await officer.locator('textarea[name=vkycNote]').fill('Test camera without a face; identity confirmed against PAN by the official on the call')
+  await officer.locator('[data-vkyc=approve]').click()
+  await expect(officer.getByRole('alert')).toContainText('Ask and confirm every question')
+  for (const q of await officer.locator('[data-vkyc-question]').all()) await q.check()
+
+  // approving against the AI needs the code confirmed and a reasoned override
   await officer.locator('textarea[name=vkycNote]').fill('Looks okay to me')
   await officer.locator('[data-vkyc=approve]').click()
   await expect(officer.getByRole('alert')).toContainText('30 characters')
@@ -71,4 +78,14 @@ test('video KYC: customer joins by link, the official runs the call, AI checks, 
 
   await customerCtx.close()
   await officerCtx.close()
+})
+
+test('video KYC settings per product', async ({ page }) => {
+  await login(page, 'admin')
+  await page.goto('/admin/products')
+  await page.getByRole('cell', { name: /Loan against property/ }).first().click()
+  await page.getByRole('tab', { name: 'Video KYC' }).click()
+  await expect(page.locator('select[name=vk_parties]')).toHaveValue('ALL')
+  await expect(page.locator('input[name=vk_face]')).toHaveValue('0.45')
+  await expect(page.locator('textarea[name=vk_questions]')).toContainText('mortgaged')
 })

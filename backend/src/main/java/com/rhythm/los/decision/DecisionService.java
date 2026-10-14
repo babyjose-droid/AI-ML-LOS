@@ -71,7 +71,7 @@ public class DecisionService {
         else if (!"COMPLETE".equals(a.getDocsState())) b.add("Documents not complete (" + a.getDocsState() + ")");
         Product prod = apps.product(a);
         if (prod.videoKycRequired(a.getLoanAmount().doubleValue())
-                && vkyc.findByApplicationIdOrderByIdDesc(a.getId()).stream().noneMatch(s -> "APPROVED".equals(s.getStatus())))
+                && vkyc.findByApplicationIdOrderByIdDesc(a.getId()).stream().noneMatch(s -> s.getPartyId() == null && "APPROVED".equals(s.getStatus())))
             b.add("Video KYC required for this product: not yet approved");
         if (Set.of("SANCTIONED", "KFS_ACCEPTED", "DECLINED").contains(a.getSanctionState())) b.add("Already " + a.getSanctionState());
         b.addAll(workflow.pendingBefore(a, "uw"));

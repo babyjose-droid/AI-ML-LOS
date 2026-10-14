@@ -54,7 +54,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/borrower/otp", "/api/borrower/otp/verify").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/borrower/products").permitAll()
                     .requestMatchers("/api/borrower/**").hasRole("BORROWER")
-                    .requestMatchers(HttpMethod.POST, "/api/vkyc/**", "/api/applications/*/vkyc").hasAnyRole("OPERATIONS", "ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/vkyc/**", "/api/applications/*/vkyc").hasAnyRole("OPERATIONS", "ADMIN", "CREDIT_OFFICER", "CREDIT_MANAGER")
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/audit/**", "/api/audit").hasAnyRole("ADMIN", "COMPLIANCE", "CRO", "CREDIT_MANAGER")
                     .requestMatchers(HttpMethod.GET, "/api/integrations/**").hasAnyRole("ADMIN", "OPERATIONS", "COMPLIANCE")

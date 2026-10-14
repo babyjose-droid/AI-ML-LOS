@@ -210,6 +210,7 @@ public class ProductService {
         t.setCollateralTypes(f.getCollateralTypes());
         t.setCollateralRequired(f.isCollateralRequired());
         t.setPartyRules(f.getPartyRules());
+        t.setVkycPolicy(f.getVkycPolicy());
         t.setUpdatedAt(Instant.now());
     }
 }

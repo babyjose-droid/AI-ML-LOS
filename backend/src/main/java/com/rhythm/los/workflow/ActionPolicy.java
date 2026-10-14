@@ -24,7 +24,6 @@ public final class ActionPolicy {
         Role r = u.role();
         List<String> out = new ArrayList<>();
         boolean front = is(r, SALES, OPERATIONS, ADMIN);
-        boolean ops = is(r, OPERATIONS, ADMIN);
         String app = a.getAppState();
         boolean active = Set.of("SUBMITTED", "UNDERWRITING").contains(app);
 
@@ -40,8 +39,8 @@ public final class ActionPolicy {
             if (!a.getSanctionState().equals("SANCTIONED")) out.add("runDecision");
         }
         if (active && "REVIEW".equals(a.getKycState()) && access.can(a, "kyc", u)) out.add("resolveKyc");
-        // video KYC stays with operations: RBI V-CIP needs a trained official of the lender
-        if (ApplicationService.isOpen(a) && !"FAILED".equals(a.getKycState()) && ops) out.add("videoKyc");
+        // video KYC needs a trained official of the lender (RBI V-CIP); the product says which roles (ApplicationController narrows it)
+        if (ApplicationService.isOpen(a) && is(r, OPERATIONS, ADMIN, CREDIT_OFFICER, CREDIT_MANAGER)) out.add("videoKyc");
         if (ApplicationService.isOpen(a) && "IN_REVIEW".equals(a.getDocsState()) && access.can(a, "docs", u)) out.add("reviewDocuments");
         if (active && "REQUIRED".equals(a.getFieldState()) && access.can(a, "field", u)) out.add("fieldVisit");
         if ("REVIEW".equals(a.getFraudState()) && is(r, FRAUD_ANALYST)) out.add("fraudDisposition");

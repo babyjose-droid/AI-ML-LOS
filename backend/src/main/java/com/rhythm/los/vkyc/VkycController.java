@@ -15,18 +15,35 @@ import java.util.Map;
 
 @RestController
 public class VkycController {
-    static final String OPS = "hasAnyRole('OPERATIONS','ADMIN')";
+    /** Who may run calls at all; the product narrows it further (VkycPolicy.officerRoles). */
+    static final String OPS = "hasAnyRole('OPERATIONS','ADMIN','CREDIT_OFFICER','CREDIT_MANAGER')";
     static final String VIEW = "hasAnyRole('OPERATIONS','ADMIN','COMPLIANCE','CREDIT_OFFICER','CREDIT_MANAGER','CRO')";
 
     private final VkycService vkyc;
+    private final com.rhythm.los.application.ApplicationService apps;
 
-    public VkycController(VkycService vkyc) { this.vkyc = vkyc; }
+    public VkycController(VkycService vkyc, com.rhythm.los.application.ApplicationService apps) {
+        this.vkyc = vkyc;
+        this.apps = apps;
+    }
 
     // ---- official ----
 
     @PostMapping("/api/applications/{id}/vkyc")
     @PreAuthorize(OPS)
-    public VkycService.Created create(@PathVariable Long id) { return vkyc.create(id, CurrentUser.get()); }
+    public VkycService.Created create(@PathVariable Long id, @RequestBody(required = false) CreateRequest r) {
+        return vkyc.create(id, r == null ? null : r.partyId(), CurrentUser.get());
+    }
+
+    /** partyId: a co-applicant or guarantor; empty for the applicant. */
+    public record CreateRequest(Long partyId) {}
+
+    /** The product's video KYC settings for this application. */
+    @GetMapping("/api/applications/{id}/vkyc/policy")
+    @PreAuthorize(VIEW)
+    public VkycPolicy policy(@PathVariable Long id) {
+        return vkyc.policy(apps.get(id));
+    }
 
     @GetMapping("/api/applications/{id}/vkyc")
     @PreAuthorize(VIEW)
@@ -38,7 +55,7 @@ public class VkycController {
         VkycSession s = vkyc.get(sid);
         boolean mine = CurrentUser.get().username().equals(s.getOfficer());
         return Map.of("session", s, "frames", vkyc.frameList(s), "analysis", s.getAnalysisJson() == null ? "" : s.getAnalysisJson(),
-                "challengeCode", mine && s.getChallengeCode() != null ? s.getChallengeCode() : "");
+                "challengeCode", mine && s.getChallengeCode() != null ? s.getChallengeCode() : "", "questions", vkyc.questions(s));
     }
 
     @PostMapping("/api/vkyc/{sid}/start")

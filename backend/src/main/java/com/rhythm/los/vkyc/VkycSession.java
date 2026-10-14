@@ -41,6 +41,22 @@ public class VkycSession {
     @Column(name = "ai_override") private boolean aiOverride;
     @Column(name = "decided_by") private String decidedBy;
     @Column(name = "decided_at") private Instant decidedAt;
+    /** The co-applicant or guarantor on the call; null for the applicant. */
+    @Column(name = "party_id") private Long partyId;
+    @Column(name = "person_name") private String personName;
+    /** The product's video KYC settings when the link was made (later product changes do not apply to it). */
+    @JsonIgnore @Column(name = "policy_json") private String policyJson;
+    /** The questions asked and whether each was answered satisfactorily. */
+    @Column(name = "questions_json") private String questionsJson;
+
+    public Long getPartyId() { return partyId; }
+    public void setPartyId(Long v) { this.partyId = v; }
+    public String getPersonName() { return personName; }
+    public void setPersonName(String v) { this.personName = v; }
+    @JsonIgnore public String getPolicyJson() { return policyJson; }
+    public void setPolicyJson(String v) { this.policyJson = v; }
+    public String getQuestionsJson() { return questionsJson; }
+    public void setQuestionsJson(String v) { this.questionsJson = v; }
 
     public Long getId() { return id; }
     public Long getApplicationId() { return applicationId; }

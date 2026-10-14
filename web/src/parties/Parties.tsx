@@ -19,6 +19,8 @@ export const DEFAULT_RULES: PartyRules = {
 }
 const roleLabel = (r: string) => r === 'GUARANTOR' ? 'Guarantor' : 'Co-applicant'
 const relLabel = (r: string) => label(r)
+const CHANNEL: Record<string, string> = { BRANCH_OTP: 'In branch (OTP)', INVITE_LINK: 'Invite link (OTP)' }
+const channel = (c?: string) => c ? CHANNEL[c] ?? label(c) : ''
 
 export function parseRules(json: unknown): PartyRules {
   if (!json) return DEFAULT_RULES
@@ -108,10 +110,10 @@ interface Issue { code: string; gate: string; message: string; role: string }
 interface Requirement { id: number; role: string; reason: string; status: string; requestedBy: string; requestedAt: string; closedBy?: string; closeNote?: string; metByPartyId?: number }
 interface PartiesView {
   rules: PartyRules; parties: { party: PartyRow; mobile: string; documents: PartyDoc[]; kycChecks: { check: string; score: number; expected?: string; found?: string }[]
-    bureau?: Record<string, unknown>; inviteActive: boolean; incomeCounted: boolean; issues: string[] }[]
+    bureau?: Record<string, unknown>; inviteActive: boolean; incomeCounted: boolean; issues: string[]; vkyc?: string | null }[]
   requirements: Requirement[]; issues: Issue[]; coOwners: string[]
   joint?: { coApplicants: number; guarantors: number; earnersCounted: number; clubbedIncome: number; clubbedEmi: number; policyFails: string[] } | null
-  canChange: boolean; sanctioned: boolean; documentTypes: string[]; documentsRead: boolean; relationships: string[]
+  canChange: boolean; sanctioned: boolean; documentTypes: string[]; documentsRead: boolean; relationships: string[]; vkycParties?: string
 }
 const GATE: Record<string, string> = { SUBMIT: 'before submission', DECISION: 'before the decision', SANCTION: 'before sanction', DISBURSE: 'before disbursement' }
 
@@ -192,13 +194,14 @@ export function PartiesTab({ id, rev, onChange }: { id: string; rev: number; onC
                 {removed && <div className="small muted">Removed: {p.removedReason}</div>}
                 {x.issues.length > 0 && !removed && <div className="small warn-text">{x.issues.join('; ')}</div>}</span>,
               <span className="small mono">{p.pan}<div>{x.mobile}</div></span>,
-              <span className="small">{p.consentAt ? <><span className="pill ok">given</span><div className="muted">{label(p.consentChannel ?? '')} · {when(p.consentAt)}</div></>
+              <span className="small">{p.consentAt ? <><span className="pill ok">given</span><div className="muted">{channel(p.consentChannel)} · {when(p.consentAt)}</div></>
                 : <span className="pill muted">{x.inviteActive ? 'invited' : 'not yet'}</span>}</span>,
               <span className="small"><span className={'pill ' + (p.kycState === 'VERIFIED' ? 'ok' : p.kycState === 'FAILED' ? 'bad' : p.kycState === 'REVIEW' ? 'warn' : 'muted')}>{label(p.kycState)}</span>
-                {p.kycNote && <div className="muted">{p.kycNote}</div>}</span>,
+                {p.kycNote && <div className="muted">{p.kycNote}</div>}
+                {x.vkyc ? <div className="muted">Video KYC: {label(x.vkyc).toLowerCase()}</div> : d.vkycParties === 'ALL' ? <div className="muted">Video KYC needed (Video KYC tab)</div> : null}</span>,
               <span className="small">{p.bureauState === 'FETCHED' ? <b>{p.bureauScore}</b> : label(p.bureauState)}</span>,
               <span className="small">{p.monthlyIncome ? inr(p.monthlyIncome) + '/mo' : '—'}{p.incomeConsidered && <div className={x.incomeCounted ? '' : 'muted'}>{x.incomeCounted ? 'counted' : 'not countable'}</div>}</span>,
-              <span className="small">{p.signedAt ? <><span className="pill ok">{label(p.signedDocument ?? 'signed')}</span><div className="muted">{when(p.signedAt)}</div></> : '—'}</span>,
+              <span className="small">{p.signedAt ? <><span className="pill ok">{label(p.signedDocument ?? 'signed')}</span><div className="muted">{channel(p.signedChannel)} · {when(p.signedAt)}</div></> : '—'}</span>,
               removed ? '' : <span className="row">
                 {front && !p.consentAt && <button className="btn sm" onClick={() => setDlg({ kind: 'invite', p })}>Invite link</button>}
                 {front && !p.consentAt && <button className="btn sm" onClick={() => setDlg({ kind: 'consent', p })}>Consent by OTP</button>}

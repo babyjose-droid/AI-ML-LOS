@@ -12,8 +12,14 @@ export interface VkycSession {
   customerLat?: number; customerLng?: number; customerAccuracyM?: number; inIndia?: boolean; customerAgent?: string; officer?: string
   callStartedAt?: string; callEndedAt?: string; recordingSha256?: string; recordingBytes?: number; hasRecording?: boolean
   aiStatus?: string; decision?: string; decisionNote?: string; codeHeard?: boolean; aiOverride?: boolean; decidedBy?: string; decidedAt?: string
+  partyId?: number; personName?: string; questionsJson?: string
 }
-interface Detail { session: VkycSession; frames: { index: string; step: string }[]; analysis: string; challengeCode: string }
+export interface VkycPolicy {
+  parties: 'NONE' | 'ON_KYC_REVIEW' | 'ALL'; minFaceMatch: number; requireLiveness: boolean; requirePanOnCamera: boolean; linkHours: number
+  callFrom: string; callTo: string; maxAttempts: number; officerRoles: string[]; questions: string[]; languages: string[]
+}
+interface PartyLite { party: { id: number; name: string; role: string; status: string; consentAt?: string; kycState: string }; vkyc?: string | null }
+interface Detail { session: VkycSession; frames: { index: string; step: string }[]; analysis: string; challengeCode: string; questions: string[] }
 interface Analysis {
   status: string; reasons: string[]
   liveness?: { passed: boolean; checks: { check: string; pass: boolean; detail: string }[] }
@@ -33,6 +39,9 @@ async function authBlob(url: string): Promise<string> {
 export default function VideoKycTab({ id, rev, canRun, onChange }: { id: string; rev: number; canRun: boolean; onChange: () => void }) {
   const [tick, setTick] = useState(0)
   const list = useLoad(() => api.get<VkycSession[]>(`/api/applications/${id}/vkyc`), [id, rev, tick])
+  const policy = useLoad(() => api.get<VkycPolicy>(`/api/applications/${id}/vkyc/policy`), [id])
+  const people = useLoad(() => api.get<{ parties: PartyLite[] }>(`/api/applications/${id}/parties`).then(x => x.parties).catch(() => [] as PartyLite[]), [id, rev, tick])
+  const [who, setWho] = useState('')
   const [link, setLink] = useState('')
   const [error, setError] = useState<unknown>()
   const [open, setOpen] = useState<number | null>(null)
@@ -48,7 +57,7 @@ export default function VideoKycTab({ id, rev, canRun, onChange }: { id: string;
 
   async function create() {
     try {
-      const r = await api.post<{ session: VkycSession; link: string }>(`/api/applications/${id}/vkyc`)
+      const r = await api.post<{ session: VkycSession; link: string }>(`/api/applications/${id}/vkyc`, who ? { partyId: Number(who) } : {})
       setLink(window.location.origin + r.link)
       setError(undefined)
       setTick(x => x + 1)
@@ -63,10 +72,21 @@ export default function VideoKycTab({ id, rev, canRun, onChange }: { id: string;
           <h3 style={{ marginTop: 0 }}>Video KYC (V-CIP)</h3>
           <p className="small muted">Create a one-time link for the customer. They consent, share their location and join from their phone or computer;
             you run the live call. The AI checks liveness, face match with the ID photo and the PAN card shown on camera. You decide.</p>
-          <button className="btn primary" data-vkyc="create" onClick={create}>{active ? 'Create a new link (replaces the current one)' : 'Create video KYC link'}</button>
+          {policy.data && <PolicySummary p={policy.data} />}
+          <div className="row" style={{ marginTop: 8 }}>
+            {policy.data && policy.data.parties !== 'NONE' && (people.data ?? []).some(x => x.party.status !== 'REMOVED') && (
+              <label className="fld" style={{ minWidth: 260 }}>Person on the call
+                <select name="vkycPerson" value={who} onChange={e => setWho(e.target.value)}>
+                  <option value="">Applicant</option>
+                  {(people.data ?? []).filter(x => x.party.status !== 'REMOVED').map(x => <option key={x.party.id} value={x.party.id} disabled={!x.party.consentAt}>
+                    {x.party.name} ({x.party.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}){!x.party.consentAt ? ' – consent first' : x.vkyc ? ' – ' + x.vkyc.toLowerCase() : ''}</option>)}
+                </select></label>
+            )}
+            <button className="btn primary" data-vkyc="create" onClick={create} style={{ alignSelf: 'flex-end' }}>{active ? 'Create a new link (replaces the current one for that person)' : 'Create video KYC link'}</button>
+          </div>
           {link && (
             <div className="alert ok" style={{ marginTop: 12 }}>
-              <div className="small">Send this link to the customer (SMS and WhatsApp delivery come with the integrations phase). It works once and expires in 24 hours.</div>
+              <div className="small">Send this link to the customer (SMS and WhatsApp delivery come with the integrations phase). It works once and expires in {policy.data?.linkHours ?? 24} hours{policy.data && policy.data.callFrom !== '00:00' ? `; calls are taken ${policy.data.callFrom}–${policy.data.callTo} India time` : ''}.</div>
               <div className="row" style={{ marginTop: 6 }}>
                 <input className="mono" readOnly value={link} data-vkyc-link style={{ flex: 1 }} onFocus={e => e.target.select()} />
                 <button className="btn sm" onClick={() => navigator.clipboard?.writeText(link)}>Copy</button>
@@ -82,8 +102,8 @@ export default function VideoKycTab({ id, rev, canRun, onChange }: { id: string;
       {sessions.length > 0 && (
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>Sessions</h3>
-          <Table head={['Created', 'Status', 'Customer location', 'Official', 'AI', 'Decision']} onRow={i => setOpen(sessions[i].id)} rows={sessions.map(s => [
-            when(s.createdAt), <Pill s={s.status} />,
+          <Table head={['Created', 'Person', 'Status', 'Customer location', 'Official', 'AI', 'Decision']} onRow={i => setOpen(sessions[i].id)} rows={sessions.map(s => [
+            when(s.createdAt), <span>{s.personName ?? 'Applicant'}{s.partyId ? <div className="small muted">co-applicant / guarantor</div> : null}</span>, <Pill s={s.status} />,
             s.customerLat != null ? <span className="small">{s.customerLat}, {s.customerLng} {s.inIndia ? '· India' : <b className="bad-text">· outside India</b>}</span> : '—',
             s.officer ?? '—', s.aiStatus ? <Pill s={s.aiStatus} /> : '—', s.decision ? <Pill s={s.decision} /> : '—',
           ])} />
@@ -229,6 +249,7 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
   const [video, setVideo] = useState('')
   const [codeHeard, setCodeHeard] = useState(false)
+  const [answers, setAnswers] = useState<boolean[]>([])
   const [note, setNote] = useState('')
   const [error, setError] = useState<unknown>()
 
@@ -247,14 +268,14 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
 
   async function decide(approve: boolean) {
     try {
-      await api.post(`/api/vkyc/${sid}/decision`, { approve, codeHeard, note })
+      await api.post(`/api/vkyc/${sid}/decision`, { approve, codeHeard, note, answers: (d.data?.questions ?? []).map((_, i) => !!answers[i]) })
       onChange()
     } catch (e) { setError(e) }
   }
 
   return (
     <div className="panel" data-vkyc-detail={s.status}>
-      <h3 style={{ marginTop: 0 }}>Session {s.id} <Pill s={s.status} /> {s.aiStatus && <>· AI <Pill s={s.aiStatus} /></>}</h3>
+      <h3 style={{ marginTop: 0 }}>Session {s.id} · {s.personName ?? 'Applicant'} <Pill s={s.status} /> {s.aiStatus && <>· AI <Pill s={s.aiStatus} /></>}</h3>
       <div className="grid2">
         <Table head={['', '']} rows={[
           ['Link created', `${when(s.createdAt)} by ${s.createdBy}`],
@@ -265,6 +286,7 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
           ['Call', s.callStartedAt ? `${when(s.callStartedAt)} – ${s.callEndedAt ? when(s.callEndedAt) : 'in progress'}` : '—'],
           ['Recording', s.hasRecording ? <a href="#" onClick={async e => { e.preventDefault(); setVideo(await authBlob(`/api/vkyc/${sid}/recording`)) }}>Play ({Math.round((s.recordingBytes ?? 0) / 1024)} KB)</a> : 'none'],
           ['Decision', s.decision ? `${s.decision} by ${s.decidedBy} ${when(s.decidedAt)}${s.aiOverride ? ' · AI overridden' : ''}: ${s.decisionNote}` : '—'],
+          ['Questions', s.questionsJson ? <span className="small">{(JSON.parse(s.questionsJson) as { question: string; answered: boolean }[]).map(q => `${q.answered ? '✓' : '✗'} ${q.question}`).join(' · ')}</span> : '—'],
         ]} />
         <div>
           {a ? (
@@ -296,6 +318,11 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
       {canRun && s.status === 'COMPLETED' && (
         <div className="form" style={{ gridTemplateColumns: '1fr', marginTop: 12 }}>
           <ErrorBox error={error} />
+          {d.data.questions.length > 0 && <div data-vkyc-questions>
+            <b className="small">Questions this product asks on every call</b>
+            {d.data.questions.map((q, i) => <label key={i} className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" style={{ width: 'auto' }} data-vkyc-question={i} checked={!!answers[i]} onChange={e => setAnswers(a => { const n = [...a]; n[i] = e.target.checked; return n })} /> {q}: answered satisfactorily</label>)}
+          </div>}
           <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" style={{ width: 'auto' }} checked={codeHeard} onChange={e => setCodeHeard(e.target.checked)} name="codeHeard" />
             {' '}The customer read out the random code {d.data.challengeCode && <b className="mono">{d.data.challengeCode}</b>} correctly</label>
           <label className="fld">Your decision note (required{s.aiStatus !== 'PASS' ? '; at least 30 characters to approve when AI checks did not pass' : ''})
@@ -308,5 +335,17 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
         </div>
       )}
     </div>
+  )
+}
+
+function PolicySummary({ p }: { p: VkycPolicy }) {
+  const who = p.parties === 'ALL' ? 'the applicant and every co-applicant and guarantor' : p.parties === 'ON_KYC_REVIEW' ? 'the applicant, and co-applicants or guarantors whose KYC needs review' : 'the applicant only'
+  return (
+    <ul className="small" style={{ margin: '6px 0', paddingLeft: 18 }} data-vkyc-policy>
+      <li>For this product: {who}.</li>
+      <li>Face match at least {p.minFaceMatch}{p.requireLiveness ? ', liveness required' : ''}{p.requirePanOnCamera ? ', PAN shown on camera' : ''}; random code, India location and recording always.</li>
+      <li>Link valid {p.linkHours} h{p.callFrom !== '00:00' || p.callTo !== '23:59' ? `, calls ${p.callFrom}–${p.callTo} IST` : ''}; up to {p.maxAttempts} calls per person; run by {p.officerRoles.map(r => r.toLowerCase().replace('_', ' ')).join(' or ')}.</li>
+      {p.questions.length > 0 && <li>{p.questions.length} question(s) the official must ask.</li>}
+    </ul>
   )
 }

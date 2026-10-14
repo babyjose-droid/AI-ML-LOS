@@ -97,7 +97,11 @@ public class ProcessService {
             log.add(new StepLog("Decision engine", "Sent back from sanction: credit re-assesses and re-runs the decision"));
             return log;
         }
-        if (blockers.isEmpty() && List.of("PENDING", "INCOMPLETE").contains(a.getDecisionState())) {
+        // a decision made while the field visit was pending is provisional: once the visit is recorded it is run again,
+        // so the case is routed on the full facts and the "field visit pending" condition goes away
+        boolean provisionalDone = "DONE".equals(a.getFieldState()) && a.getSanctionState().startsWith("PENDING_")
+                && decisions.latest(appId).map(d -> d.getConditionsJson() != null && d.getConditionsJson().contains("Provisional")).orElse(false);
+        if (blockers.isEmpty() && (List.of("PENDING", "INCOMPLETE").contains(a.getDecisionState()) || provisionalDone)) {
             var d = decisions.run(appId, by);
             boolean provisional = d.getConditionsJson() != null && d.getConditionsJson().contains("Provisional");
             log.add(new StepLog("Decision engine", "INCOMPLETE".equals(d.getDecision())

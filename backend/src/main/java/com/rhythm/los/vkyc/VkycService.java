@@ -72,14 +72,65 @@ public class VkycService {
 
     public record Created(VkycSession session, String link) {}
 
+    private com.rhythm.los.party.ApplicationPartyRepository parties;
+    private com.rhythm.los.party.PartyDocumentRepository partyDocs;
+    private com.rhythm.los.product.ProductService products;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setParties(com.rhythm.los.party.ApplicationPartyRepository p, com.rhythm.los.party.PartyDocumentRepository d, com.rhythm.los.product.ProductService pr) {
+        this.parties = p;
+        this.partyDocs = d;
+        this.products = pr;
+    }
+
+    /** The product's video KYC settings for this application (its pinned version, else the live product, else defaults). */
+    public VkycPolicy policy(LoanApplication a) {
+        String json = apps.product(a).getVkycPolicy();
+        if (json == null && products != null) json = products.live(a.getProductCode()).getVkycPolicy();
+        return VkycPolicy.parse(json);
+    }
+
+    /** The settings a session runs with: those saved when its link was made. */
+    VkycPolicy policy(VkycSession s) {
+        return s.getPolicyJson() != null ? VkycPolicy.parse(s.getPolicyJson()) : policy(apps.get(s.getApplicationId()));
+    }
+
+    /** The product decides which officials may run its video KYC; an admin always can. */
+    void requireOfficial(VkycPolicy p, CurrentUser by) {
+        if (by.role() == com.rhythm.los.org.Role.ADMIN) return;
+        if (!p.officerRoles().contains(by.role().name()))
+            throw ApiException.forbidden("NOT_VKYC_OFFICIAL", "For this product video KYC is done by " + String.join(", ", p.officerRoles().stream().map(r -> r.toLowerCase().replace('_', ' ')).toList()));
+    }
+
+    public Created create(Long appId, CurrentUser by) { return create(appId, null, by); }
+
     // ---------------------------------------------------------------- official
 
+    /** A link for the applicant (partyId null) or for one co-applicant or guarantor. */
     @Transactional
-    public Created create(Long appId, CurrentUser by) {
+    public Created create(Long appId, Long partyId, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         if (!ApplicationService.isOpen(a)) throw ApiException.conflict("WRONG_STAGE", "Application is closed");
-        if ("FAILED".equals(a.getKycState())) throw ApiException.conflict("KYC_FAILED", "KYC has already failed for this application");
-        for (VkycSession s : sessions.findByApplicationIdOrderByIdDesc(appId)) {
+        VkycPolicy pol = policy(a);
+        requireOfficial(pol, by);
+        String person = a.getApplicantName();
+        if (partyId == null) {
+            if ("FAILED".equals(a.getKycState())) throw ApiException.conflict("KYC_FAILED", "KYC has already failed for this application");
+        } else {
+            var p = parties.findById(partyId).filter(x -> x.getApplicationId().equals(appId))
+                    .orElseThrow(() -> ApiException.notFound("Co-applicant or guarantor"));
+            if (!p.active()) throw ApiException.conflict("NOT_ACTIVE", p.getName() + " is no longer on this application");
+            if (p.getConsentAt() == null) throw ApiException.conflict("CONSENT_MISSING", p.getName() + " must give consent before video KYC");
+            if ("FAILED".equals(p.getKycState())) throw ApiException.conflict("KYC_FAILED", p.getName() + "'s KYC has already failed");
+            if ("NONE".equals(pol.parties())) throw ApiException.unprocessable("NOT_FOR_PARTIES", "This product does not use video KYC for co-applicants and guarantors");
+            person = p.getName();
+        }
+        List<VkycSession> mine = sessions.findByApplicationIdOrderByIdDesc(appId).stream().filter(x -> Objects.equals(x.getPartyId(), partyId)).toList();
+        if (mine.stream().anyMatch(x -> "APPROVED".equals(x.getStatus()))) throw ApiException.conflict("ALREADY_APPROVED", "Video KYC for " + person + " is already approved");
+        long held = mine.stream().filter(x -> x.getCallStartedAt() != null).count();
+        if (held >= pol.maxAttempts())
+            throw ApiException.conflict("ATTEMPTS_USED", person + " has had " + held + " video KYC calls, the product's limit; use the branch KYC route or reject");
+        for (VkycSession s : mine) {
             if (OPEN.contains(s.getStatus())) { s.setStatus("CANCELLED"); sessions.save(s); }
         }
         byte[] raw = new byte[24];
@@ -90,9 +141,12 @@ public class VkycService {
         s.setTokenHash(sha256(token.getBytes(StandardCharsets.UTF_8)));
         s.setStatus("WAITING");
         s.setCreatedBy(by.username());
-        s.setExpiresAt(Instant.now().plus(linkValidity));
+        s.setExpiresAt(Instant.now().plus(Duration.ofHours(pol.linkHours())));
+        s.setPartyId(partyId);
+        s.setPersonName(person);
+        s.setPolicyJson(Json.write(pol));
         sessions.save(s);
-        audit.record(by, "vkyc.created", "VKYC", String.valueOf(s.getId()), appId, "Video KYC link created, valid until " + s.getExpiresAt());
+        audit.record(by, "vkyc.created", "VKYC", String.valueOf(s.getId()), appId, "Video KYC link for " + person + ", valid until " + s.getExpiresAt());
         return new Created(s, "/vkyc/" + token + (com.rhythm.los.tenant.TenantContext.isDefault() ? "" : "?t=" + com.rhythm.los.tenant.TenantContext.code()));
     }
 
@@ -111,6 +165,7 @@ public class VkycService {
     @Transactional
     public VkycSession start(Long id, CurrentUser by) {
         VkycSession s = get(id);
+        requireOfficial(policy(s), by);
         if (!Set.of("JOINED", "IN_CALL").contains(s.getStatus()))
             throw ApiException.conflict("NOT_READY", s.getStatus().equals("WAITING") ? "The customer has not joined yet" : "Session is " + s.getStatus());
         if (s.getOfficer() != null && !s.getOfficer().equals(by.username()))
@@ -184,17 +239,29 @@ public class VkycService {
             for (Map<String, String> f : frames)
                 fparts.add(new DocumentReader.Part(f.get("step") + "-" + (++i) + ".jpg", storage.read(f.get("path")), f.get("contentType")));
             List<DocumentReader.Part> ids = new ArrayList<>();
-            for (AppDocument d : documents.list(a.getId())) {
-                boolean idDoc = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "PHOTO").contains(d.getDocType());
-                if (idDoc && !"REJECTED".equals(d.getStatus()) && d.getContentType().startsWith("image/"))
-                    ids.add(new DocumentReader.Part(d.getDocType() + ".img", documents.content(d), d.getContentType()));
+            String expectedPan = a.getPan();
+            if (s.getPartyId() == null) {
+                for (AppDocument d : documents.list(a.getId())) {
+                    boolean idDoc = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "PHOTO").contains(d.getDocType());
+                    if (idDoc && !"REJECTED".equals(d.getStatus()) && d.getContentType().startsWith("image/"))
+                        ids.add(new DocumentReader.Part(d.getDocType() + ".img", documents.content(d), d.getContentType()));
+                }
+            } else {
+                // a co-applicant or guarantor is matched against their own documents and PAN, never the applicant's
+                var p = parties.findById(s.getPartyId()).orElseThrow();
+                expectedPan = p.getPan();
+                for (var d : partyDocs.findByPartyIdOrderByIdAsc(p.getId()))
+                    if (!"REJECTED".equals(d.getStatus()) && d.getContentType() != null && d.getContentType().startsWith("image/") && !"-".equals(d.getStoragePath()))
+                        ids.add(new DocumentReader.Part(d.getDocType() + ".img", storage.read(d.getStoragePath()), d.getContentType()));
             }
-            var out = gateway.call(a.getId(), reader.name(), "vkyc.analyze", () -> reader.analyzeVideoKyc(fparts, ids, a.getPan()),
+            final String pan = expectedPan;
+            var out = gateway.call(a.getId(), reader.name(), "vkyc.analyze", () -> reader.analyzeVideoKyc(fparts, ids, pan),
                     r -> "Video KYC " + Json.read(r, Map.class).get("status"), null);
             if (out.ok()) {
-                s.setAnalysisJson(out.value());
-                Object st = Json.read(out.value(), Map.class).get("status");
-                s.setAiStatus("PASS".equals(st) ? "PASS" : "REVIEW");
+                // the product's own thresholds decide PASS or REVIEW; the AI's raw verdict is kept alongside
+                @SuppressWarnings("unchecked") Map<String, Object> judged = policy(s).judge(Json.read(out.value(), Map.class));
+                s.setAnalysisJson(Json.write(judged));
+                s.setAiStatus("PASS".equals(judged.get("status")) ? "PASS" : "REVIEW");
             } else {
                 s.setAiStatus("ERROR");
                 s.setAnalysisJson(Json.write(Map.of("status", "ERROR", "reasons", List.of("AI check failed: " + out.error()))));
@@ -205,7 +272,10 @@ public class VkycService {
         return s;
     }
 
-    public record DecisionRequest(boolean approve, boolean codeHeard, String note) {}
+    /** answers: for each of the product's questions, in order, whether the person answered it satisfactorily. */
+    public record DecisionRequest(boolean approve, boolean codeHeard, String note, List<Boolean> answers) {
+        public DecisionRequest(boolean approve, boolean codeHeard, String note) { this(approve, codeHeard, note, null); }
+    }
 
     /** The official's decision. RBI V-CIP requires a human decision; the AI result is advice. */
     @Transactional
@@ -213,6 +283,7 @@ public class VkycService {
         VkycSession s = get(id);
         if (!"COMPLETED".equals(s.getStatus())) throw ApiException.conflict("WRONG_STATE", "End the call before deciding (session is " + s.getStatus() + ")");
         if (!by.username().equals(s.getOfficer())) throw ApiException.forbidden("NOT_YOUR_CALL", "Only the official who conducted the call can decide");
+        requireOfficial(policy(s), by);
         String note = req.note() == null ? "" : req.note().trim();
         if (note.length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
         boolean override = false;
@@ -223,6 +294,11 @@ public class VkycService {
                 throw ApiException.unprocessable("CODE_NOT_CONFIRMED", "Confirm that the customer read out the random code " + s.getChallengeCode());
             if (s.getRecordingPath() == null)
                 throw ApiException.unprocessable("NO_RECORDING", "The call recording has not been saved");
+            List<String> qs = policy(s).questions();
+            List<Boolean> ans = req.answers() == null ? List.of() : req.answers();
+            for (int i = 0; i < qs.size(); i++)
+                if (i >= ans.size() || !Boolean.TRUE.equals(ans.get(i)))
+                    throw ApiException.unprocessable("QUESTIONS_NOT_CONFIRMED", "Ask and confirm every question the product sets: \"" + qs.get(i) + "\"");
             if (!"PASS".equals(s.getAiStatus())) {
                 if (note.length() < 30)
                     throw ApiException.unprocessable("OVERRIDE_REASON", "The AI checks did not all pass. Explain in at least 30 characters why you are approving");
@@ -236,8 +312,24 @@ public class VkycService {
         s.setAiOverride(override);
         s.setDecidedBy(by.username());
         s.setDecidedAt(Instant.now());
+        List<String> qs = policy(s).questions();
+        List<Map<String, Object>> asked = new ArrayList<>();
+        for (int i = 0; i < qs.size(); i++)
+            asked.add(Map.of("question", qs.get(i), "answered", req.answers() != null && i < req.answers().size() && Boolean.TRUE.equals(req.answers().get(i))));
+        s.setQuestionsJson(Json.write(asked));
         sessions.save(s);
         LoanApplication a = apps.get(s.getApplicationId());
+        if (s.getPartyId() != null) {
+            // a co-applicant's or guarantor's call settles their own KYC review, never the applicant's
+            var p = parties.findById(s.getPartyId()).orElseThrow();
+            if (req.approve() && "REVIEW".equals(p.getKycState())) { p.setKycState("VERIFIED"); p.setStatus("VERIFIED"); p.setKycReviewedBy(by.username()); p.setKycNote("Cleared by video KYC: " + trim(note)); }
+            if (!req.approve() && !"FAILED".equals(p.getKycState())) { p.setKycState("FAILED"); p.setStatus("FAILED"); p.setKycReviewedBy(by.username()); p.setKycNote("Video KYC rejected: " + trim(note)); }
+            p.setUpdatedAt(Instant.now());
+            parties.save(p);
+            audit.record(by, req.approve() ? (override ? "vkyc.approved_override" : "vkyc.approved") : "vkyc.rejected", "VKYC", String.valueOf(id), a.getId(),
+                    s.getPersonName() + " (" + p.getPartyNo() + "): " + note + (override ? " · approved although AI checks did not pass" : ""));
+            return s;
+        }
         String kyc = a.getKycState();
         if (req.approve() && "REVIEW".equals(kyc)) apps.transition(a, Domain.KYC, "VERIFIED", "kyc.vkyc_approved", by, "Video KYC approved: " + note);
         if (!req.approve() && Set.of("NOT_STARTED", "REVIEW", "VERIFIED").contains(kyc)) apps.transition(a, Domain.KYC, "FAILED", "kyc.vkyc_rejected", by, "Video KYC rejected: " + note);
@@ -245,6 +337,9 @@ public class VkycService {
                 note + (override ? " · approved although AI checks did not pass" : ""));
         return s;
     }
+
+    /** The questions the official must ask on this call. */
+    public List<String> questions(VkycSession s) { return policy(s).questions(); }
 
     public List<Map<String, String>> frameList(VkycSession s) {
         List<Map<String, String>> out = new ArrayList<>();
@@ -280,7 +375,10 @@ public class VkycService {
         LoanApplication a = apps.get(s.getApplicationId());
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("status", s.getStatus());
-        m.put("firstName", a.getApplicantName().split(" ")[0]);
+        m.put("firstName", (s.getPersonName() == null ? a.getApplicantName() : s.getPersonName()).split(" ")[0]);
+        VkycPolicy pol = policy(s);
+        m.put("callHours", pol.allTheTime() ? null : pol.callFrom() + "–" + pol.callTo() + " IST");
+        m.put("languages", pol.languages());
         m.put("lender", "Rhythm demo NBFC");
         m.put("appNo", a.getAppNo());
         m.put("expiresAt", s.getExpiresAt());
@@ -299,6 +397,9 @@ public class VkycService {
         VkycSession s = byToken(token);
         if (!Set.of("WAITING", "JOINED").contains(s.getStatus())) throw ApiException.conflict("LINK_USED", linkMessage(s));
         if (!req.consent()) throw ApiException.unprocessable("CONSENT_REQUIRED", "Please give your consent to continue");
+        VkycPolicy pol = policy(s);
+        if (!pol.withinHours(java.time.ZonedDateTime.now()))
+            throw ApiException.conflict("OUTSIDE_HOURS", "Video KYC calls are taken between " + pol.callFrom() + " and " + pol.callTo() + " (India time). Please open the link again then.");
         if (req.lat() == null || req.lng() == null) throw ApiException.unprocessable("LOCATION_REQUIRED", "Location is required for video KYC");
         s.setStatus("JOINED");
         s.setJoinedAt(Instant.now());
@@ -353,6 +454,8 @@ public class VkycService {
             sessions.save(s);
         }
     }
+
+    private static String trim(String n) { return n.length() > 250 ? n.substring(0, 247) + "..." : n; }
 
     static String linkMessage(VkycSession s) {
         return switch (s.getStatus()) {

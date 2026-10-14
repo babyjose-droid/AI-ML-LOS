@@ -49,6 +49,8 @@ public class Product {
     @Column(name = "collateral_required") private boolean collateralRequired;
     /** Co-applicant and guarantor rules (JSON, see PartyRules); null on products saved before they existed. */
     @Column(name = "party_rules") private String partyRules;
+    /** Video KYC settings (JSON, see VkycPolicy); null on products saved before they existed. */
+    @Column(name = "vkyc_policy") private String vkycPolicy;
     /** When party rules were introduced; applications created before keep the old behaviour. */
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "party_rules_since") private Instant partyRulesSince;
     @Column(name = "updated_at") private Instant updatedAt = Instant.now();
@@ -158,4 +160,6 @@ public class Product {
     public void setPartyRules(String v) { this.partyRules = v; }
     @com.fasterxml.jackson.annotation.JsonIgnore public Instant getPartyRulesSince() { return partyRulesSince; }
     public void setPartyRulesSince(Instant v) { this.partyRulesSince = v; }
+    public String getVkycPolicy() { return vkycPolicy; }
+    public void setVkycPolicy(String v) { this.vkycPolicy = v; }
 }

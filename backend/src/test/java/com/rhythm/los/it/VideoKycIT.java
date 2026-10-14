@@ -186,7 +186,11 @@ class VideoKycIT {
         assertThat(call(post("/api/vkyc/" + sid + "/decision"), ops2, Map.of("approve", true, "codeHeard", true, "note", "Looks fine to me overall")).status()).isEqualTo(403);
         assertThat(call(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", false, "note", "Customer matched")).body().toString()).contains("CODE_NOT_CONFIRMED");
         assertThat(call(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "short")).status()).isEqualTo(422);
-        JsonNode approved = ok(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Face, PAN and code all verified live")).body();
+        // the personal loan's questions must each be asked and confirmed
+        assertThat(detail.get("questions").size()).isEqualTo(3);
+        assertThat(call(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Face, PAN and code all verified live",
+                "answers", java.util.List.of(true, false, true))).body().toString()).contains("QUESTIONS_NOT_CONFIRMED").contains("Who is your employer?");
+        JsonNode approved = ok(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Face, PAN and code all verified live", "answers", java.util.List.of(true, true, true))).body();
         assertThat(approved.get("status").asText()).isEqualTo("APPROVED");
         assertThat(approved.get("aiOverride").asBoolean()).isFalse();
         assertThat(ok(get("/api/audit?applicationId=" + id), login("comp1"), null).body().toString()).contains("vkyc.approved").contains("vkyc.customer_joined");
@@ -220,10 +224,51 @@ class VideoKycIT {
         assertThat(call(post("/api/vkyc/" + sid2 + "/decision"), ops, Map.of("approve", false, "codeHeard", false, "note", "Trying too early")).status()).isEqualTo(409);
         recording(sid2, ops);
         assertThat(ok(post("/api/vkyc/" + sid2 + "/finish"), ops, null).body().get("aiStatus").asText()).isEqualTo("REVIEW");
-        assertThat(call(post("/api/vkyc/" + sid2 + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Seems fine on call")).body().toString()).contains("OVERRIDE_REASON");
+        assertThat(call(post("/api/vkyc/" + sid2 + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Seems fine on call", "answers", java.util.List.of(true, true, true))).body().toString()).contains("OVERRIDE_REASON");
         JsonNode ok2 = ok(post("/api/vkyc/" + sid2 + "/decision"), ops,
-                Map.of("approve", true, "codeHeard", true, "note", "Customer has a neck injury; turned eyes and shoulders, face and PAN clearly matched")).body();
+                Map.of("approve", true, "codeHeard", true, "note", "Customer has a neck injury; turned eyes and shoulders, face and PAN clearly matched", "answers", java.util.List.of(true, true, true))).body();
         assertThat(ok2.get("aiOverride").asBoolean()).isTrue();
         assertThat(ok(get("/api/audit?applicationId=" + id2), login("comp1"), null).body().toString()).contains("vkyc.approved_override");
+    }
+
+    @Test
+    void coApplicantVideoKycClearsTheirOwnKycReviewAndFollowsTheProduct() throws Exception {
+        String sales = login("sales1"), ops = login("ops1"), co = login("co1");
+        long id = create(sales, "Nikhil Rao", "NIKPR7004N", "9811170004");
+        ok(post("/api/applications/" + id + "/submit"), sales, null);
+        // PAN 93xx: the mock KYC provider finds the address weak, so her KYC goes to review
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("role", "CO_APPLICANT"); p.put("relationship", "SPOUSE"); p.put("name", "Asha Rao"); p.put("pan", "ASHPR9321A");
+        p.put("mobile", "9811170044"); p.put("dob", "1992-02-02"); p.put("city", "Pune");
+        long pid = ok(post("/api/applications/" + id + "/parties"), sales, p).body().get("id").asLong();
+        // no call before she consents
+        assertThat(call(post("/api/applications/" + id + "/vkyc"), ops, Map.of("partyId", pid)).body().toString()).contains("CONSENT_MISSING");
+        ok(post("/api/parties/" + pid + "/otp"), sales, null);
+        ok(post("/api/parties/" + pid + "/consent"), sales, Map.of("otp", "123456", "consentKyc", true, "consentBureau", true));
+        assertThat(ok(post("/api/applications/" + id + "/parties/checks"), ops, null).body().toString()).contains("Asha Rao: KYC review");
+
+        // the personal loan lets operations (not credit) run calls
+        assertThat(ok(get("/api/applications/" + id + "/vkyc/policy"), ops, null).body().get("officerRoles").toString()).contains("OPERATIONS");
+        assertThat(call(post("/api/applications/" + id + "/vkyc"), co, Map.of("partyId", pid)).body().toString()).contains("NOT_VKYC_OFFICIAL");
+        Res created = ok(post("/api/applications/" + id + "/vkyc"), ops, Map.of("partyId", pid));
+        long sid = created.body().get("session").get("id").asLong();
+        assertThat(created.body().get("session").get("personName").asText()).isEqualTo("Asha Rao");
+        assertThat(ok(get("/api/vkyc/c/" + token(created)), null, null).body().get("firstName").asText()).isEqualTo("Asha");
+        ok(post("/api/vkyc/c/" + token(created) + "/join"), null, Map.of("consent", true, "lat", 18.52, "lng", 73.85));
+        ok(post("/api/vkyc/" + sid + "/start"), ops, null);
+        frames(sid, ops, "front", "left", "right", "code", "pan");
+        recording(sid, ops);
+        JsonNode done = ok(post("/api/vkyc/" + sid + "/finish"), ops, null).body();
+        assertThat(done.get("aiStatus").asText()).isEqualTo("PASS");
+        // matched against her own PAN, never the applicant's
+        assertThat(ok(get("/api/vkyc/" + sid), ops, null).body().get("analysis").asText()).contains("ASHPR9321A");
+        ok(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Face and PAN matched her own documents",
+                "answers", java.util.List.of(true, true, true)));
+        JsonNode parties = ok(get("/api/applications/" + id + "/parties"), ops, null).body();
+        assertThat(parties.get("parties").get(0).get("party").get("kycState").asText()).isEqualTo("VERIFIED");
+        assertThat(parties.get("parties").get(0).get("vkyc").asText()).isEqualTo("APPROVED");
+        assertThat(ok(get("/api/applications/" + id), ops, null).body().get("states").get("KYC").asText()).isNotEqualTo("FAILED");
+        // one approved call per person
+        assertThat(call(post("/api/applications/" + id + "/vkyc"), ops, Map.of("partyId", pid)).body().toString()).contains("ALREADY_APPROVED");
     }
 }

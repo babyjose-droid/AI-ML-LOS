@@ -97,6 +97,18 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         this.demoOtp = demoOtp;
     }
 
+    private com.rhythm.los.vkyc.VkycSessionRepository vkycSessions;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setVkyc(com.rhythm.los.vkyc.VkycSessionRepository r) { this.vkycSessions = r; }
+
+    /** The product's video KYC settings (pinned version, else live product, else defaults). */
+    public com.rhythm.los.vkyc.VkycPolicy vkycPolicy(LoanApplication a) {
+        String json = apps.product(a).getVkycPolicy();
+        if (json == null) json = products.live(a.getProductCode()).getVkycPolicy();
+        return com.rhythm.los.vkyc.VkycPolicy.parse(json);
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     void setWorkflow(@org.springframework.context.annotation.Lazy com.rhythm.los.flow.WorkflowService w) { this.workflow = w; }
 
@@ -136,6 +148,8 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
             m.put("inviteActive", p.getInviteExpiresAt() != null && p.getInviteExpiresAt().isAfter(Instant.now()));
             m.put("incomeCounted", r.clubs(p.getRole(), p.getRelationship()) && p.isIncomeConsidered());
             m.put("issues", issues.stream().filter(i -> i.message().startsWith(p.getName() + " ")).map(PartyRules.Issue::message).toList());
+            m.put("vkyc", vkycSessions == null ? null : vkycSessions.findByApplicationIdOrderByIdDesc(appId).stream().filter(c -> p.getId().equals(c.getPartyId()))
+                    .findFirst().map(com.rhythm.los.vkyc.VkycSession::getStatus).orElse(null));
             rows.add(m);
         }
         Map<String, Object> out = new LinkedHashMap<>();
@@ -150,6 +164,7 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         out.put("documentTypes", DOC_TYPES.stream().sorted().toList());
         out.put("documentsRead", reader.extractsFields());
         out.put("relationships", r.relationships());
+        out.put("vkycParties", vkycPolicy(a).parties());
         return out;
     }
 
@@ -795,6 +810,17 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
                 .map(q -> new PartyRules.Requirement(q.getId(), q.getRole(), q.getReason())).toList();
         List<PartyRules.Issue> out = new ArrayList<>(r.check(facts, views(a.getId()), coOwners(a), a.getApplicantName(), open,
                 AFTER_SANCTION.contains(a.getSanctionState()), a.getTenureMonths(), LocalDate.now()));
+        // video KYC for co-applicants and guarantors, as the product sets it (every party, or to clear a KYC review)
+        if (vkycSessions != null) {
+            com.rhythm.los.vkyc.VkycPolicy vp = vkycPolicy(a);
+            List<com.rhythm.los.vkyc.VkycSession> calls = vkycSessions.findByApplicationIdOrderByIdDesc(a.getId());
+            for (ApplicationParty p : active(a.getId())) {
+                if (p.getConsentAt() == null || !vp.partyNeedsCall(p.getKycState())) continue;
+                boolean approved = calls.stream().anyMatch(c -> p.getId().equals(c.getPartyId()) && "APPROVED".equals(c.getStatus()));
+                if (!approved && "ALL".equals(vp.parties()))
+                    out.add(new PartyRules.Issue("PARTY_VKYC", "DECISION", p.getName() + " (" + PartyRules.label(p.getRole()) + "): video KYC not done (required for this product)", p.getRole()));
+            }
+        }
         // a party who joined after the decision is not in it: the decision must be run again before sanction
         decisions.findFirstByApplicationIdOrderByIdDesc(a.getId()).ifPresent(d -> {
             if (AFTER_SANCTION.contains(a.getSanctionState())) return;

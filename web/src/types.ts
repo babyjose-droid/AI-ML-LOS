@@ -25,6 +25,7 @@ export interface Product {
   minVintageYears?: number; minMonthlyIncome?: number; repaymentFrequency?: string; moratoriumMonths?: number
   minProcessingFee?: number; foreclosurePct?: number; bounceCharge?: number; penalRatePct?: number; optionalDocs?: string; scoringModel?: string
   partyRules?: string
+  vkycPolicy?: string
 }
 export interface ProductVersionView {
   id: number; productCode: string; version: number; status: string; notes?: string; createdBy: string; createdAt: string

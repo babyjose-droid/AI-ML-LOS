@@ -58,6 +58,10 @@ public class ApplicationController {
     private final com.rhythm.los.flow.StageAccess access;
     private final com.rhythm.los.org.DataScope scope;
     private final com.rhythm.los.consent.ConsentService consentService;
+    private com.rhythm.los.vkyc.VkycService vkycService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setVkyc(@org.springframework.context.annotation.Lazy com.rhythm.los.vkyc.VkycService v) { this.vkycService = v; }
     @org.springframework.beans.factory.annotation.Autowired private DataCaptureService dataCapture;
     @org.springframework.beans.factory.annotation.Autowired private ScreensService screens;
 
@@ -110,7 +114,12 @@ public class ApplicationController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("application", a);
         m.put("states", a.states());
-        m.put("actions", ActionPolicy.actions(a, CurrentUser.get(), access));
+        List<String> actions = new java.util.ArrayList<>(ActionPolicy.actions(a, CurrentUser.get(), access));
+        if (vkycService != null && actions.contains("videoKyc")) {
+            CurrentUser me = CurrentUser.get();
+            if (me.role() != com.rhythm.los.org.Role.ADMIN && !vkycService.policy(a).officerRoles().contains(me.role().name())) actions.remove("videoKyc");
+        }
+        m.put("actions", actions);
         m.put("blockers", decisions.blockers(a));
         m.put("missingDocuments", docs.missing(a));
         m.put("product", apps.product(a));

@@ -66,7 +66,9 @@ public class ProductController {
             String optionalDocs,
             String scoringModel,
             /** The party rules as an object, or as the JSON text the product carries (a product read back and saved again). */
-            Object partyRules) {}
+            Object partyRules,
+            /** Video KYC settings, as an object or as the JSON text the product carries. */
+            Object vkycPolicy) {}
 
     private static final Set<String> VKYC_RULES = Set.of("ON_KYC_REVIEW", "ALWAYS", "ABOVE_AMOUNT");
     private static final Set<String> BANK_SOURCES = Set.of("AA_OR_STATEMENT", "STATEMENT_ONLY", "AA_ONLY");
@@ -221,6 +223,16 @@ public class ProductController {
                 throw ApiException.unprocessable("BAD_PARTY_RULE", "Co-applicant and guarantor rules could not be read");
             }
             p.setPartyRules(com.rhythm.los.common.Json.write(com.rhythm.los.party.PartyRules.validated(pr)));
+        }
+        if (r.vkycPolicy() != null) {
+            com.rhythm.los.vkyc.VkycPolicy vp;
+            try {
+                vp = r.vkycPolicy() instanceof String txt ? com.rhythm.los.common.Json.read(txt, com.rhythm.los.vkyc.VkycPolicy.class)
+                        : com.rhythm.los.common.Json.MAPPER.convertValue(r.vkycPolicy(), com.rhythm.los.vkyc.VkycPolicy.class);
+            } catch (RuntimeException e) {
+                throw ApiException.unprocessable("BAD_VKYC_POLICY", "Video KYC settings could not be read");
+            }
+            p.setVkycPolicy(com.rhythm.los.common.Json.write(com.rhythm.los.vkyc.VkycPolicy.validated(vp)));
         }
         p.setUpdatedAt(Instant.now());
     }

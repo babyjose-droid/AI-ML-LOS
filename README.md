@@ -195,6 +195,28 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Video KYC (V-CIP), set per product
+
+Video KYC is built in: the official sends a one-time link, the customer consents and shares location, and the call runs
+in the browser (WebRTC, signalled through Rhythm; add a TURN server in `rhythm.vkyc.ice-servers` for calls across
+strict networks). The official asks for the face, head turns, a random code and the PAN card; frames go to the AI
+(liveness, face match with the ID photo, PAN read on camera) and the call is recorded. The official decides.
+
+Products → **Video KYC** sets, for each product:
+
+| Setting | Business | Personal | Used CV | Gold | LAP | JLG |
+|---|---|---|---|---|---|---|
+| Applicant | when KYC needs review / always / above an amount (existing rule) | | | | | |
+| Co-applicants and guarantors | when their KYC needs review | same | same | never | **every one, before the decision** | never |
+| Minimum face match | 0.363 | 0.363 | 0.363 | 0.363 | **0.45** | 0.363 |
+| PAN on camera | yes | yes | yes | yes | yes | no |
+| Link valid | 24 h | 24 h | 48 h | 24 h | 48 h | 24 h |
+| Who runs the call | operations | operations | operations | operations | operations or credit officer | operations |
+
+Also per product: liveness required, call hours (India time), calls allowed per person (3), languages, and up to 10
+questions the official must ask and confirm before approving. Always on (RBI V-CIP): a trained official, consent,
+location in India, the random code and the recording. Each session keeps the settings it was created with.
+
 ## Co-applicants and guarantors
 
 Every product has its own rules (Products → **Co-applicants & guarantors**, approved by the CRO like any product change):

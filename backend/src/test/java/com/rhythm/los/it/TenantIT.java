@@ -117,7 +117,8 @@ class TenantIT {
                 "pincodes", "452001", "products", "PL,BL-UNS")).body().get("id").asLong();
         for (String[] u : new String[][]{{"acmecro", "CRO"}, {"acmecm", "CREDIT_MANAGER"}, {"acmeco", "CREDIT_OFFICER"}, {"acmeops", "OPERATIONS"}, {"acmesales", "SALES"}, {"acmecomp", "COMPLIANCE"}})
             ok(post("/api/admin/users"), acme, Map.of("username", u[0], "fullName", u[0] + " user", "role", u[1], "branchId", br, "password", "Acme@12345"));
-        ok(post("/api/admin/holidays"), acme, Map.of("date", LocalDate.now().getYear() + "-12-25", "name", "Christmas"));
+        // national holidays come with the template; a lender adds its own
+        assertThat(call(post("/api/admin/holidays"), acme, Map.of("date", LocalDate.now().getYear() + "-07-07", "name", "Acme foundation day")).status()).isIn(200, 409);
         assertThat(call(post("/api/onboarding/go-live/request"), acme, Map.of("rollbackPlan", "Switch back to the old LOS; data export ready")).status()).isEqualTo(409);
 
         JsonNode sb = ok(post("/api/onboarding/sandbox"), acme, null).body();

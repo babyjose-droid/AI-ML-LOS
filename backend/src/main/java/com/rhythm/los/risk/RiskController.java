@@ -17,6 +17,11 @@ public class RiskController {
     private final HouseholdService households;
     private final ScorecardService scorecards;
     private final ApplicationService apps;
+    @org.springframework.beans.factory.annotation.Autowired private FairnessService fairness;
+
+    @GetMapping("/api/fairness")
+    @PreAuthorize("hasAnyRole('CRO','CREDIT_MANAGER','COMPLIANCE','ADMIN')")
+    public Map<String, Object> fairness(@RequestParam(defaultValue = "90") int days) { return fairness.report(days); }
 
     public RiskController(NetworkService network, HouseholdService households, ScorecardService scorecards, ApplicationService apps) {
         this.network = network;

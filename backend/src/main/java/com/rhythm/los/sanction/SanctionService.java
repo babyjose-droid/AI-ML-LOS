@@ -200,6 +200,39 @@ public class SanctionService {
                 .orElse(false);
     }
 
+    /**
+     * Sanction letter (FR-SAN-03): the approved terms, the conditions from the engine and the approver, the KFS and the
+     * approver's details, for the borrower's language and English side by side.
+     */
+    public java.util.Map<String, Object> letter(Long appId, String lang) {
+        LoanApplication a = apps.get(appId);
+        SanctionRecord r = records.findFirstByApplicationIdAndActionOrderByIdDesc(appId, "APPROVED")
+                .orElseThrow(() -> ApiException.conflict("NOT_SANCTIONED", "There is no sanction yet"));
+        java.util.List<String> conditions = new java.util.ArrayList<>();
+        decisions.latest(appId).ifPresent(d -> { if (d.getConditionsJson() != null) conditions.addAll(java.util.List.of(Json.read(d.getConditionsJson(), String[].class))); });
+        if (r.getConditionsJson() != null) conditions.addAll(java.util.List.of(Json.read(r.getConditionsJson(), String[].class)));
+        conditions.removeIf(c -> c.startsWith("Provisional:"));
+        String language = lang != null && lang.matches("en|hi|mr|ta|ml|kn|te|bn|gu") ? lang : a.getPreferredLanguage() == null ? "en" : a.getPreferredLanguage();
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("language", language);
+        m.put("lender", lenderName);
+        m.put("applicationNo", a.getAppNo());
+        m.put("borrower", a.getApplicantName());
+        m.put("address", java.util.stream.Stream.of(a.getAddress(), a.getCity(), a.getPincode()).filter(x -> x != null && !x.isBlank()).collect(java.util.stream.Collectors.joining(", ")));
+        m.put("product", apps.product(a).getName());
+        m.put("sanctionedOn", r.getCreatedAt());
+        m.put("approver", r.getActor());
+        m.put("level", r.getLevel());
+        m.put("conditions", conditions);
+        m.put("kfs", Json.read(r.getKfsJson(), Kfs.class));
+        m.put("acceptedAt", r.getKfsAcceptedAt());
+        m.put("acceptedLanguage", r.getKfsLanguage());
+        m.put("validDays", 30);
+        return m;
+    }
+
+    @Value("${rhythm.lender.name:Rhythm Demo Finance Ltd (NBFC)}") String lenderName = "Rhythm Demo Finance Ltd (NBFC)";
+
     public Kfs kfs(Long appId) {
         return records.findFirstByApplicationIdAndActionOrderByIdDesc(appId, "APPROVED")
                 .map(r -> Json.read(r.getKfsJson(), Kfs.class))
@@ -207,12 +240,18 @@ public class SanctionService {
     }
 
     @Transactional
-    public LoanApplication acceptKfs(Long appId, String otp, CurrentUser by) {
+    public LoanApplication acceptKfs(Long appId, String otp, CurrentUser by) { return acceptKfs(appId, otp, null, by); }
+
+    /** The borrower accepts by OTP; the language the KFS was shown in is stored with the acceptance (FR-SAN-04). */
+    @Transactional
+    public LoanApplication acceptKfs(Long appId, String otp, String language, CurrentUser by) {
         LoanApplication a = apps.get(appId);
         if (!"SANCTIONED".equals(a.getSanctionState())) throw ApiException.conflict("NOT_SANCTIONED", "Sanction is " + a.getSanctionState());
         if (otp == null || !otp.equals(mockOtp)) throw ApiException.unprocessable("BAD_OTP", "The OTP is not correct");
         SanctionRecord r = records.findFirstByApplicationIdAndActionOrderByIdDesc(appId, "APPROVED").orElseThrow();
         r.setKfsAcceptedAt(Instant.now());
+        String lang = language == null || !language.matches("en|hi|mr|ta|ml|kn|te|bn|gu") ? a.getPreferredLanguage() : language;
+        r.setKfsLanguage(lang == null ? "en" : lang);
         records.save(r);
         apps.transition(a, Domain.SANCTION, "KFS_ACCEPTED", "kfs.accepted", by, "Borrower accepted KFS with OTP");
         apps.transition(a, Domain.DISB, "READY", "disbursement.ready", by, null);

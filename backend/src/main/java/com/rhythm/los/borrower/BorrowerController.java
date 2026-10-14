@@ -20,7 +20,7 @@ public class BorrowerController {
 
     public record OtpRequest(String mobile) {}
     public record VerifyRequest(String mobile, String otp) {}
-    public record KfsAccept(String otp) {}
+    public record KfsAccept(String otp, String language) {}
 
     @PostMapping("/otp")
     public Map<String, Object> otp(@RequestBody OtpRequest r) { return borrower.requestOtp(r.mobile()); }
@@ -53,5 +53,5 @@ public class BorrowerController {
 
     @PostMapping("/applications/{id}/kfs/accept")
     @PreAuthorize("hasRole('BORROWER')")
-    public Map<String, Object> acceptKfs(@PathVariable Long id, @RequestBody KfsAccept r) { return borrower.acceptKfs(id, r.otp(), CurrentUser.get()); }
+    public Map<String, Object> acceptKfs(@PathVariable Long id, @RequestBody KfsAccept r) { return borrower.acceptKfs(id, r.otp(), r.language(), CurrentUser.get()); }
 }

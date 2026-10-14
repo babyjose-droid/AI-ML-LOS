@@ -168,9 +168,11 @@ public class BorrowerService {
         return documents.upload(a.getId(), type, file, password, by);
     }
 
-    public Map<String, Object> acceptKfs(Long id, String otp, CurrentUser by) {
+    public Map<String, Object> acceptKfs(Long id, String otp, CurrentUser by) { return acceptKfs(id, otp, null, by); }
+
+    public Map<String, Object> acceptKfs(Long id, String otp, String language, CurrentUser by) {
         owned(id, by);
-        sanctions.acceptKfs(id, otp, by);
+        sanctions.acceptKfs(id, otp, language, by);
         return view(id, by);
     }
 

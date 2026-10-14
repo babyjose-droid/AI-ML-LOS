@@ -22,6 +22,12 @@ public class ModelController {
     @GetMapping("/{id}")
     public Map<String, Object> get(@PathVariable Long id) { return models.detail(id); }
 
+    @GetMapping("/{id}/monitoring")
+    public java.util.Map<String, Object> monitoring(@PathVariable Long id) { return models.monitoring(id); }
+
+    @GetMapping("/monitoring/built-in/{kind}")
+    public java.util.Map<String, Object> builtIn(@PathVariable String kind) { return models.monitoringBuiltIn(kind); }
+
     @PostMapping("/train")
     @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN')")
     public Map<String, Object> train() { return models.train(CurrentUser.get()); }

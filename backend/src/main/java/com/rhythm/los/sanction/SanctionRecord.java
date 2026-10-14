@@ -22,6 +22,10 @@ public class SanctionRecord {
     @Column(name = "conditions_json") private String conditionsJson;
     @JsonIgnore @Column(name = "kfs_json") private String kfsJson;
     @Column(name = "kfs_accepted_at") private Instant kfsAcceptedAt;
+    @Column(name = "kfs_language") private String kfsLanguage;
+
+    public String getKfsLanguage() { return kfsLanguage; }
+    public void setKfsLanguage(String v) { this.kfsLanguage = v; }
     private String actor;
     @Column(name = "created_at") private Instant createdAt = Instant.now();
 

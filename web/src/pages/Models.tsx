@@ -72,6 +72,7 @@ export default function Models() {
         </div>
         <div>{current && <ModelDetail key={current + ':' + rev} id={current} onChange={() => setRev(r => r + 1)} />}</div>
       </div>
+      <BuiltInMonitoring champions={champions.map(c => c.kind ?? '')} />
     </>
   )
 }
@@ -140,6 +141,7 @@ function ModelDetail({ id, onChange }: { id: number; onChange: () => void }) {
           <span className="num small">{t.weight.toFixed(4)}</span>, <span className="num small">{t.mean.toFixed(3)}</span>,
         ])} />
       </div>
+      <Monitoring url={`/api/models/${id}/monitoring`} />
       {canDecide && (
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>Your decision</h3>
@@ -154,4 +156,49 @@ function ModelDetail({ id, onChange }: { id: number; onChange: () => void }) {
       )}
     </div>
   )
+}
+
+interface PsiRow { feature: string; label: string; psi: number; status: string; live: number; bins: { range: string; expected: number; actual: number }[] }
+interface MonitoringView {
+  kind: string; reference: string; liveDecisions: number; drifting: number; psi: PsiRow[]
+  shadow?: { scored: number; bandAgreement?: number; decisionAgreement?: number; avgPdDifference?: number; disagreements?: { applicationId: number; champion: string; candidate: string }[] }
+}
+
+const PSI_PILL: Record<string, string> = { STABLE: 'ok', WATCH: 'warn', DRIFT: 'bad', TOO_FEW: 'muted' }
+
+/** Model governance: shadow agreement and population stability (PSI) per feature on live decisions. */
+function Monitoring({ url, title }: { url: string; title?: string }) {
+  const m = useLoad(() => api.get<MonitoringView>(url), [url])
+  const [open, setOpen] = useState<string | null>(null)
+  if (!m.data) return <ErrorBox error={m.error} />
+  const d = m.data
+  return (
+    <div className="panel" data-model-monitoring>
+      <h3 style={{ marginTop: 0 }}>{title ?? 'Monitoring'}</h3>
+      {d.shadow && (d.shadow.scored === 0
+        ? <p className="small muted">Shadow mode: no decisions scored yet. Every new decision is also scored by this candidate, without acting on it.</p>
+        : <div className="kpis" data-shadow>
+            <div className="kpi"><span>Scored in shadow</span><b>{d.shadow.scored}</b></div>
+            <div className="kpi"><span>Same band as the model in use</span><b>{pct(d.shadow.bandAgreement ?? 0, 0)}</b></div>
+            <div className="kpi"><span>Same decision</span><b>{pct(d.shadow.decisionAgreement ?? 0, 0)}</b></div>
+            <div className="kpi"><span>Average PD difference</span><b>{((d.shadow.avgPdDifference ?? 0) * 100).toFixed(2)} pts</b></div>
+          </div>)}
+      {d.shadow?.disagreements && d.shadow.disagreements.length > 0 && (
+        <Table head={['Application', 'Model in use', 'This candidate']} rows={d.shadow.disagreements.map(x => [<a href={`/applications/${x.applicationId}`}>#{x.applicationId}</a>, x.champion, x.candidate])} />
+      )}
+      <p className="small">Drift against the {d.reference} on {d.liveDecisions} live {d.kind === 'THICK' ? 'bureau-record' : 'new-to-credit'} decisions: <b className={d.drifting ? 'bad-text' : ''}>{d.drifting} feature(s) drifting</b> (PSI above 0.25; 0.10–0.25 is worth watching).</p>
+      <Table head={['Feature', 'PSI', 'Status', '']} rows={d.psi.map(p => [p.label, p.psi.toFixed(3), <span className={'pill ' + (PSI_PILL[p.status] ?? '')}>{p.status === 'TOO_FEW' ? 'Too few decisions' : p.status.toLowerCase()}</span>,
+        <button className="btn sm" onClick={() => setOpen(open === p.feature ? null : p.feature)}>{open === p.feature ? 'Hide' : 'Bins'}</button>])} />
+      {open && (() => {
+        const p = d.psi.find(x => x.feature === open)!
+        return <Table head={['Range', 'Reference share', 'Live share']} rows={p.bins.map(b => [b.range, pct(b.expected, 0), pct(b.actual, 0)])} />
+      })()}
+    </div>
+  )
+}
+
+function BuiltInMonitoring({ champions }: { champions: string[] }) {
+  const kinds = ['THICK', 'NTC'].filter(k => !champions.includes(k))
+  if (kinds.length === 0) return null
+  return <>{kinds.map(k => <Monitoring key={k} url={`/api/models/monitoring/built-in/${k}`} title={`Drift for the built-in ${k === 'THICK' ? 'bureau-record' : 'new-to-credit'} model`} />)}</>
 }

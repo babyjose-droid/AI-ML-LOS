@@ -177,6 +177,7 @@ public class DecisionService {
         d.setInputHash(hash);
         d.setCreatedBy(by.username());
         d = decisions.save(d);
+        models.shadow(d.getId(), a.getId(), in, pol, r);
 
         // states
         if (!"PENDING".equals(a.getDecisionState())) apps.transition(a, Domain.DECISION, "PENDING", "decision.rerun", by, null);

@@ -11,7 +11,7 @@ import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, Fie
 const TABS = ['Overview', 'Customer', 'Workflow', 'Documents', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
-type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string }
+type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
 
 const DIALOGS: Record<string, Dialog> = {
   withdraw: { kind: 'withdraw', title: 'Withdraw application', fields: ['note'] },
@@ -22,7 +22,7 @@ const DIALOGS: Record<string, Dialog> = {
   sendBack: { kind: 'sendBack', title: 'Send back to credit', fields: ['note'], hint: 'The decision is re-opened and the credit officer re-assesses the case. Say what needs another look (at least 10 characters).' },
   decline: { kind: 'decline', title: 'Decline', fields: ['note'] },
   escalate: { kind: 'escalate', title: 'Escalate to next level', fields: ['note'] },
-  acceptKfs: { kind: 'acceptKfs', title: 'Borrower accepts the Key Fact Statement', fields: ['otp'], hint: 'In this build the OTP is 123456. The integrations phase sends it to the borrower by SMS.' },
+  acceptKfs: { kind: 'acceptKfs', title: 'Borrower accepts the Key Fact Statement', fields: ['otp', 'choice'], choiceLabel: 'Language the KFS was shown in', choices: [['', 'KFS shown in the borrower\'s preferred language'], ['en', 'English'], ['hi', 'Hindi'], ['mr', 'Marathi'], ['ta', 'Tamil'], ['ml', 'Malayalam'], ['kn', 'Kannada'], ['te', 'Telugu'], ['bn', 'Bengali'], ['gu', 'Gujarati']], hint: 'Show the borrower the KFS in their language first (Sanction & KFS tab). In this build the OTP is 123456; the integrations phase sends it by SMS.' },
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -69,7 +69,7 @@ export default function Application360() {
         case 'sendBack': await api.post(base + '/sanction/send-back', body); break
         case 'decline': await api.post(base + '/sanction/decline', body); break
         case 'escalate': await api.post(base + '/sanction/escalate', body); break
-        case 'acceptKfs': await api.post(base + '/kfs/accept', body); break
+        case 'acceptKfs': await api.post(base + '/kfs/accept', { otp: body?.otp, language: body?.choice || null }); break
         case 'disburse': {
           const d = await api.post<Disbursement>(base + '/disburse')
           setMsg(d.status === 'SUCCESS' ? `Disbursed. UTR ${d.utr}` : `Disbursement failed: ${d.failureReason}`)
@@ -149,7 +149,7 @@ function ActionDialog({ d, busy, error, onClose, onSubmit }: { d: Dialog; busy: 
       {d.hint && <p className="small muted">{d.hint}</p>}
       <div className="form" style={{ gridTemplateColumns: '1fr' }}>
         {d.fields.includes('choice') && (
-          <label className="fld">Outcome
+          <label className="fld">{d.choiceLabel ?? 'Outcome'}
             <select name="choice" value={b.choice} onChange={e => setB({ ...b, choice: e.target.value })}>
               {d.choices!.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
@@ -579,7 +579,7 @@ function SanctionTab({ id, rev, sanctioned }: { id: string; rev: number; sanctio
       </div>
       {k && (
         <div className="panel">
-          <h3>Key Fact Statement</h3>
+          <h3>Key Fact Statement <Link className="btn sm" style={{ marginLeft: 8 }} to={`/applications/${id}/letter`} data-action="letter">Sanction letter and KFS in the borrower's language</Link></h3>
           <div className="grid2">
             <dl className="dl">
               <dt>Sanctioned amount</dt><dd>{inr(k.sanctionedAmount)}</dd><dt>Processing fee</dt><dd>{inr(k.processingFee)} + GST {inr(k.gstOnFee)}</dd>

@@ -88,7 +88,7 @@ public class ApplicationController {
     public record ResolveRequest(boolean verified, String note) {}
     public record FraudRequest(boolean clear, String note) {}
     public record SanctionRequest(BigDecimal amount, String note, List<String> conditions) {}
-    public record OtpRequest(String otp) {}
+    public record OtpRequest(String otp, String language) {}
 
     // ---- queries ----
 
@@ -164,6 +164,10 @@ public class ApplicationController {
 
     @GetMapping("/{id}/sanctions")
     public List<SanctionRecord> sanctionHistory(@PathVariable Long id) { return sanctionRecords.findByApplicationIdOrderByIdAsc(id); }
+
+    @GetMapping("/{id}/sanction-letter")
+    @PreAuthorize(STAFF)
+    public Map<String, Object> letter(@PathVariable Long id, @RequestParam(required = false) String lang) { return sanctions.letter(id, lang); }
 
     @GetMapping("/{id}/kfs")
     public Kfs kfs(@PathVariable Long id) { return sanctions.kfs(id); }
@@ -312,7 +316,7 @@ public class ApplicationController {
 
     @PostMapping("/{id}/kfs/accept")
     @PreAuthorize(FRONT)
-    public LoanApplication acceptKfs(@PathVariable Long id, @RequestBody OtpRequest r) { return sanctions.acceptKfs(id, r.otp(), CurrentUser.get()); }
+    public LoanApplication acceptKfs(@PathVariable Long id, @RequestBody OtpRequest r) { return sanctions.acceptKfs(id, r.otp(), r.language(), CurrentUser.get()); }
 
     // ---- disbursement ----
 

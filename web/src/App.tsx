@@ -22,6 +22,8 @@ import Overview from './pages/Overview'
 import Board from './pages/Board'
 import Masters from './pages/Masters'
 import Account from './pages/Account'
+import SanctionLetter from './pages/SanctionLetter'
+import Fairness from './pages/Fairness'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -36,6 +38,7 @@ const NAV: [string, NavItem[]][] = [
   ['Operations', [
     { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
     { to: '/integrations', label: 'Integration hub', roles: ['ADMIN', 'OPERATIONS', 'COMPLIANCE'] },
+    { to: '/fairness', label: 'Fairness', roles: ['CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'ADMIN'] },
     { to: '/audit', label: 'Audit trail', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/state-machine', label: 'State machine' },
   ]],
@@ -114,6 +117,8 @@ export default function App() {
             <Route path="/applications/new" element={<NewApplication />} />
             <Route path="/applications/:id/edit" element={<NewApplication />} />
             <Route path="/applications/:id" element={<Application360 />} />
+            <Route path="/applications/:id/letter" element={<SanctionLetter />} />
+            <Route path="/fairness" element={<Fairness />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />
             <Route path="/reports" element={<Reports />} />

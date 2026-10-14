@@ -148,12 +148,151 @@ public class ModelService {
         v.setDataSource(sources.size() > 1 ? "MIXED" : sources.isEmpty() ? "NONE" : sources.iterator().next());
         v.setRowsUsed(rows.size());
         v.setTrainedBy(by.username());
+        v.setBaselineJson(Json.write(baselineOf(rows, feats, toModelFrom(name, v.getVersion(), v.getIntercept(), v.getTermsJson()))));
         repo.save(v);
         Object hold = metrics.get("holdout");
         audit.record(by, "model.trained", "MODEL", v.getName() + " " + v.getVersion(), null,
                 rows.size() + " loans (" + v.getDataSource() + ") · hold-out " + (hold instanceof Map<?, ?> h ? "AUC " + h.get("auc") : "") +
                         (metrics.get("aucGain") != null ? " · gain over champion " + metrics.get("aucGain") : ""));
         return v;
+    }
+
+    static PdModel toModelFrom(String name, String version, double intercept, String termsJson) {
+        ModelVersion t = new ModelVersion();
+        t.setName(name);
+        t.setVersion(version);
+        t.setIntercept(intercept);
+        t.setTermsJson(termsJson);
+        return toModel(t);
+    }
+
+    static double pdOf(PdModel m, Map<String, Double> fx) {
+        double z = m.intercept();
+        for (PdModel.Term t : m.terms()) z += t.weight() * (fx.getOrDefault(t.feature(), 0.0) - t.mean());
+        return 1 / (1 + Math.exp(-z));
+    }
+
+    /** Training distribution of every feature (and of the model's PD) for drift monitoring. */
+    @SuppressWarnings("unchecked")
+    static Map<String, Drift.Baseline> baselineOf(List<Map<String, Object>> rows, List<String> feats, PdModel m) {
+        Map<String, Drift.Baseline> out = new LinkedHashMap<>();
+        for (String f : feats) {
+            List<Double> vals = new ArrayList<>();
+            for (Map<String, Object> r : rows) {
+                Object x = ((Map<String, Double>) r.get("features")).get(f);
+                if (x != null) vals.add(((Number) x).doubleValue());
+            }
+            out.put(f, Drift.baseline(vals));
+        }
+        if (m != null) out.put("pd", Drift.baseline(rows.stream().map(r -> pdOf(m, (Map<String, Double>) r.get("features"))).toList()));
+        return out;
+    }
+
+    // ---------------------------------------------------------------- shadow and monitoring
+
+    private ShadowScoreRepository shadows;
+    private com.rhythm.los.decision.DecisionRecordRepository decisionRecords;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setMonitoring(ShadowScoreRepository shadows, @org.springframework.context.annotation.Lazy com.rhythm.los.decision.DecisionRecordRepository decisionRecords) {
+        this.shadows = shadows;
+        this.decisionRecords = decisionRecords;
+    }
+
+    /**
+     * Shadow mode: every candidate model of the applicant's kind scores the same input as the champion, without acting.
+     * The CRO sees how often it agrees before approving it.
+     */
+    public void shadow(Long decisionId, Long appId, EngineInput in, PolicyParams pol, EngineResult champion) {
+        if (shadows == null) return;
+        String kind = in.bureau() != null ? "THICK" : "NTC";
+        for (ModelVersion c : repo.findByKindAndStatus(kind, "CANDIDATE")) {
+            try {
+                EngineResult r = UnderwritingEngine.underwrite(in, pol, toModel(c));
+                shadows.save(new ShadowScore(decisionId, appId, c.getId(), r.pd(), r.band(), r.decision(), champion.pd(), champion.band(), champion.decision()));
+            } catch (RuntimeException e) {
+                // a broken candidate must never stop a decision
+            }
+        }
+    }
+
+    private volatile Map<String, Map<String, Drift.Baseline>> bookBaselines;
+
+    /** Baselines from the loan book for the built-in models (they were not trained here). */
+    Map<String, Drift.Baseline> bookBaseline(String kind) {
+        Map<String, Map<String, Drift.Baseline>> b = bookBaselines;
+        if (b == null) {
+            b = new HashMap<>();
+            Map<String, List<Map<String, Object>>> rows = new HashMap<>(Map.of("THICK", new ArrayList<>(), "NTC", new ArrayList<>()));
+            for (HistoricalLoan h : book.findAllByOrderByIdAsc()) {
+                EngineInput in = Json.read(h.getInputJson(), EngineInput.class);
+                rows.get(in.bureau() != null ? "THICK" : "NTC").add(Map.of("features", Features.of(in)));
+            }
+            for (String k : List.of("THICK", "NTC")) {
+                List<String> feats = Features.ALL.stream().map(Features.Def::key)
+                        .filter(f -> "THICK".equals(k) ? !"thinFile".equals(f) : !BUREAU_FEATURES.contains(f)).toList();
+                b.put(k, baselineOf(rows.get(k), feats, null));
+            }
+            bookBaselines = b;
+        }
+        return b.get(kind);
+    }
+
+    /** Drift (PSI per feature and of the PD) on live decisions, and shadow agreement for a candidate. */
+    public Map<String, Object> monitoring(Long id) {
+        ModelVersion v = get(id);
+        Map<String, Drift.Baseline> base = v.getBaselineJson() == null ? bookBaseline(v.getKind())
+                : Json.read(v.getBaselineJson(), new TypeReference<LinkedHashMap<String, Drift.Baseline>>() {});
+        Map<String, Object> out = monitor(v.getKind(), base, v.getBaselineJson() == null ? "loan book" : "training data");
+        if (shadows != null) out.put("shadow", shadowStats(v.getId()));
+        return out;
+    }
+
+    public Map<String, Object> monitoringBuiltIn(String kind) {
+        if (!List.of("THICK", "NTC").contains(kind)) throw ApiException.unprocessable("BAD_KIND", "Kind is THICK or NTC");
+        return monitor(kind, bookBaseline(kind), "loan book");
+    }
+
+    private Map<String, Object> monitor(String kind, Map<String, Drift.Baseline> base, String reference) {
+        Map<Long, com.rhythm.los.decision.DecisionRecord> latest = new HashMap<>();
+        if (decisionRecords != null)
+            for (var d : decisionRecords.findAll()) latest.merge(d.getApplicationId(), d, (x, y) -> x.getId() > y.getId() ? x : y);
+        Map<String, List<Double>> live = new HashMap<>();
+        for (var d : latest.values()) {
+            if (d.getInputJson() == null || "INCOMPLETE".equals(d.getDecision())) continue;
+            EngineInput in;
+            try { in = Json.read(d.getInputJson(), EngineInput.class); } catch (Exception e) { continue; }
+            if ((in.bureau() != null) != "THICK".equals(kind)) continue;
+            Features.of(in).forEach((k, x) -> live.computeIfAbsent(k, z -> new ArrayList<>()).add(x));
+            live.computeIfAbsent("pd", z -> new ArrayList<>()).add(d.getPd().doubleValue());
+        }
+        List<Drift.Psi> psi = new ArrayList<>();
+        base.forEach((f, b) -> psi.add(Drift.psi(f, "pd".equals(f) ? "Predicted PD" : Features.def(f).label(), b, live.getOrDefault(f, List.of()))));
+        psi.sort(Comparator.comparingDouble(Drift.Psi::psi).reversed());
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("kind", kind);
+        out.put("reference", reference);
+        out.put("liveDecisions", live.getOrDefault("pd", List.of()).size());
+        out.put("drifting", psi.stream().filter(x -> "DRIFT".equals(x.status())).count());
+        out.put("psi", psi);
+        return out;
+    }
+
+    Map<String, Object> shadowStats(Long modelId) {
+        List<ShadowScore> s = shadows.findByModelVersionIdOrderByIdDesc(modelId);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("scored", s.size());
+        if (s.isEmpty()) return m;
+        long bandSame = s.stream().filter(x -> x.getBand().equals(x.getChampionBand())).count();
+        long decSame = s.stream().filter(x -> x.getDecision().equals(x.getChampionDecision())).count();
+        double diff = s.stream().mapToDouble(x -> x.getPd().doubleValue() - x.getChampionPd().doubleValue()).average().orElse(0);
+        m.put("bandAgreement", Math.round(1000.0 * bandSame / s.size()) / 1000.0);
+        m.put("decisionAgreement", Math.round(1000.0 * decSame / s.size()) / 1000.0);
+        m.put("avgPdDifference", Math.round(diff * 10000) / 10000.0);
+        m.put("disagreements", s.stream().filter(x -> !x.getDecision().equals(x.getChampionDecision())).limit(20).map(x -> Map.of(
+                "applicationId", x.getApplicationId(), "champion", x.getChampionDecision() + " · " + x.getChampionBand(),
+                "candidate", x.getDecision() + " · " + x.getBand(), "championPd", x.getChampionPd(), "candidatePd", x.getPd())).toList());
+        return m;
     }
 
     public record Decision(boolean approve, String note) {}

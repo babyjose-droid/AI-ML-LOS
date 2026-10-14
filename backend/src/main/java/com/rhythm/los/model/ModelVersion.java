@@ -23,6 +23,10 @@ public class ModelVersion {
     @Column(name = "decided_by") private String decidedBy;
     @Column(name = "decided_at") private Instant decidedAt;
     @Column(name = "decision_note") private String decisionNote;
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "baseline_json") private String baselineJson;
+
+    public String getBaselineJson() { return baselineJson; }
+    public void setBaselineJson(String v) { this.baselineJson = v; }
 
     public Long getId() { return id; }
     public String getName() { return name; }

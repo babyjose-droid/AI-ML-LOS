@@ -10,4 +10,5 @@ public interface ModelVersionRepository extends JpaRepository<ModelVersion, Long
     Optional<ModelVersion> findFirstByKindAndStatusOrderByIdDesc(String kind, String status);
     List<ModelVersion> findAllByOrderByIdDesc();
     long countByName(String name);
+    java.util.List<ModelVersion> findByKindAndStatus(String kind, String status);
 }

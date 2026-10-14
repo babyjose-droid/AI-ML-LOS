@@ -31,6 +31,7 @@ import Compliance from './pages/Compliance'
 import Scores from './pages/Scores'
 import Assistant from './pages/Assistant'
 import CollateralOverview, { CollateralCase } from './collateral/Collateral'
+import { Capital, CoLending } from './pages/Scale'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -47,6 +48,8 @@ const NAV: [string, NavItem[]][] = [
   ['Portfolio', [
     { to: '/portfolio', label: 'Loan book', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE'] },
     { to: '/pricing', label: 'Rate simulator', roles: ['ADMIN', 'CREDIT_MANAGER', 'CRO'] },
+    { to: '/colending', label: 'Co-lending', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS', 'COMPLIANCE'] },
+    { to: '/capital', label: 'Capital and liquidity', roles: ['ADMIN', 'CRO', 'COMPLIANCE'] },
     { to: '/compliance', label: 'Compliance and returns', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/scores', label: 'Branch and officer scores', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS', 'COMPLIANCE'] },
     { to: '/assistant', label: 'Policy assistant', roles: ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER', 'LEGAL_REVIEWER', 'VALUER'] },
@@ -142,6 +145,8 @@ export default function App() {
             <Route path="/scores" element={<Scores />} />
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/collateral" element={<CollateralOverview />} />
+            <Route path="/colending" element={<CoLending />} />
+            <Route path="/capital" element={<Capital />} />
             <Route path="/collateral/:id" element={<CollateralCase />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />

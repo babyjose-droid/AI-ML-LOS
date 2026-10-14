@@ -28,8 +28,10 @@ import java.nio.charset.StandardCharsets;
 public class SecurityConfig {
 
     private final SecretKey key;
+    private final com.rhythm.los.tenant.TenantRegistry registry;
 
-    public SecurityConfig(@Value("${rhythm.jwt.secret}") String secret) {
+    public SecurityConfig(@Value("${rhythm.jwt.secret}") String secret, com.rhythm.los.tenant.TenantRegistry registry) {
+        this.registry = registry;
         byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) throw new IllegalStateException("rhythm.jwt.secret must be at least 32 bytes");
         this.key = new SecretKeySpec(bytes, "HmacSHA256");
@@ -68,6 +70,7 @@ public class SecurityConfig {
                     .anyRequest().permitAll())
             .exceptionHandling(e -> e.accessDeniedHandler((req, res, ex) ->
                     json(res, 403, "FORBIDDEN", "Your role is not allowed to do this")))
+            .addFilterAfter(new com.rhythm.los.tenant.TenantFilter(registry), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(o -> o
                     .jwt(j -> j.jwtAuthenticationConverter(authConverter()))
                     .authenticationEntryPoint((req, res, ex) -> json(res, 401, "UNAUTHENTICATED", "Sign in again: the session is missing or has expired"))

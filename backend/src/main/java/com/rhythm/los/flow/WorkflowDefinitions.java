@@ -31,7 +31,7 @@ public class WorkflowDefinitions {
     public List<Stage> stages(LoanApplication a) {
         Integer v = a.getWorkflowVersion();
         if (v == null) return DEFAULT.stream().map(StageLibrary::defaults).toList();
-        String key = a.getProductCode() + "#" + v;
+        String key = com.rhythm.los.tenant.TenantContext.code() + ":" + a.getProductCode() + "#" + v;
         List<Stage> hit = cache.get(key);
         if (hit != null) return hit;
         List<Stage> s = versions.findByProductCodeAndVersion(a.getProductCode(), v).map(x -> parse(x.getStagesJson()))

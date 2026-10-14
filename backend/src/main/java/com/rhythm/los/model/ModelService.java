@@ -41,7 +41,8 @@ public class ModelService {
     private final PolicyService policy;
     private final ModelTrainer trainer;
     private final AuditService audit;
-    private volatile Map<String, Optional<PdModel>> champions;
+    /** Champion models per tenant. */
+    private final Map<String, Map<String, Optional<PdModel>>> championsByTenant = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ModelService(ModelVersionRepository repo, HistoricalLoanRepository book, PolicyService policy, ModelTrainer trainer, AuditService audit) {
         this.repo = repo;
@@ -53,12 +54,12 @@ public class ModelService {
 
     /** The approved model for applicants with a bureau record (thick) or without one (new to credit); empty = built-in. */
     public Optional<PdModel> champion(boolean thick) {
-        Map<String, Optional<PdModel>> c = champions;
+        Map<String, Optional<PdModel>> c = championsByTenant.get(com.rhythm.los.tenant.TenantContext.code());
         if (c == null) {
             c = new HashMap<>();
             for (String k : List.of("THICK", "NTC"))
                 c.put(k, repo.findFirstByKindAndStatusOrderByIdDesc(k, "CHAMPION").map(ModelService::toModel));
-            champions = c;
+            championsByTenant.put(com.rhythm.los.tenant.TenantContext.code(), c);
         }
         return c.get(thick ? "THICK" : "NTC");
     }
@@ -216,11 +217,11 @@ public class ModelService {
         }
     }
 
-    private volatile Map<String, Map<String, Drift.Baseline>> bookBaselines;
+    private final Map<String, Map<String, Map<String, Drift.Baseline>>> baselinesByTenant = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Baselines from the loan book for the built-in models (they were not trained here). */
     Map<String, Drift.Baseline> bookBaseline(String kind) {
-        Map<String, Map<String, Drift.Baseline>> b = bookBaselines;
+        Map<String, Map<String, Drift.Baseline>> b = baselinesByTenant.get(com.rhythm.los.tenant.TenantContext.code());
         if (b == null) {
             b = new HashMap<>();
             Map<String, List<Map<String, Object>>> rows = new HashMap<>(Map.of("THICK", new ArrayList<>(), "NTC", new ArrayList<>()));
@@ -233,7 +234,7 @@ public class ModelService {
                         .filter(f -> "THICK".equals(k) ? !"thinFile".equals(f) : !BUREAU_FEATURES.contains(f)).toList();
                 b.put(k, baselineOf(rows.get(k), feats, null));
             }
-            bookBaselines = b;
+            baselinesByTenant.put(com.rhythm.los.tenant.TenantContext.code(), b);
         }
         return b.get(kind);
     }
@@ -317,7 +318,7 @@ public class ModelService {
             audit.record(by, "model.rejected", "MODEL", v.getName() + " " + v.getVersion(), null, note);
         }
         repo.save(v);
-        champions = null; // reload on next use
+        championsByTenant.remove(com.rhythm.los.tenant.TenantContext.code()); // reload on next use
         return v;
     }
 
@@ -335,6 +336,6 @@ public class ModelService {
             repo.save(c);
             audit.record(by, "model.champion_retired", "MODEL", c.getName() + " " + c.getVersion(), null, note.trim());
         }
-        champions = null;
+        championsByTenant.remove(com.rhythm.los.tenant.TenantContext.code());
     }
 }

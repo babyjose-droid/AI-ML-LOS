@@ -66,7 +66,7 @@ public class PolicyService {
     }
 
     /** Puts a scheduled version live when its effective date arrives; the previous live version is retired. */
-    @Scheduled(fixedDelayString = "${rhythm.policy.activation-check-ms:60000}", initialDelayString = "${rhythm.policy.activation-initial-delay-ms:5000}")
+    /** Run per tenant by TenantJobs. */
     @Transactional
     public void activateDue() {
         Instant now = Instant.now();

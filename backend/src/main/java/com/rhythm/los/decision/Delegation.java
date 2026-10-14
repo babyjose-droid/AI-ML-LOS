@@ -19,16 +19,17 @@ public final class Delegation {
         public static final Matrix DEFAULT = new Matrix(200_000d, 1_000_000d, "C", "D", 0, 1);
     }
 
-    private static volatile Matrix matrix = Matrix.DEFAULT;
+    /** The matrix per tenant (each lender has its own board-approved limits). */
+    private static final java.util.Map<String, Matrix> MATRICES = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public static Matrix matrix() { return matrix; }
-    public static void use(Matrix m) { matrix = m == null ? Matrix.DEFAULT : m; }
+    public static Matrix matrix() { return MATRICES.getOrDefault(com.rhythm.los.tenant.TenantContext.code(), Matrix.DEFAULT); }
+    public static void use(Matrix m) { MATRICES.put(com.rhythm.los.tenant.TenantContext.code(), m == null ? Matrix.DEFAULT : m); }
 
     private static boolean worse(String band, String limit) { return band != null && limit != null && band.compareTo(limit) > 0; }
     private static boolean above(double amt, Double max) { return max != null && amt > max; }
 
     public static Level of(EngineResult r) {
-        Matrix m = matrix;
+        Matrix m = matrix();
         long dev = r.referCount();
         double amt = r.recAmt();
         if (above(amt, m.l2Max()) || worse(r.band(), m.l2Band()) || dev > m.l2Deviations() || !"CLEAR".equals(r.fraudStatus()))
@@ -40,7 +41,7 @@ public final class Delegation {
 
     /** The level an amount alone needs (the same thresholds as {@link #of}). */
     public static String levelForAmount(double amount) {
-        Matrix m = matrix;
+        Matrix m = matrix();
         return above(amount, m.l2Max()) ? "L3" : above(amount, m.l1Max()) ? "L2" : "L1";
     }
 

@@ -32,6 +32,9 @@ import Scores from './pages/Scores'
 import Assistant from './pages/Assistant'
 import CollateralOverview, { CollateralCase } from './collateral/Collateral'
 import { Capital, CoLending } from './pages/Scale'
+import { Benchmarking, Onboarding, Platform } from './pages/Tenancy'
+import { useLoad } from './components/ui'
+import { api as client } from './api'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -50,6 +53,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/pricing', label: 'Rate simulator', roles: ['ADMIN', 'CREDIT_MANAGER', 'CRO'] },
     { to: '/colending', label: 'Co-lending', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS', 'COMPLIANCE'] },
     { to: '/capital', label: 'Capital and liquidity', roles: ['ADMIN', 'CRO', 'COMPLIANCE'] },
+    { to: '/benchmarking', label: 'Benchmarking', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE'] },
     { to: '/compliance', label: 'Compliance and returns', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/scores', label: 'Branch and officer scores', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS', 'COMPLIANCE'] },
     { to: '/assistant', label: 'Policy assistant', roles: ['ADMIN', 'SALES', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'FRAUD_ANALYST', 'COMPLIANCE', 'FIELD_OFFICER', 'LEGAL_REVIEWER', 'VALUER'] },
@@ -69,6 +73,8 @@ const NAV: [string, NavItem[]][] = [
     { to: '/admin/workflows', label: 'Workflow designer' },
     { to: '/admin/policy', label: 'Credit policy studio' },
     { to: '/admin/models', label: 'Risk models', roles: ['CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
+    { to: '/onboarding', label: 'Onboarding and go-live', roles: ['ADMIN', 'CRO', 'COMPLIANCE'] },
+    { to: '/platform/tenants', label: 'Tenants (platform)', roles: ['ADMIN'] },
   ]],
 ]
 
@@ -109,6 +115,7 @@ export default function App() {
       <div className="shell">
         <aside className={'side' + (open ? ' open' : '')}>
           <div className="brand"><i /> <div>Rhythm<small>AI lending · LOS</small></div></div>
+          <TenantBadge />
           {NAV.map(([g, items]) => (
             <div key={g}>
               <div className="navgroup">{g}</div>
@@ -146,6 +153,9 @@ export default function App() {
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/collateral" element={<CollateralOverview />} />
             <Route path="/colending" element={<CoLending />} />
+            <Route path="/platform/tenants" element={<Platform />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/benchmarking" element={<Benchmarking />} />
             <Route path="/capital" element={<Capital />} />
             <Route path="/collateral/:id" element={<CollateralCase />} />
             <Route path="/integrations" element={<Integrations />} />
@@ -164,4 +174,11 @@ export default function App() {
       </div>
     </AuthContext.Provider>
   )
+}
+
+function TenantBadge() {
+  const t = useLoad(() => client.get<{ code: string; name: string; status: string; isDefault: boolean }>('/api/tenant'), [])
+  if (!t.data || t.data.isDefault) return null
+  return <div className="small" style={{ padding: '0 16px 8px' }} data-testid="tenant-badge"><b>{t.data.name}</b> <span className="muted">({t.data.code})</span>
+    {t.data.status !== 'LIVE' && <span className="pill warn" style={{ marginLeft: 4 }}>{t.data.status.toLowerCase()}</span>}</div>
 }

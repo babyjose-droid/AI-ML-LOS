@@ -20,7 +20,9 @@ public class StorageService {
 
     public String store(Long appId, byte[] bytes, String extension) {
         try {
-            Path dir = root.resolve(String.valueOf(appId));
+            // each tenant's files under its own folder (the default tenant keeps the original layout)
+            Path base = com.rhythm.los.tenant.TenantContext.isDefault() ? root : root.resolve("tenant-" + com.rhythm.los.tenant.TenantContext.code());
+            Path dir = base.resolve(String.valueOf(appId));
             Files.createDirectories(dir);
             Path file = dir.resolve(UUID.randomUUID() + (extension == null ? "" : extension));
             Files.write(file, bytes);

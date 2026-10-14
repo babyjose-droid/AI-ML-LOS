@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ApiError, api, setToken } from '../api'
+import { ApiError, api, getTenant, setTenant, setToken } from '../api'
 import { ErrorBox } from '../components/ui'
 import type { User } from '../types'
 
 const DEMO = [
   ['sales1', 'Sales / DSA'], ['ops1', 'Operations'], ['co1', 'Credit officer (L1)'], ['cm1', 'Credit manager (L2)'],
-  ['cro1', 'CRO (L3)'], ['fraud1', 'Fraud analyst'], ['comp1', 'Compliance'], ['field1', 'Field officer'], ['admin', 'Tenant admin'],
+  ['cro1', 'CRO (L3)'], ['fraud1', 'Fraud analyst'], ['comp1', 'Compliance'], ['field1', 'Field officer'], ['legal1', 'Legal reviewer'], ['valuer1', 'Valuer'], ['admin', 'Tenant admin'],
 ]
 
 export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
@@ -15,10 +15,12 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const [busy, setBusy] = useState(false)
   const [otp, setOtp] = useState('')
   const [needOtp, setNeedOtp] = useState(false)
+  const [org, setOrg] = useState(getTenant() ?? '')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
+    setTenant(org)
     try {
       const r = await api.post<{ token: string; user: User; idleTimeoutMinutes?: number }>('/api/auth/login', { username, password, otp: otp || null })
       setToken(r.token)
@@ -38,6 +40,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
         <div className="brand" style={{ padding: '0 0 16px' }}><i /> <div>Rhythm<small>AI lending · loan origination</small></div></div>
         <ErrorBox error={error} />
         <form onSubmit={submit} className="form" style={{ gridTemplateColumns: '1fr' }}>
+          <label className="fld">Organisation code <span className="muted small">(blank for the demo lender)</span><input name="organisation" value={org} onChange={e => setOrg(e.target.value)} autoComplete="organization" /></label>
           <label className="fld">Username<input name="username" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" /></label>
           <label className="fld">Password<input name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
           {needOtp && <label className="fld">Code from your authenticator app<input name="otp" inputMode="numeric" maxLength={6} autoFocus value={otp} onChange={e => setOtp(e.target.value)} autoComplete="one-time-code" /></label>}

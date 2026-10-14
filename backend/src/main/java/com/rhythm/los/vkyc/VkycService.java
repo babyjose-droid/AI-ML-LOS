@@ -93,7 +93,7 @@ public class VkycService {
         s.setExpiresAt(Instant.now().plus(linkValidity));
         sessions.save(s);
         audit.record(by, "vkyc.created", "VKYC", String.valueOf(s.getId()), appId, "Video KYC link created, valid until " + s.getExpiresAt());
-        return new Created(s, "/vkyc/" + token);
+        return new Created(s, "/vkyc/" + token + (com.rhythm.los.tenant.TenantContext.isDefault() ? "" : "?t=" + com.rhythm.los.tenant.TenantContext.code()));
     }
 
     public List<VkycSession> list(Long appId) {

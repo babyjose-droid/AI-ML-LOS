@@ -37,7 +37,7 @@ public class ProductService {
     /** The product as it was in the given version (the live product when the version is unknown). */
     public Product definition(String code, Integer version) {
         if (version == null) return live(code);
-        String key = code + "#" + version;
+        String key = com.rhythm.los.tenant.TenantContext.code() + ":" + code + "#" + version;
         Product hit = cache.get(key);
         if (hit != null) return hit;
         Optional<ProductVersion> v = versions.findByProductCodeAndVersion(code, version);

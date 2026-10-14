@@ -195,6 +195,46 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Phase 4: Scale
+
+- **Collateral AI** (Work → Collateral AI; a Collateral tab on every application). These screens cover SCR-140 to SCR-149:
+  - Overview of every case.
+  - A case workspace with eight tabs: 360 summary with evidence IDs, Documents, EC analysis, Title chain, Property vision, Valuation & LTV, Risk & decision, and Audit.
+  - A review queue for the new **Legal reviewer** and **Valuer** roles and for field officers.
+- **What Collateral AI reads and checks:**
+  - **Documents:** the sale deed, EC, khata, tax receipt, plan, OC, land record, valuation report, insurance and RC are read by the AI service (`/v1/collateral/documents/analyze`). Fields read below 85% confidence wait for a person to confirm them. Typed fields count as confirmed.
+  - **EC:** charges are matched to their releases.
+  - **Title chain:** gaps and double transfers are flagged.
+  - **Photos:** checked for GPS distance, coverage, quality, and reuse across files.
+  - **Valuation:** value used is the lower of the empanelled valuations. The AI cross-check (locality rate × area, or a depreciated new price) is shown only.
+  - **Risk:** a 10-dimension risk vector.
+- **Collateral rules:** CR-01 to CR-11 give PASS, REFER or FAIL, and open reviews in the right queue. Every review is cleared or upheld with a reason.
+- **Unified decision:** credit and collateral are combined. Sanction waits for collateral PASS. An amount above the maximum exposure (LTV cap) needs L3 and a reason. The collateral conditions go on the sanction.
+- **Collateral policy per type:** EC years, haircut and maximum LTV, valuation age, variance limit, second valuation above ₹50 lakh, photos and GPS radius. These are editable by the admin or CRO.
+- **Monitoring:** revaluation due, insurance expiring and LTV breach.
+- **LAP product** with a "Collateral AI review" workflow stage. Demo cases:
+  - residential → PASS
+  - shop → REFER, then PASS with LTV cap after reviews
+  - plot → FAIL
+- **Gold and vehicle valuation:**
+  - **Gold:** appraisal on net weight and purity at the 22-carat rate (the lower of the 30-day average and the latest rate). RBI LTV tiers apply: 85% up to ₹2.5 lakh, 80% up to ₹5 lakh, 75% above.
+  - **Vehicle:** the RC owner and any hypothecation are checked.
+- **Co-lending** (Portfolio → Co-lending):
+  - Each partner bank has its own rules: products, ticket size, bands, new-to-credit, vintage, PSL, share and rate.
+  - The screen shows the eligible pool with the blended rate and our yield on our share, and reasons for loans that are not eligible.
+  - Selected loans go to the partner as a loan file (CSV), and the partner's approval or rejection is tracked.
+  - Each lender keeps at least 10% of every loan (RBI co-lending directions, 2025).
+- **Capital and liquidity** (Portfolio): a 12-month projection of book, collections, cash and CRAR. It alerts when cash goes negative or CRAR falls below 15%. Starting figures come from the loan book, and scenarios can be saved.
+- **Multi-tenancy:**
+  - Each lender has its own PostgreSQL schema (`t_<code>`), users, products, policy, files and caches. Sign-in takes an organisation code, and the session token carries the tenant. A request for another tenant is refused.
+  - Background jobs run per tenant. New releases migrate every tenant's schema at start-up.
+  - The platform operator is an admin of the default tenant. They create, suspend and reactivate tenants under Admin → Tenants (platform).
+- **Tenant onboarding** (Admin → Onboarding and go-live, SCR-094):
+  - The ten steps show their evidence from the configuration.
+  - The sandbox pack runs 12 checks, including tenant isolation and idempotency.
+  - The tenant admin requests go-live with a rollback plan, and the CRO approves.
+- **Benchmarking:** opt-in and anonymised. It compares approval rate, days to disburse, straight-through rate, 30+ DPD at 6 months, fraud stops, yield and book current. Quartiles appear only when five or more lenders take part. Demo mode adds five clearly labelled synthetic peers.
+
 ## Phase 3: Portfolio and growth
 
 - **Loan book** (Portfolio → Loan book): loans disbursed in Rhythm join the book at once. The LMS sends outstanding, overdue, days past due, bounces and payments by API (`POST /api/book/feed`) or CSV. Until the LMS is connected, **Run demo LMS feed** seeds a book from the synthetic history and simulates one month per click.

@@ -43,7 +43,7 @@ insert into workflow_version (product_code, version, status, stages_json, notes,
  'Initial LAP workflow', 'system', 'system', now());
 
 -- loans against property are larger than the unsecured exposure cap
-update policy_version set overrides_json = (coalesce(nullif(overrides_json, ''), '{}')::jsonb || '{"product:LAP": {"exposureCap": 5000000, "autoApproveLimit": 0}}'::jsonb)::text
+update policy_version set overrides_json = (coalesce(nullif(overrides_json, ''), '{}')::jsonb || '{"product:LAP": {"exposureCap": 5000000, "autoApproveLimit": 50000}}'::jsonb)::text
  where status = 'LIVE';
 
 insert into app_user (username, full_name, password_hash, role, branch_id, email) values

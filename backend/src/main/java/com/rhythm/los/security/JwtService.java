@@ -33,6 +33,7 @@ public class JwtService {
                 .claim("name", "Borrower " + mobile.substring(0, 2) + "XXXXXX" + mobile.substring(8))
                 .claim("mobile", mobile)
                 .claim("branchId", "")
+                .claim("tenant", com.rhythm.los.tenant.TenantContext.code())
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
@@ -49,6 +50,7 @@ public class JwtService {
                 .claim("roles", List.of(u.getRole().name()))
                 .claim("name", u.getFullName())
                 .claim("branchId", u.getBranchId() == null ? "" : u.getBranchId().toString())
+                .claim("tenant", com.rhythm.los.tenant.TenantContext.code())
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();

@@ -1,3 +1,4 @@
+import { getTenant } from '../api'
 import { useEffect, useState, type ReactNode } from 'react'
 import { inr } from '../format'
 
@@ -12,6 +13,8 @@ async function call<T>(method: string, url: string, body?: unknown, form?: FormD
   const t = getToken()
   const headers: Record<string, string> = {}
   if (t) headers.Authorization = 'Bearer ' + t
+  const org = getTenant()
+  if (org) headers['X-Tenant'] = org
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const r = await fetch(url, { method, headers, body: form ?? (body !== undefined ? JSON.stringify(body) : undefined) })
   const text = await r.text()

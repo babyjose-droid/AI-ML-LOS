@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Poller, peer, type Signal } from './rtc'
+import { getTenant } from '../api'
 
 // The customer's side of video KYC. Opened from the one-time link; no login. The link token is the credential.
 
 type View = { status: string; firstName: string; lender: string; appNo: string; expiresAt: string; iceServers: RTCIceServer[] }
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+  const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
+  const org = getTenant()
+  if (org) headers['X-Tenant'] = org
+  const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined })
   const text = await r.text()
   const data = text ? JSON.parse(text) : undefined
   if (!r.ok) throw new Error(data?.message ?? 'Something went wrong. Please try again.')

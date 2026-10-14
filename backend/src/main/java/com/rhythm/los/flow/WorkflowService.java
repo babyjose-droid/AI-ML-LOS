@@ -392,7 +392,7 @@ public class WorkflowService {
     }
 
     /** Marks stages past their SLA and applies the stage's failure action. Runs every minute. */
-    @Scheduled(fixedDelayString = "${rhythm.workflow.sla-check-ms:60000}", initialDelayString = "${rhythm.workflow.sla-initial-delay-ms:60000}")
+    /** Run per tenant by TenantJobs. */
     @Transactional
     public int slaSweep() {
         int n = 0;

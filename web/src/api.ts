@@ -10,6 +10,21 @@ export function setToken(t: string | null) {
   try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY) } catch { /* storage unavailable */ }
 }
 export const hasToken = () => !!token
+
+// the organisation (tenant) for sign-in and pages without a session; the session token carries it afterwards
+const TENANT_KEY = 'rhythm_tenant'
+let tenant: string | null = (() => {
+  try {
+    const q = new URLSearchParams(window.location.search).get('t')
+    if (q && /^[a-z][a-z0-9]{2,15}$/.test(q)) { localStorage.setItem(TENANT_KEY, q); return q }
+    return localStorage.getItem(TENANT_KEY)
+  } catch { return null }
+})()
+export const getTenant = () => tenant
+export function setTenant(t: string | null) {
+  tenant = t && t.trim() ? t.trim().toLowerCase() : null
+  try { if (tenant) localStorage.setItem(TENANT_KEY, tenant); else localStorage.removeItem(TENANT_KEY) } catch { /* storage unavailable */ }
+}
 export const getToken = () => token
 
 export class ApiError extends Error {
@@ -41,6 +56,7 @@ async function request<T>(method: string, url: string, body?: unknown, isForm = 
   const dev = method === 'POST' ? deviceId() : null
   if (dev) headers['X-Device-Id'] = dev
   if (token) headers.Authorization = 'Bearer ' + token
+  if (tenant) headers['X-Tenant'] = tenant
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const res = await fetch(url, {
     method,

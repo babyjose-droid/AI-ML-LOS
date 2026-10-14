@@ -67,6 +67,7 @@ public final class UnderwritingEngine {
         double surplus = income - a.essential() - existing;
         // microfinance: the household is the unit (RBI 2022) - its income, expenses and repayments decide affordability
         EngineInput.Household hh = a.household();
+        EngineInput.Joint jt = a.joint();
         boolean mfi = "MICROFINANCE".equals(a.segment()) && hh != null && hh.monthlyIncome() > 0;
         if (mfi) {
             existing = Math.max(existing, hh.existingEmi());
@@ -82,6 +83,19 @@ public final class UnderwritingEngine {
             steps.add(new EngineResult.Step("Household cash flow", hh.members() + " members, " + hh.earners() + " earning · ₹" + inr(hh.monthlyIncome())
                     + "/mo · surplus ₹" + inr(hh.monthlyIncome() - hh.monthlyExpenses() - hh.existingEmi()),
                     hh.monthlyIncome() - hh.monthlyExpenses() - hh.existingEmi() > 0 ? "ok" : "bad"));
+
+        // co-applicants: the income the product lets count and their own repayments join the applicant's
+        if (jt != null && !mfi && jt.clubbedIncome() > 0) {
+            income = round(income + jt.clubbedIncome());
+            existing = existing + jt.clubbedEmi();
+            foirEx = existing / income;
+            balRatio = a.bank().avgBalance() / income;
+            surplus = income - a.essential() - existing;
+        }
+        if (jt != null && (jt.coApplicants() + jt.guarantors()) > 0)
+            steps.add(new EngineResult.Step("Co-applicants & guarantors", jt.coApplicants() + " co-applicant(s), " + jt.guarantors() + " guarantor(s)"
+                    + (jt.clubbedIncome() > 0 ? " · ₹" + inr(jt.clubbedIncome()) + "/mo income from " + jt.earnersCounted() + " added" : "")
+                    + (jt.policyFails().isEmpty() ? "" : " · " + jt.policyFails().size() + " policy issue(s)"), jt.policyFails().isEmpty() ? "ok" : "warn"));
 
         // 3. Bureau
         steps.add(new EngineResult.Step("Bureau",
@@ -192,7 +206,7 @@ public final class UnderwritingEngine {
                     a.vintage() >= el.minVintage(), "REJECT", "RC-022");
         if (el != null && el.minIncome() > 0)
             rb.rule("R17", "Monthly income ≥ ₹" + inr(el.minIncome()) + " (product " + el.product() + ")",
-                    Math.min(a.declaredIncome(), income) >= el.minIncome(), "REJECT", "RC-022");
+                    Math.min(a.declaredIncome() + (jt == null || mfi ? 0 : jt.clubbedIncome()), income) >= el.minIncome(), "REJECT", "RC-022");
         if (el != null && el.served() != null)
             rb.rule("R18", "Applicant's PIN code is served by a branch offering the product", el.served(), "REJECT", "RC-022");
         rb.rule("R02", "KYC identity match ≥ " + Math.round(p.kycFail() * 100) + "%", idScore >= p.kycFail(), "REJECT", "RC-011");
@@ -222,6 +236,9 @@ public final class UnderwritingEngine {
             rb.rule("R19", "Money rotation ≤ 30% of statement credits (now " + Math.round(fr.rotationShare() * 100) + "%)", fr.rotationShare() <= 0.30, "REFER", "RC-023");
         if (fr != null && fr.networkScore() > 0)
             rb.rule("R22", "Network risk < 60 (now " + fr.networkScore() + ")", fr.networkScore() < 60, "REFER", "RC-024");
+        if (jt != null && (jt.coApplicants() + jt.guarantors()) > 0)
+            rb.rule("R23", "Co-applicants and guarantors meet the party policy" + (jt.policyFails().isEmpty() ? "" : " (" + String.join("; ", jt.policyFails()) + ")"),
+                    jt.policyFails().isEmpty(), "REFER", "RC-026");
         if (mfi) {
             rb.rule("R20", "Household income ≤ ₹3,00,000 a year (microfinance)", hh.monthlyIncome() * 12 <= 300_000, "REJECT", "RC-022");
             rb.rule("R21", "Household repayments ≤ 50% of household income (microfinance cap)", existing + reqEmi <= 0.5 * income, "COUNTER", "RC-025");

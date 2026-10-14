@@ -207,6 +207,9 @@ public class ProductService {
         t.setBounceCharge(f.getBounceCharge());
         t.setPenalRatePct(f.getPenalRatePct());
         t.setScoringModel(f.getScoringModel());
+        t.setCollateralTypes(f.getCollateralTypes());
+        t.setCollateralRequired(f.isCollateralRequired());
+        t.setPartyRules(f.getPartyRules());
         t.setUpdatedAt(Instant.now());
     }
 }

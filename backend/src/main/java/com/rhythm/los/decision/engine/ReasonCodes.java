@@ -31,5 +31,6 @@ public final class ReasonCodes {
             Map.entry("RC-022", "Not eligible for this product"),
             Map.entry("RC-023", "Money rotation in the bank statement"),
             Map.entry("RC-024", "Linked to risky applications (network)"),
-            Map.entry("RC-025", "Household repayments above the microfinance cap"));
+            Map.entry("RC-025", "Household repayments above the microfinance cap"),
+            Map.entry("RC-026", "Co-applicant or guarantor does not meet policy"));
 }

@@ -75,6 +75,8 @@ public class DecisionService {
             b.add("Video KYC required for this product: not yet approved");
         if (Set.of("SANCTIONED", "KFS_ACCEPTED", "DECLINED").contains(a.getSanctionState())) b.add("Already " + a.getSanctionState());
         b.addAll(workflow.pendingBefore(a, "uw"));
+        PartyGate pg = partyGate();
+        if (pg != null) b.addAll(pg.blockers(a, "DECISION"));
         return b;
     }
 
@@ -246,8 +248,22 @@ public class DecisionService {
                         p.getMinMonthlyIncome() == null ? 0 : p.getMinMonthlyIncome().doubleValue(),
                         served(a, p),
                         p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()),
-                households == null ? null : households.engineInput(a.getId()).orElse(null));
+                households == null ? null : households.engineInput(a.getId()).orElse(null),
+                partyGate() == null ? null : partyGate().joint(a));
     }
+
+    /** Co-applicants and guarantors, looked up lazily (the party module depends on the workflow, not on the decision). */
+    public interface PartyGate {
+        List<String> blockers(LoanApplication a, String gate);
+        EngineInput.Joint joint(LoanApplication a);
+    }
+
+    private org.springframework.beans.factory.ObjectProvider<PartyGate> partyGates;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPartyGates(org.springframework.beans.factory.ObjectProvider<PartyGate> p) { this.partyGates = p; }
+
+    private PartyGate partyGate() { return partyGates == null ? null : partyGates.getIfAvailable(); }
 
     private com.rhythm.los.risk.NetworkService network;
     private com.rhythm.los.risk.HouseholdService households;

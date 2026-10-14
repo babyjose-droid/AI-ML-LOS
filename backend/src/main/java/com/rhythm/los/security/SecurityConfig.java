@@ -49,6 +49,7 @@ public class SecurityConfig {
                     // the same rules are repeated with @PreAuthorize on each controller method
                     // video KYC customer pages: the one-time link token is the credential
                     .requestMatchers("/api/vkyc/c/**").permitAll()
+                    .requestMatchers("/api/party/c/**").permitAll()
                     // borrower portal: OTP sign-in is open; everything else needs a borrower token, and borrowers reach nothing else
                     .requestMatchers(HttpMethod.POST, "/api/borrower/otp", "/api/borrower/otp/verify").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/borrower/products").permitAll()

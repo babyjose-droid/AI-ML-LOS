@@ -47,6 +47,10 @@ public class Product {
     @Column(name = "scoring_model") private String scoringModel = "AUTO";
     @Column(name = "collateral_types") private String collateralTypes;
     @Column(name = "collateral_required") private boolean collateralRequired;
+    /** Co-applicant and guarantor rules (JSON, see PartyRules); null on products saved before they existed. */
+    @Column(name = "party_rules") private String partyRules;
+    /** When party rules were introduced; applications created before keep the old behaviour. */
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "party_rules_since") private Instant partyRulesSince;
     @Column(name = "updated_at") private Instant updatedAt = Instant.now();
 
     public List<String> requiredDocList() {
@@ -150,4 +154,8 @@ public class Product {
     public java.util.List<String> collateralTypeList() {
         return collateralTypes == null || collateralTypes.isBlank() ? java.util.List.of() : java.util.Arrays.stream(collateralTypes.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
     }
+    public String getPartyRules() { return partyRules; }
+    public void setPartyRules(String v) { this.partyRules = v; }
+    @com.fasterxml.jackson.annotation.JsonIgnore public Instant getPartyRulesSince() { return partyRulesSince; }
+    public void setPartyRulesSince(Instant v) { this.partyRulesSince = v; }
 }

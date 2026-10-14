@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class SanctionService {
@@ -72,6 +73,8 @@ public class SanctionService {
         Product p = apps.product(a);
         com.rhythm.los.collateral.CollateralService.SanctionCheck col = collateral == null ? null : collateral.sanctionCheck(a);
         if (col != null && col.blocked()) throw ApiException.conflict("COLLATERAL_NOT_CLEARED", col.reason());
+        List<String> partyIssues = partyBlockers(a, "SANCTION");
+        if (!partyIssues.isEmpty()) throw ApiException.conflict("PARTIES_NOT_READY", "Co-applicants and guarantors: " + String.join("; ", partyIssues));
 
         BigDecimal amt = amount == null ? d.getRecommendedAmount() : amount;
         boolean override = "REFER".equals(d.getDecision()) || amt.compareTo(d.getRecommendedAmount()) > 0;
@@ -125,6 +128,17 @@ public class SanctionService {
         return s;
     }
 
+    private org.springframework.beans.factory.ObjectProvider<com.rhythm.los.decision.DecisionService.PartyGate> partyGates;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPartyGates(org.springframework.beans.factory.ObjectProvider<com.rhythm.los.decision.DecisionService.PartyGate> p) { this.partyGates = p; }
+
+    /** What co-applicants and guarantors still need before the gate (SANCTION or DISBURSE). */
+    public List<String> partyBlockers(LoanApplication a, String gate) {
+        var g = partyGates == null ? null : partyGates.getIfAvailable();
+        return g == null ? List.of() : g.blockers(a, gate);
+    }
+
     private com.rhythm.los.collateral.CollateralService collateral;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -142,6 +156,8 @@ public class SanctionService {
         if (p.getAutoSanctionLimit() == null || !"PENDING_L1".equals(a.getSanctionState())) return java.util.Optional.empty();
         // secured products never sanction straight through: collateral needs its own clearance
         if (!"NOT_REQUIRED".equals(a.getCollateralState())) return java.util.Optional.empty();
+        // co-applicants and guarantors are looked at by a person
+        if (partyGates != null && partyGates.getIfAvailable() != null && partyGates.getIfAvailable().joint(a) != null) return java.util.Optional.empty();
         DecisionRecord d = decisions.latest(appId).orElse(null);
         if (d == null || !"APPROVE".equals(d.getDecision())) return java.util.Optional.empty();
         boolean clean = "VERIFIED".equals(a.getKycState()) && "CLEAR".equals(a.getFraudState()) && !documents.anyTampered(appId)

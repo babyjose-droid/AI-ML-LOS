@@ -80,6 +80,7 @@ public class DisbursementService {
         // pre-disbursal re-check (FR-DIS-04): consents still valid and no new links to other applicants since the decision
         List<String> recheck = new java.util.ArrayList<>(consents.invalidForDisbursement(a));
         recheck.addAll(newLinksSinceDecision(a));
+        recheck.addAll(sanctions.partyBlockers(a, "DISBURSE"));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
 

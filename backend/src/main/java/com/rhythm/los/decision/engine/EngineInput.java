@@ -21,7 +21,15 @@ public record EngineInput(
         Fraud fraud,
         Loan loan,
         Eligibility eligibility,
-        Household household) {
+        Household household,
+        Joint joint) {
+
+    /** Without co-applicants or guarantors. */
+    public EngineInput(String id, String name, String segment, int age, double vintage, Kyc kyc, double declaredIncome, double essential,
+                       Bank bank, Bureau bureau, Gst gst, Internal internal, boolean jlg, boolean secured, Fraud fraud, Loan loan,
+                       Eligibility eligibility, Household household) {
+        this(id, name, segment, age, vintage, kyc, declaredIncome, essential, bank, bureau, gst, internal, jlg, secured, fraud, loan, eligibility, household, null);
+    }
 
     /** Without household data (most products). */
     public EngineInput(String id, String name, String segment, int age, double vintage, Kyc kyc, double declaredIncome, double essential,
@@ -35,6 +43,13 @@ public record EngineInput(
      * the household's essential expenses and its existing loan repayments.
      */
     public record Household(int members, int earners, double monthlyIncome, double monthlyExpenses, double existingEmi) {}
+
+    /**
+     * Co-applicants and guarantors: income of the co-applicants the product lets count (clubbedIncome) and their own
+     * loan repayments (clubbedEmi) join the applicant's for affordability; policyFails are the party policy rules not met
+     * (bureau score, age at maturity, guarantees already given), which refer the case.
+     */
+    public record Joint(int coApplicants, int guarantors, int earnersCounted, double clubbedIncome, double clubbedEmi, List<String> policyFails) {}
 
     /**
      * The product's eligibility and price band (FSD 14.1 step 3 and step 9). Zero limits mean "no limit set"; maxAge is the

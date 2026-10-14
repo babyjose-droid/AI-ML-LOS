@@ -36,6 +36,11 @@ public class ProcessService {
 
     public record StepLog(String step, String outcome) {}
 
+    private org.springframework.beans.factory.ObjectProvider<com.rhythm.los.party.PartyService> parties;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setParties(org.springframework.beans.factory.ObjectProvider<com.rhythm.los.party.PartyService> p) { this.parties = p; }
+
     /**
      * After a person finishes a step (field visit, KYC review, document review, a recorded workflow stage), the
      * automatic stages that follow run straight away instead of waiting for someone to press "Run automated checks".
@@ -82,6 +87,9 @@ public class ProcessService {
             } catch (ApiException e) {
                 log.add(new StepLog("Bank, bureau and GST data", e.getMessage()));
             }
+        }
+        if (parties != null && parties.getIfAvailable() != null) {
+            for (String line : parties.getIfAvailable().runChecks(appId, by)) log.add(new StepLog("Co-applicants & guarantors", line));
         }
         a = apps.get(appId);
         List<String> blockers = decisions.blockers(a);

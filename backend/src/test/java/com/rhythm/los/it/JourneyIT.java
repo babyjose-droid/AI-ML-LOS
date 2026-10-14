@@ -221,6 +221,13 @@ class JourneyIT {
     void referredCaseNeedsFieldVisitAndReasonedOverrideAtL3() throws Exception {
         String sales = login("sales1"), ops = login("ops1"), cm = login("cm1"), cro = login("cro1"), field = login("field1");
         long id = create(sales, app("BL-UNS", "Suresh Yadav", "SURPY1004S", "9811000007", 45, 95000, 600000, 36), "PAN", "AADHAAR", "UDYAM");
+        // above 5 lakh the business loan needs a guarantor before sanction; he consents with the OTP sent to his phone
+        Map<String, Object> g = new LinkedHashMap<>();
+        g.put("role", "GUARANTOR"); g.put("relationship", "SIBLING"); g.put("name", "Ramesh Yadav"); g.put("pan", "RAMPY4521Y");
+        g.put("mobile", "9811000077"); g.put("dob", LocalDate.now().minusYears(48).toString()); g.put("city", "Kanpur");
+        long guarantor = ok(post("/api/applications/" + id + "/parties"), sales, g).body().get("id").asLong();
+        ok(post("/api/parties/" + guarantor + "/otp"), sales, null);
+        ok(post("/api/parties/" + guarantor + "/consent"), sales, Map.of("otp", "123456", "consentKyc", true, "consentBureau", true));
         JsonNode steps = ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps");
         assertThat(steps.toString()).contains("Field visit pending");
 

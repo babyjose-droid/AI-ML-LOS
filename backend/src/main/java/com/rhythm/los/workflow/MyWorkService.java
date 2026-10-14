@@ -32,6 +32,12 @@ public class MyWorkService {
     @org.springframework.beans.factory.annotation.Autowired
     void setCollateral(com.rhythm.los.collateral.CollateralReviewRepository r, com.rhythm.los.collateral.CollateralRepository c) { this.colReviews = r; this.collaterals = c; }
 
+    private com.rhythm.los.party.ApplicationPartyRepository partyRepo;
+    private com.rhythm.los.party.PartyRequirementRepository partyRequests;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setParties(com.rhythm.los.party.ApplicationPartyRepository p, com.rhythm.los.party.PartyRequirementRepository q) { this.partyRepo = p; this.partyRequests = q; }
+
     @org.springframework.beans.factory.annotation.Autowired
     void setSanctions(@org.springframework.context.annotation.Lazy com.rhythm.los.sanction.SanctionService s) { this.sentBack = s::awaitingReassessment; }
 
@@ -131,6 +137,34 @@ public class MyWorkService {
                         out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
                                 "Collateral " + c.getColNo() + " · " + rv.getRuleId() + ": " + rv.getReason(), "collateralReview:" + c.getId(),
                                 Duration.between(rv.getCreatedAt(), Instant.now()).toHours(), rv.getSlaHours())));
+            }
+        }
+        // co-applicants and guarantors: consent and signatures for sales, KYC reviews for operations, requests from credit
+        if (partyRepo != null) {
+            java.util.Set<Long> vis = scope.visibleBranches(u);
+            boolean front = r == Role.SALES || r == Role.OPERATIONS || r == Role.ADMIN;
+            for (var p : partyRepo.findAll()) {
+                if ("REMOVED".equals(p.getStatus())) continue;
+                LoanApplication a = apps.findById(p.getApplicationId()).orElse(null);
+                if (a == null || List.of("REJECTED", "WITHDRAWN", "DISBURSED").contains(a.getAppState()) || !com.rhythm.los.org.DataScope.canSee(vis, a)) continue;
+                String who = p.getName() + " (" + com.rhythm.los.party.PartyRules.label(p.getRole()) + ")";
+                long age = Duration.between(p.getUpdatedAt(), Instant.now()).toHours();
+                if (front && p.getConsentAt() == null)
+                    out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                            who + ": get consent (invite link or OTP in the branch)", "parties", age, 48));
+                if ((r == Role.OPERATIONS || r == Role.ADMIN) && "REVIEW".equals(p.getKycState()))
+                    out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                            who + ": KYC review", "parties", age, 8));
+                if (front && p.getSignedAt() == null && List.of("SANCTIONED", "KFS_ACCEPTED").contains(a.getSanctionState()))
+                    out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                            who + ": sign by OTP before disbursement", "parties", age, 48));
+            }
+            if (front) for (var q : partyRequests.findAll()) {
+                if (!"OPEN".equals(q.getStatus())) continue;
+                apps.findById(q.getApplicationId()).filter(a -> !List.of("REJECTED", "WITHDRAWN", "DISBURSED").contains(a.getAppState())
+                        && com.rhythm.los.org.DataScope.canSee(vis, a)).ifPresent(a -> out.add(0, new Task(a.getId(), a.getAppNo(), a.getApplicantName(),
+                        a.getProductCode(), a.getLoanAmount().doubleValue(), "Credit asked for a " + com.rhythm.los.party.PartyRules.label(q.getRole()) + ": " + q.getReason(),
+                        "parties", Duration.between(q.getRequestedAt(), Instant.now()).toHours(), 48)));
             }
         }
         return out;

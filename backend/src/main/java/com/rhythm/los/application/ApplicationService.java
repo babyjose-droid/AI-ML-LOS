@@ -38,6 +38,11 @@ public class ApplicationService {
         }
     }
 
+    private org.springframework.beans.factory.ObjectProvider<SubmitCheck> submitChecks;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setSubmitChecks(org.springframework.beans.factory.ObjectProvider<SubmitCheck> c) { this.submitChecks = c; }
+
     @org.springframework.beans.factory.annotation.Autowired
     void setGeography(com.rhythm.los.org.Geography g) { this.geography = g; }
 
@@ -131,6 +136,10 @@ public class ApplicationService {
         }
         if (a.getBankAccountNo() == null || a.getBankIfsc() == null) {
             throw ApiException.unprocessable("BANK_DETAILS_MISSING", "Bank account and IFSC are needed for disbursement");
+        }
+        if (submitChecks != null) {
+            List<String> problems = submitChecks.orderedStream().flatMap(c -> c.beforeSubmit(a).stream()).toList();
+            if (!problems.isEmpty()) throw ApiException.unprocessable("PARTIES_INCOMPLETE", String.join("; ", problems));
         }
         Product p = product(a);
         transition(a, Domain.APP, "SUBMITTED", "application.submitted", by, null);

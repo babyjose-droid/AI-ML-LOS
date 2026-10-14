@@ -44,6 +44,12 @@ public final class CreditMemoWriter {
         m.append("4. Cash flow and affordability\n");
         m.append("Sustainable income ").append(rupees(r.income())).append("/month (stability ").append(Math.round(r.stability() * 100)).append("%). ");
         m.append("Existing EMIs ").append(rupees(r.existing())).append(". Surplus after essentials ").append(rupees(r.surplus())).append(". ");
+        if (in.joint() != null && in.joint().coApplicants() + in.joint().guarantors() > 0) {
+            m.append("Joint: ").append(in.joint().coApplicants()).append(" co-applicant(s) and ").append(in.joint().guarantors()).append(" guarantor(s)");
+            if (in.joint().clubbedIncome() > 0) m.append("; income of ").append(rupees(in.joint().clubbedIncome())).append("/month from ")
+                    .append(in.joint().earnersCounted()).append(" co-applicant(s) counted, with their repayments of ").append(rupees(in.joint().clubbedEmi())).append("/month");
+            m.append(in.joint().policyFails().isEmpty() ? ". All parties meet the party policy. " : ". Party policy not met: " + String.join("; ", in.joint().policyFails()) + ". ");
+        }
         if (in.household() != null && in.household().monthlyIncome() > 0)
             m.append("Household: ").append(in.household().members()).append(" members, ").append(in.household().earners()).append(" earning, income ")
                     .append(rupees(in.household().monthlyIncome())).append("/month, expenses ").append(rupees(in.household().monthlyExpenses()))

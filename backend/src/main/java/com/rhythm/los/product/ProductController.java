@@ -64,7 +64,8 @@ public class ProductController {
             BigDecimal bounceCharge,
             BigDecimal penalRatePct,
             String optionalDocs,
-            String scoringModel) {}
+            String scoringModel,
+            com.rhythm.los.party.PartyRules partyRules) {}
 
     private static final Set<String> VKYC_RULES = Set.of("ON_KYC_REVIEW", "ALWAYS", "ABOVE_AMOUNT");
     private static final Set<String> BANK_SOURCES = Set.of("AA_OR_STATEMENT", "STATEMENT_ONLY", "AA_ONLY");
@@ -210,6 +211,7 @@ public class ProductController {
         p.setPenalRatePct(r.penalRatePct());
         p.setOptionalDocs(optional == null || optional.isBlank() ? null : optional);
         p.setScoringModel(model);
+        if (r.partyRules() != null) p.setPartyRules(com.rhythm.los.common.Json.write(com.rhythm.los.party.PartyRules.validated(r.partyRules())));
         p.setUpdatedAt(Instant.now());
     }
 }

@@ -181,7 +181,7 @@ public class ApplicationService {
         double amt = r.loanAmount().doubleValue();
         if (amt < p.getMinAmount().doubleValue() || amt > p.getMaxAmount().doubleValue()) {
             throw ApiException.unprocessable("AMOUNT_OUT_OF_RANGE",
-                    "Loan amount must be between ₹" + p.getMinAmount().toPlainString() + " and ₹" + p.getMaxAmount().toPlainString() + " for " + p.getName());
+                    "Loan amount must be between " + com.rhythm.los.common.Fmt.rupees(p.getMinAmount().doubleValue()) + " and " + com.rhythm.los.common.Fmt.rupees(p.getMaxAmount().doubleValue()) + " for " + p.getName());
         }
         if (r.tenureMonths() < p.getMinTenure() || r.tenureMonths() > p.getMaxTenure()) {
             throw ApiException.unprocessable("TENURE_OUT_OF_RANGE",

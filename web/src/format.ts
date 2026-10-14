@@ -6,8 +6,13 @@ export function lakh(x: number): string {
   return '₹' + (x / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L'
 }
 export const pct = (x: number, d = 1) => (Number(x) * 100).toFixed(d) + '%'
-export const when = (iso?: string) =>
-  iso ? new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+/** Date and time; the year is shown only when it is not the current year (so a one-year validity does not read as "today"). */
+export const when = (iso?: string) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const otherYear = d.getFullYear() !== new Date().getFullYear()
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', ...(otherYear ? { year: 'numeric' } : {}), hour: '2-digit', minute: '2-digit' })
+}
 export const label = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())
 
 const GOOD = ['VERIFIED', 'PASS', 'OK', 'FETCHED', 'COMPLETE', 'NOT_REQUIRED', 'DONE', 'APPROVE', 'CLEAR', 'SANCTIONED', 'KFS_ACCEPTED', 'DISBURSED', 'SUCCESS', 'RESOLVED', 'APPROVE_WITH_CONDITIONS', 'READY', 'PUBLISHED', 'SKIPPED']

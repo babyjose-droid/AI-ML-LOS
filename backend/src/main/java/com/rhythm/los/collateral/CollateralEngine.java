@@ -1,5 +1,7 @@
 package com.rhythm.los.collateral;
 
+import com.rhythm.los.common.Fmt;
+
 import com.rhythm.los.document.NameMatch;
 
 import java.time.LocalDate;
@@ -271,11 +273,11 @@ public final class CollateralEngine {
         boolean ageOk = newest == null || ageMonths <= pol.valuationMaxAgeMonths();
         hits.add(hit("CR-07", ageOk && !needSecond, newest == null ? "No valuation yet (counted under missing documents)"
                 : !ageOk ? "Latest valuation is " + ageMonths + " months old (policy " + pol.valuationMaxAgeMonths() + ")"
-                : needSecond ? "Value above ₹" + Math.round(pol.secondValuationAbove()) + " needs a second empanelled valuation" : "Valuation dated " + newest + " is within " + pol.valuationMaxAgeMonths() + " months",
+                : needSecond ? "Value above " + Fmt.rupees(pol.secondValuationAbove()) + " needs a second empanelled valuation" : "Valuation dated " + newest + " is within " + pol.valuationMaxAgeMonths() + " months",
                 approved.stream().map(v -> "VAL-" + v.id()).toList()));
         double max = approved.stream().mapToDouble(Val::market).max().orElse(0);
         double variance = valueUsed > 0 ? (max - valueUsed) / valueUsed : 0;
-        hits.add(hit("CR-08", variance <= pol.varianceLimit() + 1e-9, approved.size() < 2 ? "One valuation: no variance to check"
+        hits.add(hit("CR-08", variance <= pol.varianceLimit() + 1e-9, approved.isEmpty() ? "No valuation yet: no variance to check" : approved.size() < 2 ? "One valuation: no variance to check"
                 : "Variance between valuations " + Math.round(variance * 1000) / 10.0 + "% (limit " + Math.round(pol.varianceLimit() * 100) + "%)", approved.stream().map(v -> "VAL-" + v.id()).toList()));
         valuation.put("reports", approved.size());
         valuation.put("valueUsed", Math.round(valueUsed));
@@ -340,8 +342,8 @@ public final class CollateralEngine {
         ltv.put("ltvRequested", valueUsed > 0 ? Math.round(10000 * in.requested() / valueUsed) / 10000.0 : null);
         ltv.put("ltvRecommended", valueUsed > 0 ? Math.round(10000 * recommended / valueUsed) / 10000.0 : null);
         ltv.put("ltvCap", cap);
-        hits.add(hit("CR-11", !cap, valueUsed == 0 ? "No value yet" : cap ? "Requested ₹" + Math.round(in.requested()) + " is above the maximum exposure ₹" + Math.round(maxExposure) + ": capped"
-                : "Requested ₹" + Math.round(in.requested()) + " within the maximum exposure ₹" + Math.round(maxExposure), List.of()));
+        hits.add(hit("CR-11", !cap, valueUsed == 0 ? "No value yet" : cap ? "Requested " + Fmt.rupees(in.requested()) + " is above the maximum exposure " + Fmt.rupees(maxExposure) + ": capped"
+                : "Requested " + Fmt.rupees(in.requested()) + " within the maximum exposure " + Fmt.rupees(maxExposure), List.of()));
 
         // apply earlier rulings: a cleared hit with the same reason passes; an upheld one fails
         List<Hit> ruled = new ArrayList<>();
@@ -378,7 +380,7 @@ public final class CollateralEngine {
         } else if (vehicle) {
             conditions.add("Hypothecation in the lender's favour endorsed on the RC and the insurance");
         } else conditions.add("Gold sealed in a tamper-proof packet with the borrower's signature and kept in the branch vault");
-        if (cap) conditions.add("LTV CAP: exposure limited to ₹" + Math.round(maxExposure) + " (LTV " + Math.round(maxLtv * 100) + "% of eligible value)");
+        if (cap) conditions.add("LTV CAP: exposure limited to " + Fmt.rupees(maxExposure) + " (LTV " + Math.round(maxLtv * 100) + "% of eligible value)");
 
         List<Dim> risk = risk(in, ruled, ec, title, vision, valuation, ltv, missing, type);
         int score = (int) Math.round(risk.stream().mapToDouble(d -> d.weight() * d.score()).sum());

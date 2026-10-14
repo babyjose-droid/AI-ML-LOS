@@ -1,5 +1,7 @@
 package com.rhythm.los.collateral;
 
+import com.rhythm.los.common.Fmt;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.rhythm.los.application.LoanApplication;
 import com.rhythm.los.application.LoanApplicationRepository;
@@ -418,7 +420,7 @@ public class CollateralService {
         v.setMethod(r.method());
         v.setRecordedBy(by.username());
         valuations.save(v);
-        audit.record(by, "collateral.valuation_recorded", "COLLATERAL", c.getColNo(), c.getApplicationId(), r.valuer() + " · ₹" + v.getMarketValue().toPlainString() + " on " + d);
+        audit.record(by, "collateral.valuation_recorded", "COLLATERAL", c.getColNo(), c.getApplicationId(), r.valuer() + " · " + Fmt.rupees(v.getMarketValue().doubleValue()) + " on " + d);
         evaluate(id, by);
         return v;
     }
@@ -461,14 +463,14 @@ public class CollateralService {
         v.setValuer(by.name());
         v.setReportDate(LocalDate.now());
         v.setMarketValue(money((double) Math.round(value)));
-        v.setMethod("Net weight × 22 carat rate ₹" + Math.round(rate22) + "/g × purity/22");
+        v.setMethod("Net weight × 22 carat rate " + Fmt.rupees(rate22) + "/g × purity/22");
         v.setDetailsJson(Json.write(Map.of("items", rows, "netWeight", Math.round(net * 100) / 100.0, "rate22k", rate22)));
         v.setRecordedBy(by.username());
         valuations.save(v);
         // a newer appraisal replaces the earlier ones
         for (CollateralValuation old : valuations.findByCollateralIdOrderByIdAsc(id))
             if (!old.getId().equals(v.getId()) && "APPRAISAL".equals(old.getSource()) && old.isApproved()) { old.setApproved(false); valuations.save(old); }
-        audit.record(by, "collateral.gold_appraised", "COLLATERAL", c.getColNo(), c.getApplicationId(), Math.round(net * 100) / 100.0 + " g net · ₹" + Math.round(value));
+        audit.record(by, "collateral.gold_appraised", "COLLATERAL", c.getColNo(), c.getApplicationId(), Math.round(net * 100) / 100.0 + " g net · " + Fmt.rupees(value));
         evaluate(id, by);
         return v;
     }
@@ -782,6 +784,8 @@ public class CollateralService {
 
     public Map<String, Object> detail(Long id, CurrentUser u) { return view(get(id, u), u); }
 
+    private static String rs(Object o) { return o instanceof Number n ? Fmt.rupees(n.doubleValue()) : String.valueOf(o); }
+
     /** Case summary with evidence IDs (SCR-148). Facts only; no opinion on title or value. */
     static String summary(Collateral c, LoanApplication a, CollateralEngine.Inputs in, CollateralEngine.Result r) {
         StringBuilder b = new StringBuilder();
@@ -789,9 +793,9 @@ public class CollateralService {
         b.append("Status ").append(r.status()).append(", risk ").append(r.riskScore()).append("/100. ");
         Object vu = r.ltv().get("valueUsed");
         if (vu instanceof Number n && n.doubleValue() > 0)
-            b.append("Value used ₹").append(n.longValue()).append(", eligible after ").append(Math.round(in.pol().haircut() * 100)).append("% haircut ₹").append(r.ltv().get("eligibleValue"))
-                    .append(", maximum exposure ₹").append(r.ltv().get("maxExposure")).append(" at ").append(Math.round(((Number) r.ltv().get("maxLtv")).doubleValue() * 100)).append("% LTV")
-                    .append(Boolean.TRUE.equals(r.ltv().get("ltvCap")) ? " (LTV CAP: requested ₹" + r.ltv().get("requested") + ")" : "").append(". ");
+            b.append("Value used ").append(Fmt.rupees(n.doubleValue())).append(", eligible after ").append(Math.round(in.pol().haircut() * 100)).append("% haircut ").append(rs(r.ltv().get("eligibleValue")))
+                    .append(", maximum exposure ").append(rs(r.ltv().get("maxExposure"))).append(" at ").append(Math.round(((Number) r.ltv().get("maxLtv")).doubleValue() * 100)).append("% LTV")
+                    .append(Boolean.TRUE.equals(r.ltv().get("ltvCap")) ? " (LTV CAP: requested " + rs(r.ltv().get("requested")) + ")" : "").append(". ");
         if (r.ec().get("latestOwner") != null) b.append("EC [DOC-").append(r.ec().get("docId")).append("] shows the latest owner as ").append(r.ec().get("latestOwner")).append(". ");
         for (CollateralEngine.Hit h : r.rules())
             if (!h.passed() || h.ruling() != null)

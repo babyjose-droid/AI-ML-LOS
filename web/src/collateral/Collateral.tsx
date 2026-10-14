@@ -31,7 +31,12 @@ interface Detail { collateral: Col; summary: Row; policy: Policy; documents: Doc
 
 const ST: Record<string, string> = { PASS: 'ok', REFER: 'warn', FAIL: 'bad', PENDING: 'muted', OPEN: 'warn', CLEARED: 'ok', UPHELD: 'bad', SUPERSEDED: 'muted', APPROVE_WITH_CONDITIONS: 'ok', REJECT: 'bad' }
 const TYPES = ['RESIDENTIAL', 'SHOP', 'PLOT', 'VEHICLE', 'GOLD']
-const DOCS = ['SALE_DEED', 'MOTHER_DEED', 'EC', 'KHATA', 'PROPERTY_TAX', 'APPROVED_PLAN', 'OC', 'LAND_RECORD', 'CONVERSION_ORDER', 'POA', 'PARTITION_DEED', 'RELEASE_DEED', 'VALUATION_REPORT', 'INSURANCE', 'RC', 'INVOICE', 'PERMIT', 'FITNESS', 'NOC']
+const PROPERTY_DOCS = ['SALE_DEED', 'MOTHER_DEED', 'EC', 'KHATA', 'PROPERTY_TAX', 'APPROVED_PLAN', 'OC', 'LAND_RECORD', 'CONVERSION_ORDER', 'POA', 'PARTITION_DEED', 'RELEASE_DEED', 'VALUATION_REPORT', 'INSURANCE']
+const VEHICLE_DOCS = ['RC', 'INVOICE', 'PERMIT', 'FITNESS', 'NOC', 'VALUATION_REPORT', 'INSURANCE']
+/** Upload choices for a collateral type: property papers or vehicle papers, never both. */
+const docsFor = (type: string) => type === 'VEHICLE' ? VEHICLE_DOCS : type === 'GOLD' ? ['VALUATION_REPORT', 'INSURANCE'] : PROPERTY_DOCS
+const ACRONYM: Record<string, string> = { EC: 'Encumbrance certificate (EC)', OC: 'Occupancy certificate (OC)', POA: 'Power of attorney', RC: 'Registration certificate (RC)', NOC: 'NOC' }
+const docLabel = (x: string) => ACRONYM[x] ?? label(x)
 const St = ({ s }: { s?: string }) => <span className={'pill ' + (ST[s ?? ''] ?? 'muted')}>{(s ?? '—').replace(/_/g, ' ').toLowerCase()}</span>
 
 async function upload(url: string, form: FormData) {
@@ -172,7 +177,7 @@ function PolicyView() {
       <div className="panel flush">
         <Table head={['Type', 'Haircut', 'Max LTV', 'EC years', 'Valuation age', 'Second valuation above', 'Variance limit', 'Photos / GPS', 'Mandatory documents', '']} rows={(p.data ?? []).map(x => [
           x.label, pct(x.haircut, 0), x.type === 'GOLD' ? '85/80/75% by loan size (RBI)' : pct(x.maxLtv, 0), x.ecYears || '—', `${x.valuationMaxAgeMonths} months`, x.secondValuationAbove ? inr(x.secondValuationAbove) : '—',
-          pct(x.varianceLimit, 0), x.minImages ? `${x.minImages} within ${x.gpsRadiusM} m, ${pct(x.coverageMin, 0)} coverage` : '—', <span className="small">{x.requiredDocs.replace(/,/g, ', ')}</span>,
+          pct(x.varianceLimit, 0), x.minImages ? `${x.minImages} within ${x.gpsRadiusM} m, ${pct(x.coverageMin, 0)} coverage` : '—', <span className="small">{x.requiredDocs.split(',').filter(Boolean).map(docLabel).join(', ')}</span>,
           canEdit ? <button className="btn sm" onClick={() => setEdit(x)}>Change</button> : ''])} />
       </div>
       <div className="grid2" style={{ marginTop: 12 }}>
@@ -305,7 +310,7 @@ function UnifiedPanel({ u }: { u: Unified }) {
 
 function DocumentsTab({ d, onChange }: { d: Detail; onChange: () => void }) {
   const { user } = useAuth()
-  const [type, setType] = useState('SALE_DEED')
+  const [type, setType] = useState(() => docsFor(d.collateral.type)[0])
   const [fields, setFields] = useState('')
   const [tx, setTx] = useState('')
   const [file, setFile] = useState<File>()
@@ -332,13 +337,13 @@ function DocumentsTab({ d, onChange }: { d: Detail; onChange: () => void }) {
       <div className="panel">
         <h3>Checklist</h3>
         <div className="row" style={{ flexWrap: 'wrap' }}>
-          {required.filter(r => r !== 'APPRAISAL').map(r => <span key={r} className={'pill ' + (have.has(r) ? 'ok' : 'bad')}>{label(r)}{have.has(r) ? '' : ' (missing)'}</span>)}
-          {(d.policy.optionalDocs ?? '').split(',').filter(Boolean).map(r => <span key={r} className={'pill ' + (have.has(r) ? 'ok' : 'muted')}>{label(r)} (optional)</span>)}
+          {required.filter(r => r !== 'APPRAISAL').map(r => <span key={r} className={'pill ' + (have.has(r) ? 'ok' : 'bad')}>{docLabel(r)}{have.has(r) ? '' : ' (missing)'}</span>)}
+          {(d.policy.optionalDocs ?? '').split(',').filter(Boolean).map(r => <span key={r} className={'pill ' + (have.has(r) ? 'ok' : 'muted')}>{docLabel(r)} (optional)</span>)}
         </div>
       </div>
       <div className="panel flush" style={{ marginTop: 12 }}>
         <Table head={['ID', 'Document', 'Fields read', 'Confidence', 'Read by', 'Uploaded', '']} rows={d.documents.map(x => [
-          <span className="mono">DOC-{x.document.id}</span>, <span>{label(x.document.docType)} v{x.document.version}{x.legalFlag && <span className="pill warn" style={{ marginLeft: 4 }}>legal reading</span>}{x.document.manipulated && <span className="pill bad" style={{ marginLeft: 4 }}>manipulated</span>}</span>,
+          <span className="mono">DOC-{x.document.id}</span>, <span>{docLabel(x.document.docType)} v{x.document.version}{x.legalFlag && <span className="pill warn" style={{ marginLeft: 4 }}>legal reading</span>}{x.document.manipulated && <span className="pill bad" style={{ marginLeft: 4 }}>manipulated</span>}</span>,
           <span className="small">{Object.entries(x.extracted.fields ?? {}).map(([k, v]) => <span key={k} className={(x.extracted.confidence?.[k] ?? 1) < 0.85 ? 'warn-text' : ''}>{label(k)}: {String(v)}; </span>)}
             {(x.extracted.transactions?.length ?? 0) > 0 && <b> {x.extracted.transactions!.length} EC entries</b>}</span>,
           x.document.readConfidence == null ? '—' : pct(x.document.readConfidence, 0), <span className="small">{x.document.engine}{x.document.confirmedBy && <div>confirmed by {x.document.confirmedBy}</div>}</span>,
@@ -349,7 +354,7 @@ function DocumentsTab({ d, onChange }: { d: Detail; onChange: () => void }) {
       {canUpload && <div className="panel" style={{ marginTop: 12 }}>
         <h3>Upload a document</h3>
         <div className="grid2">
-          <label>Type<select value={type} onChange={e => setType(e.target.value)}>{DOCS.map(x => <option key={x} value={x}>{label(x)}</option>)}</select></label>
+          <label>Type<select value={type} onChange={e => setType(e.target.value)}>{docsFor(d.collateral.type).map(x => <option key={x} value={x}>{docLabel(x)}</option>)}</select></label>
           <label>File (PDF, JPG or PNG)<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setFile(e.target.files?.[0])} /></label>
         </div>
         <label>Fields you have checked (optional JSON, e.g. {'{"owner": "…", "surveyNo": "…"}'}); typed fields count as confirmed<input value={fields} onChange={e => setFields(e.target.value)} /></label>
@@ -371,7 +376,7 @@ function ConfirmDialog({ doc, onClose, onDone }: { doc: Doc; onClose: () => void
     try { await api.post(`/api/collateral-documents/${doc.document.id}/confirm`, { fields: f }); onDone() } catch (e) { setError(e) }
   }
   return (
-    <Modal title={`Confirm ${label(doc.document.docType)} (DOC-${doc.document.id})`} onClose={onClose}>
+    <Modal title={`Confirm ${docLabel(doc.document.docType)} (DOC-${doc.document.id})`} onClose={onClose}>
       <p className="small muted">Check each field against the document and correct it. Confirmed fields count at 100%.</p>
       <div className="grid2">{Object.keys(f).map(k => <label key={k}>{label(k)}{(doc.extracted.confidence?.[k] ?? 1) < 0.85 && ' (low confidence)'}<input value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} /></label>)}</div>
       <ErrorBox error={error} />

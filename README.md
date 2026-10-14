@@ -195,6 +195,27 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Co-applicants and guarantors
+
+Every product has its own rules (Products → **Co-applicants & guarantors**, approved by the CRO like any product change):
+
+| Product | Co-applicant | Guarantor | Income counted | Party bureau minimum |
+|---|---|---|---|---|
+| Business loan | optional, up to 2 | optional (1); **required before sanction above ₹5 L** | spouse or business partner, 2 earners | 700 |
+| Personal loan | optional (1) | not allowed | spouse, 2 earners | — |
+| Used CV loan | optional (1) | optional (1); required before sanction above ₹10 L | any co-applicant, 2 earners | 680 |
+| Gold loan | not allowed | not allowed | — | — |
+| Loan against property | optional, up to 3; **every co-owner of the property must join** | optional, up to 2 | any co-applicant, 3 earners | 700 |
+| JLG | not allowed (the group is the guarantee) | not allowed | — | — |
+
+- **Mandatory** parties block submission; a **required-when** rule (workflow fields: amount, income, score, band…) must be met before sanction, so credit can bring a party in after appraisal.
+- **Adding people:** on the new-application form, on the application's **Parties** tab, or when credit asks (**Ask for a co-applicant or guarantor**; a credit manager or the CRO can waive with a reason).
+- **Consent:** each person consents on their own phone: an OTP read out in the branch, or an **invite link** (`/party/<token>`, valid 7 days) where they verify by OTP, read what they are agreeing to, consent and upload their PAN and Aadhaar (kept masked). Demo OTP 123456 until SMS is integrated.
+- **Checks:** KYC (from their own documents when document AI is on, else the KYC provider) and a bureau pull per person; the decision waits until every party is verified.
+- **Decision:** counted co-applicants' income and their EMIs join the applicant's for affordability; rule **R23** refers the case when a party misses the policy (bureau score, no credit record for a guarantor, age at maturity, more than two other open guarantees) with reason code RC-026. The credit memo has a joint section.
+- **Gates:** sanction waits for co-owners, credit's requests and a re-run decision if someone joined after it; disbursement waits until every party has signed by OTP (co-applicants the KFS and agreement, guarantors the guarantee deed).
+- Applications created before this release keep the old behaviour.
+
 ## Phase 4: Scale
 
 - **Collateral AI** (Work → Collateral AI; a Collateral tab on every application). These screens cover SCR-140 to SCR-149:

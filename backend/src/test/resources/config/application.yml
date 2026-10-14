@@ -1,0 +1,5 @@
+# Integration tests share one bank account and address across many applicants; the network score is switched off
+# here and turned on in the tests that cover it (Phase2IT).
+rhythm:
+  network:
+    enabled: false

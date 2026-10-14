@@ -28,5 +28,8 @@ public final class ReasonCodes {
             Map.entry("RC-020", "Model or data quality error"),
             // lender-specific extensions beyond the FSD's standard list (RC-001 to RC-020)
             Map.entry("RC-021", "Betting / gambling transactions in bank statement"),
-            Map.entry("RC-022", "Not eligible for this product"));
+            Map.entry("RC-022", "Not eligible for this product"),
+            Map.entry("RC-023", "Money rotation in the bank statement"),
+            Map.entry("RC-024", "Linked to risky applications (network)"),
+            Map.entry("RC-025", "Household repayments above the microfinance cap"));
 }

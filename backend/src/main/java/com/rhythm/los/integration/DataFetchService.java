@@ -184,7 +184,8 @@ public class DataFetchService {
         if (s == null || s.months() == 0) return false;
         snapshots.save(new DataSnapshot(a.getId(), "AA", STATEMENT_VENDOR, Json.write(s)));
         audit.record(by, "data.bank_from_statement", "DOCUMENT", String.valueOf(doc.get().getId()), a.getId(),
-                s.months() + " months from the uploaded statement " + s.maskedAccount() + (s.gambling() > 0 ? " · " + s.gambling() + " betting transaction(s)" : ""));
+                s.months() + " months from the uploaded statement " + s.maskedAccount() + (s.gambling() > 0 ? " · " + s.gambling() + " betting transaction(s)" : "")
+                        + (s.rotationShare() > 0 ? " · money rotation " + Math.round(s.rotationShare() * 100) + "% of credits" : ""));
         return true;
     }
 
@@ -193,12 +194,19 @@ public class DataFetchService {
             var n = Json.MAPPER.readTree(analysisJson);
             var in = new java.util.ArrayList<Double>();
             var out = new java.util.ArrayList<Double>();
-            n.path("monthly").forEach(m -> { in.add(m.path("inflow").asDouble()); out.add(m.path("outflow").asDouble()); });
+            double[] gross = {0};
+            n.path("monthly").forEach(m -> {
+                // adjusted turnover when the AI computed it: money that rotates straight back out is not income
+                in.add(m.has("adjustedInflow") ? m.path("adjustedInflow").asDouble() : m.path("inflow").asDouble());
+                gross[0] += m.path("inflow").asDouble();
+                out.add(m.path("outflow").asDouble());
+            });
             var s = n.path("summary");
             String bank = n.path("bank").asText("");
             return new AaStatement((bank.isBlank() ? "Bank" : bank) + " (statement read by AI)", n.path("accountNumberMasked").asText(""),
                     in.size(), in, out, s.path("avgBalance").asDouble(0), s.path("bounces").asInt(0), s.path("detectedEmi").asDouble(0),
-                    s.path("gamblingCount").asInt(0));
+                    s.path("gamblingCount").asInt(0), s.path("rotation").path("rotationShare").asDouble(0),
+                    in.isEmpty() ? 0 : gross[0] / in.size());
         } catch (Exception e) {
             return null;
         }

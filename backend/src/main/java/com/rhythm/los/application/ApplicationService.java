@@ -26,6 +26,18 @@ public class ApplicationService {
     private final com.rhythm.los.consent.ConsentService consents;
     private com.rhythm.los.org.Geography geography;
 
+    /** X-Device-Id sent by the web app and the borrower portal (a random id kept on the device). */
+    static String deviceHeader() {
+        try {
+            var attrs = (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return null;
+            String d = attrs.getRequest().getHeader("X-Device-Id");
+            return d == null || !d.matches("[A-Za-z0-9-]{8,64}") ? null : d;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     void setGeography(com.rhythm.los.org.Geography g) { this.geography = g; }
 
@@ -75,6 +87,7 @@ public class ApplicationService {
         apply(a, r, p);
         a.setCreatedBy(by.username());
         a.setBranchId(by.branchId());
+        a.setDeviceId(deviceHeader());
         // portal applications have no branch: route them by PIN code once branches have PIN codes (masters)
         if (a.getBranchId() == null && geography != null) geography.branchFor(a.getPincode(), p.getCode()).ifPresent(b -> a.setBranchId(b.getId()));
         workflows.published(p.getCode()).ifPresent(w -> a.setWorkflowVersion(w.getVersion()));
@@ -182,6 +195,8 @@ public class ApplicationService {
         a.setDob(r.dob());
         a.setGender(gender(r.gender()));
         if (r.preferredLanguage() != null && !r.preferredLanguage().isBlank()) a.setPreferredLanguage(r.preferredLanguage());
+        a.setIndustry(r.industry() == null || r.industry().isBlank() ? ("SALARIED".equals(a.getSegment()) ? "SALARIED" : a.getIndustry()) : r.industry());
+        if (r.addressLat() != null && r.addressLng() != null) { a.setAddressLat(r.addressLat()); a.setAddressLng(r.addressLng()); }
         a.setAddress(r.address());
         a.setCity(r.city());
         a.setPincode(blankToNull(r.pincode()));

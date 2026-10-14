@@ -388,6 +388,10 @@ function StatementTab({ id, rev }: { id: string; rev: number }) {
         <div className="kpi"><span>EMIs seen</span><b data-kpi="emi">{inr(s.detectedEmi)}</b><span>{(s.emis ?? []).map(e => e.counterparty).join(', ') || 'none'}</span></div>
         <div className="kpi"><span>Bounces</span><b data-kpi="bounces">{s.bounces ?? 0}</b>{(s.bounceCharges ?? 0) > 0 && <span>charges {inr(s.bounceCharges)}</span>}</div>
         <div className="kpi"><span>Betting / gambling</span><b data-kpi="gambling">{s.gamblingCount ?? 0}</b>{(s.gamblingAmount ?? 0) > 0 && <span>{inr(s.gamblingAmount)} spent</span>}</div>
+        {s.rotation && <div className="kpi"><span>Money rotation</span><b data-kpi="rotation" className={s.rotation.rotationShare > 0.3 ? 'bad-text' : ''}>{pct(s.rotation.rotationShare, 0)}</b>
+          <span>{s.rotation.roundTrips} round trips · {s.rotation.cashCycles} cash in-out</span></div>}
+        {s.avgMonthlyAdjustedInflow != null && <div className="kpi"><span>Adjusted monthly turnover</span><b data-kpi="adjusted">{inr(s.avgMonthlyAdjustedInflow)}</b>
+          <span>after rotation, self transfers, loans and refunds</span></div>}
         <div className="kpi"><span>Cash deposits</span><b>{pct(s.cashDepositShare ?? 0, 0)}</b><span>of income</span></div>
       </div>
       <div className="grid2">
@@ -513,6 +517,7 @@ function DecisionTab({ id, rev }: { id: string; rev: number }) {
         <div className="kpi"><span>Rate</span><b>{x.rate}%</b></div>
         <div className="kpi"><span>Sanction level</span><b>{x.delegationLevel ?? '—'}</b></div>
       </div>
+      {x.scorecardJson && <ScorecardPanel json={x.scorecardJson} modelBand={x.riskBand} modelPd={x.pd} />}
       <div className="grid2">
         <div className="panel">
           <h3>Steps</h3>
@@ -537,6 +542,21 @@ function DecisionTab({ id, rev }: { id: string; rev: number }) {
       </div>
       <p className="small muted">Model {x.modelVersion} · policy {x.policyVersion} · input hash <span className="mono">{x.inputHash.slice(0, 16)}</span> · run by {x.createdBy} {when(x.createdAt)}</p>
     </>
+  )
+}
+
+interface ScoreLine { key: string; label: string; value?: number; points: number }
+function ScorecardPanel({ json, modelBand, modelPd }: { json: string; modelBand: string; modelPd: number }) {
+  const c: { code: string; name: string; score: number; pd: number; band: string; lines: ScoreLine[]; missing: string[] } = JSON.parse(json)
+  return (
+    <div className="panel" data-scorecard>
+      <h3 style={{ marginTop: 0 }}>Industry scorecard (challenger): {c.name}</h3>
+      <p className="small">Score <b>{c.score}</b> · PD {pct(c.pd)} · band <b>{c.band}</b>. The PD model gives band {modelBand} ({pct(modelPd)}).
+        {c.band !== modelBand && <span className="warn-text"> The two disagree: worth a look by the credit officer.</span>}</p>
+      <Table head={['Characteristic', 'Value', 'Points']} rows={c.lines.map(l => [l.label, l.value == null ? <span className="muted">no data</span> : String(l.value),
+        <b className={l.points < 0 ? 'bad-text' : l.points > 0 ? 'ok-text' : ''}>{l.points > 0 ? '+' : ''}{l.points}</b>])} />
+      {c.missing.length > 0 && <p className="small muted">No data yet for: {c.missing.join(', ')} (scored neutral; the field visit fills most of these).</p>}
+    </div>
   )
 }
 

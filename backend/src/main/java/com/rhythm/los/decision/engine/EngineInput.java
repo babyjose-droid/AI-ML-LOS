@@ -20,7 +20,21 @@ public record EngineInput(
         boolean secured,
         Fraud fraud,
         Loan loan,
-        Eligibility eligibility) {
+        Eligibility eligibility,
+        Household household) {
+
+    /** Without household data (most products). */
+    public EngineInput(String id, String name, String segment, int age, double vintage, Kyc kyc, double declaredIncome, double essential,
+                       Bank bank, Bureau bureau, Gst gst, Internal internal, boolean jlg, boolean secured, Fraud fraud, Loan loan,
+                       Eligibility eligibility) {
+        this(id, name, segment, age, vintage, kyc, declaredIncome, essential, bank, bureau, gst, internal, jlg, secured, fraud, loan, eligibility, null);
+    }
+
+    /**
+     * Household cash flow (FSD 13.4, RBI microfinance directions 2022): monthly income of the members included,
+     * the household's essential expenses and its existing loan repayments.
+     */
+    public record Household(int members, int earners, double monthlyIncome, double monthlyExpenses, double existingEmi) {}
 
     /**
      * The product's eligibility and price band (FSD 14.1 step 3 and step 9). Zero limits mean "no limit set"; maxAge is the
@@ -46,6 +60,9 @@ public record EngineInput(
     public record Bureau(int score, int active, int maxDpd12, boolean ever90, int enq6, int ageM, double emi) {}
     public record Gst(double filing, double growth, double gap) {}
     public record Internal(int prevLoans, int maxDpd) {}
-    public record Fraud(int dupLinks, boolean docTamper, int velocity) {}
+    /** rotationShare: share of statement credits that rotate straight back out; networkScore: 0-100 from the application network. */
+    public record Fraud(int dupLinks, boolean docTamper, int velocity, double rotationShare, int networkScore) {
+        public Fraud(int dupLinks, boolean docTamper, int velocity) { this(dupLinks, docTamper, velocity, 0, 0); }
+    }
     public record Loan(double amount, int tenure) {}
 }

@@ -26,8 +26,19 @@ export class ApiError extends Error {
 let onUnauthorized: () => void = () => {}
 export const setUnauthorizedHandler = (f: () => void) => { onUnauthorized = f }
 
+// a random id kept on this browser or phone: applications keyed on the same device are linked by the network check
+function deviceId(): string | null {
+  try {
+    let d = localStorage.getItem('rhythm_device')
+    if (!d) { d = (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^A-Za-z0-9-]/g, ''); localStorage.setItem('rhythm_device', d) }
+    return d
+  } catch { return null }
+}
+
 async function request<T>(method: string, url: string, body?: unknown, isForm = false): Promise<T> {
   const headers: Record<string, string> = {}
+  const dev = method === 'POST' ? deviceId() : null
+  if (dev) headers['X-Device-Id'] = dev
   if (token) headers.Authorization = 'Bearer ' + token
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const res = await fetch(url, {

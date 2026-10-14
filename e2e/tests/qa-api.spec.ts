@@ -18,14 +18,14 @@ async function token(request: APIRequestContext, user: string) {
 }
 const auth = (t: string) => ({ Authorization: 'Bearer ' + t })
 
-// every test application gets its own mobile number: one number shared by several PANs is a fraud signal
+// every test application gets its own mobile, account and address: shared ones across PANs are network-risk signals
 let mobileSeq = 0
 function application(over: Record<string, unknown> = {}) {
   mobileSeq += 1
   return {
     productCode: 'PL', applicantName: 'Kavya Iyer', pan: 'KAVPI5566K', mobile: String(9123400000 + mobileSeq * 7 + Math.floor(Math.random() * 5)), dob: '1993-08-21',
-    city: 'Chennai', pincode: '600004', address: '18 Temple Street', businessVintageYears: 6, declaredMonthlyIncome: 90000,
-    essentialExpenses: 30000, loanAmount: 300000, tenureMonths: 24, purpose: 'Wedding', bankAccountNo: '123456789012',
+    city: 'Chennai', pincode: '600004', address: `${mobileSeq} Temple Street`, businessVintageYears: 6, declaredMonthlyIncome: 90000,
+    essentialExpenses: 30000, loanAmount: 300000, tenureMonths: 24, purpose: 'Wedding', bankAccountNo: String(612345670000 + mobileSeq * 13 + Math.floor(Math.random() * 7)),
     bankIfsc: 'HDFC0001234', consentBureau: true, consentAa: true, consentKyc: true, ...over,
   }
 }

@@ -65,8 +65,23 @@ public final class UnderwritingEngine {
         double foirEx = existing / income;
         double balRatio = a.bank().avgBalance() / income;
         double surplus = income - a.essential() - existing;
+        // microfinance: the household is the unit (RBI 2022) - its income, expenses and repayments decide affordability
+        EngineInput.Household hh = a.household();
+        boolean mfi = "MICROFINANCE".equals(a.segment()) && hh != null && hh.monthlyIncome() > 0;
+        if (mfi) {
+            existing = Math.max(existing, hh.existingEmi());
+            income = round(hh.monthlyIncome());
+            foirEx = existing / income;
+            balRatio = a.bank().avgBalance() / income;
+            surplus = income - Math.max(a.essential(), hh.monthlyExpenses()) - existing;
+        }
         steps.add(new EngineResult.Step("Bank cash-flow (" + n + " mo via " + (a.bank().source() == null ? "AA" : a.bank().source()) + ")", "₹" + inr(income) + "/mo sustainable",
                 stab > 0.65 ? "ok" : stab > 0.45 ? "warn" : "bad"));
+
+        if (hh != null && hh.monthlyIncome() > 0)
+            steps.add(new EngineResult.Step("Household cash flow", hh.members() + " members, " + hh.earners() + " earning · ₹" + inr(hh.monthlyIncome())
+                    + "/mo · surplus ₹" + inr(hh.monthlyIncome() - hh.monthlyExpenses() - hh.existingEmi()),
+                    hh.monthlyIncome() - hh.monthlyExpenses() - hh.existingEmi() > 0 ? "ok" : "bad"));
 
         // 3. Bureau
         steps.add(new EngineResult.Step("Bureau",
@@ -85,7 +100,8 @@ public final class UnderwritingEngine {
         EngineInput.Fraud f = a.fraud();
         double mism = a.declaredIncome() / mean;
         double fz = -4.2 + 1.0 * f.dupLinks() + 2.0 * Math.max(0, mism - 1.25) + 2.6 * (f.docTamper() ? 1 : 0)
-                + 0.6 * Math.max(0, f.velocity() - 1) + 3 * (1 - idScore);
+                + 0.6 * Math.max(0, f.velocity() - 1) + 3 * (1 - idScore)
+                + 4.0 * Math.max(0, f.rotationShare() - 0.30) + f.networkScore() / 20.0;
         int fraud = (int) round(sigmoid(fz) * 100);
         String fraudStatus = fraud >= p.fraudBlock() ? "BLOCK" : fraud >= p.fraudReview() ? "REVIEW" : "CLEAR";
         steps.add(new EngineResult.Step("Fraud & network", fraud + "/100 · " + fraudStatus,
@@ -149,6 +165,9 @@ public final class UnderwritingEngine {
         // 8. Affordability
         double foirCap = p.maxFoir() * income - existing;
         double maxEmi = Math.max(0, round(Math.min(foirCap, surplus * p.safety())));
+        // RBI microfinance cap: all loan repayments of the household within 50% of its monthly income
+        double mfiCap = mfi ? Math.max(0, round(0.5 * income - existing)) : Double.MAX_VALUE;
+        if (mfi) maxEmi = Math.min(maxEmi, mfiCap);
         double reqEmi = round(Finance.emi(a.loan().amount(), rate, a.loan().tenure()));
         double maxLoan = Math.floor(Finance.pv(maxEmi, rate, a.loan().tenure()) / 5000) * 5000;
         double foirPost = (existing + reqEmi) / income;
@@ -198,6 +217,15 @@ public final class UnderwritingEngine {
             rb.rule("R15", "Salary slip employer matches the salary credits in the bank statement", false, "REFER", "RC-010");
         if (a.bank().gambling() > 0)
             rb.rule("R14", "No betting / gambling transactions in the bank statement", false, "REFER", "RC-021");
+        EngineInput.Fraud fr = a.fraud();
+        if (fr != null && fr.rotationShare() > 0)
+            rb.rule("R19", "Money rotation ≤ 30% of statement credits (now " + Math.round(fr.rotationShare() * 100) + "%)", fr.rotationShare() <= 0.30, "REFER", "RC-023");
+        if (fr != null && fr.networkScore() > 0)
+            rb.rule("R22", "Network risk < 60 (now " + fr.networkScore() + ")", fr.networkScore() < 60, "REFER", "RC-024");
+        if (mfi) {
+            rb.rule("R20", "Household income ≤ ₹3,00,000 a year (microfinance)", hh.monthlyIncome() * 12 <= 300_000, "REJECT", "RC-022");
+            rb.rule("R21", "Household repayments ≤ 50% of household income (microfinance cap)", existing + reqEmi <= 0.5 * income, "COUNTER", "RC-025");
+        }
         if (!thick) reasons.add("RC-015");
         if (p.exposureCap() < Math.min(a.loan().amount(), maxLoan)) reasons.add("RC-016");
 

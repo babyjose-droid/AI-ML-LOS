@@ -36,11 +36,18 @@ public final class CreditMemoWriter {
         m.append(in.bureau() == null ? "Bureau: no hit (thin file) - assessed on cash flow. " :
                 "Bureau score " + in.bureau().score() + ", " + in.bureau().active() + " active lines, max DPD (12m) " + in.bureau().maxDpd12() + ". ");
         if (in.gst() != null) m.append("GST filing regularity ").append(Math.round(in.gst().filing() * 100)).append("%. ");
+        if (in.fraud() != null && in.fraud().rotationShare() > 0)
+            m.append("Money rotation ").append(Math.round(in.fraud().rotationShare() * 100)).append("% of statement credits; income uses the adjusted turnover. ");
+        if (in.fraud() != null && in.fraud().networkScore() > 0) m.append("Network risk score ").append(in.fraud().networkScore()).append("/100. ");
         m.append("\n\n");
 
         m.append("4. Cash flow and affordability\n");
         m.append("Sustainable income ").append(rupees(r.income())).append("/month (stability ").append(Math.round(r.stability() * 100)).append("%). ");
         m.append("Existing EMIs ").append(rupees(r.existing())).append(". Surplus after essentials ").append(rupees(r.surplus())).append(". ");
+        if (in.household() != null && in.household().monthlyIncome() > 0)
+            m.append("Household: ").append(in.household().members()).append(" members, ").append(in.household().earners()).append(" earning, income ")
+                    .append(rupees(in.household().monthlyIncome())).append("/month, expenses ").append(rupees(in.household().monthlyExpenses()))
+                    .append(", existing repayments ").append(rupees(in.household().existingEmi())).append(". ");
         m.append("Maximum affordable EMI ").append(rupees(r.maxEmi())).append("; requested EMI ").append(rupees(r.reqEmi()))
                 .append("; FOIR after loan ").append(pct(r.foirPost(), 0)).append(".\n\n");
 

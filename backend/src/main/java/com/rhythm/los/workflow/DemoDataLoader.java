@@ -126,12 +126,19 @@ public class DemoDataLoader {
         try { r.run(); } catch (Exception e) { log.warn("Demo case {} stopped early: {}", name, e.getMessage()); }
     }
 
+    static String industryFor(String product, String business) {
+        if ("PL".equals(product)) return "SALARIED";
+        if (business == null) return null;
+        String b = business.toLowerCase();
+        return b.contains("dairy") ? "DAIRY" : b.contains("transport") || b.contains("tempo") ? "TRANSPORT" : b.contains("kirana") || b.contains("store") || b.contains("general") ? "KIRANA" : "TRADING";
+    }
+
     private LoanApplication create(String product, String name, String pan, String mobile, String dob, String pin, String city, String business,
                                    double vintage, double income, double essentials, double amount, int tenure, String purpose) {
         ApplicationRequest r = new ApplicationRequest(product, name, pan, mobile, null,
                 LocalDate.parse(dob), null, "12 Main Road, " + city, city, pin, business,
                 BigDecimal.valueOf(vintage), BigDecimal.valueOf(income), BigDecimal.valueOf(essentials), BigDecimal.valueOf(amount),
-                tenure, purpose, "50100" + mobile.substring(4), "HDFC0001234", true, true, true, null);
+                tenure, purpose, "50100" + mobile.substring(4), "HDFC0001234", true, true, true, null, industryFor(product, business), null, null);
         return apps.create(r, SALES);
     }
 

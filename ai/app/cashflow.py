@@ -12,6 +12,7 @@ RULES: list[tuple[str, str, str]] = [
     ("REVERSAL", "C", r"\b(REV(ERSAL)?|REFUND|RVSL|CHARGEBACK)\b"),
     ("GAMBLING", "*", r"(RUMMY|BETTING|\bBET\b|CASINO|POKER|DREAM\s?11|MPL\b|LOTTERY|FANTASY\s*(SPORTS|GAME)|TEEN\s*PATTI|1XBET|PARIMATCH)"),
     ("SALARY", "C", r"\b(SALARY|SAL\b|SAL\s|PAYROLL|WAGES|STIPEND)"),
+    ("LOAN_CREDIT", "C", r"(LOAN\s*(DISB|CREDIT|A/?C)|DISBURS|\bDISB\b)"),
     ("EMI", "D", r"\b(EMI|NACH|ACH\s*D|ECS|LOAN|FINANCE|FINSERV|CAPITAL|HOUSING\s*FIN|BAJAJ\s*FIN|INSTALL?MENT|SI\s*DR)\b"),
     ("INTEREST", "C", r"\b(INT\.?\s*PD|INTEREST|INT\s*CREDIT|SB\s*INT)\b"),
     ("CHARGES", "D", r"\b(CHG|CHARGES?|FEE|SMS\s*ALERT|AMC|MIN\s*BAL|PENAL)\b"),
@@ -29,7 +30,7 @@ RULES: list[tuple[str, str, str]] = [
     ("CHEQUE", "*", r"\b(CHQ|CHEQUE|CLG|CLEARING)\b"),
 ]
 COMPILED = [(c, d, re.compile(rx)) for c, d, rx in RULES]
-NON_INCOME = {"REVERSAL", "BOUNCE", "SELF_TRANSFER", "INTEREST"}  # credits that are not business or salary income
+NON_INCOME = {"REVERSAL", "BOUNCE", "SELF_TRANSFER", "INTEREST", "LOAN_CREDIT"}  # credits that are not business or salary income
 
 
 def categorise(narration: str, is_credit: bool, holder: str | None) -> str:
@@ -74,6 +75,7 @@ def analyse(txns: list[dict], holder: str | None, opening: float | None, declare
     for t in txns:
         by_month[_month(t["date"])].append(t)
     months = sorted(by_month)
+    rot = rotation(txns)
 
     # daily closing balances -> average and minimum balance per month (balance carried forward between txns)
     monthly = []
@@ -98,8 +100,10 @@ def analyse(txns: list[dict], holder: str | None, opening: float | None, declare
         debits = sum(t["debit"] for t in ts)
         inflow = sum(t["credit"] for t in ts if t["category"] not in NON_INCOME)
         outflow = sum(t["debit"] for t in ts if t["category"] not in ("SELF_TRANSFER", "BOUNCE_CHARGE") and t["category"] != "BOUNCE")
+        rotated = sum(t["credit"] for t in ts if t.get("rotated"))
         monthly.append({
             "month": m, "credits": round(credits, 2), "debits": round(debits, 2), "inflow": round(inflow, 2), "outflow": round(outflow, 2),
+            "rotated": round(rotated, 2), "adjustedInflow": round(max(0.0, inflow - rotated), 2),
             "endBalance": round(daily[-1], 2) if daily else None, "avgBalance": round(mean(daily), 2) if daily else None,
             "minBalance": round(min(daily), 2) if daily else None, "bounces": sum(1 for t in ts if t["category"] == "BOUNCE"),
             "cashDeposits": round(sum(t["credit"] for t in ts if t["category"] == "CASH_DEPOSIT"), 2),
@@ -177,10 +181,80 @@ def analyse(txns: list[dict], holder: str | None, opening: float | None, declare
         "topCreditors": [{"name": k, "amount": round(v, 2)} for k, v in creditors.most_common(5)],
         "topDebits": [{"name": k, "amount": round(v, 2)} for k, v in debtors.most_common(5)],
         "categories": _category_totals(txns),
+        "rotation": rot,
+        "adjustedTurnover": round(sum(m["adjustedInflow"] for m in monthly), 2),
+        "avgMonthlyAdjustedInflow": round(sum(m["adjustedInflow"] for m in monthly) / len(months), 2) if months else 0.0,
     }
     if declared_income:
         summary["declaredVsObserved"] = round(declared_income / summary["avgMonthlyInflow"], 2) if summary["avgMonthlyInflow"] else None
     return {"monthly": monthly, "summary": summary}
+
+
+ROUND_TRIP_DAYS = 7
+CASH_CYCLE_DAYS = 2
+
+
+def _d(s: str) -> date:
+    return datetime.fromisoformat(s[:10]).date()
+
+
+def rotation(txns: list[dict]) -> dict:
+    """Money rotation: credits that are not real turnover because the same money goes straight back out.
+
+    - round trip: a credit from a party followed within 7 days by a debit to the same party of 80-120% of it
+      (or a debit that comes back from the same party within 7 days)
+    - cash cycle: a cash deposit and a cash withdrawal of about the same amount (within 10%) within 2 days
+    Credits already outside income (self transfers, reversals, loan credits) are reported separately.
+    Each rotated credit is marked rotated=True and flagged, so the monthly adjusted inflow can leave it out."""
+    used: set[int] = set()
+    trips, cash_cycles = [], []
+    idx = list(range(len(txns)))
+    for i in idx:
+        t = txns[i]
+        if not t["credit"] or t["category"] in NON_INCOME or t.get("rotated"):
+            continue
+        for j in idx:
+            if j == i or j in used:
+                continue
+            u = txns[j]
+            if not u["debit"]:
+                continue
+            gap = abs((_d(u["date"]) - _d(t["date"])).days)
+            ratio = u["debit"] / t["credit"]
+            same_party = t["counterparty"] and t["counterparty"] == u["counterparty"] and len(t["counterparty"]) >= 3
+            if same_party and gap <= ROUND_TRIP_DAYS and 0.8 <= ratio <= 1.2:
+                t["rotated"] = True
+                used.add(j)
+                t["flags"].append("Round trip with " + t["counterparty"])
+                u["flags"].append("Round trip with " + t["counterparty"])
+                trips.append({"party": t["counterparty"], "credit": round(t["credit"], 2), "debit": round(u["debit"], 2),
+                              "creditDate": t["date"], "debitDate": u["date"]})
+                break
+            if t["category"] == "CASH_DEPOSIT" and u["category"] == "CASH_WITHDRAWAL" and gap <= CASH_CYCLE_DAYS and 0.9 <= ratio <= 1.1:
+                t["rotated"] = True
+                used.add(j)
+                t["flags"].append("Cash in and out")
+                u["flags"].append("Cash in and out")
+                cash_cycles.append({"amount": round(t["credit"], 2), "depositDate": t["date"], "withdrawalDate": u["date"]})
+                break
+    credits = sum(t["credit"] for t in txns)
+    rotated = sum(t["credit"] for t in txns if t.get("rotated"))
+    self_in = sum(t["credit"] for t in txns if t["category"] == "SELF_TRANSFER")
+    loans_in = sum(t["credit"] for t in txns if t["category"] == "LOAN_CREDIT")
+    reversals = sum(t["credit"] for t in txns if t["category"] in ("REVERSAL", "BOUNCE"))
+    excluded = rotated + self_in + loans_in + reversals
+    return {
+        "grossCredits": round(credits, 2),
+        "roundTrips": len(trips),
+        "cashCycles": len(cash_cycles),
+        "rotatedAmount": round(rotated, 2),
+        "selfTransfersIn": round(self_in, 2),
+        "loanCredits": round(loans_in, 2),
+        "reversals": round(reversals, 2),
+        "rotationShare": round(rotated / credits, 3) if credits else 0.0,
+        "excludedShare": round(excluded / credits, 3) if credits else 0.0,
+        "examples": (trips + [dict(c, party="CASH") for c in cash_cycles])[:10],
+    }
 
 
 def _category_totals(txns):

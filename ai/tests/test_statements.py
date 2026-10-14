@@ -96,3 +96,35 @@ def test_statement_api():
     u = c.post("/v1/pdf/unlock", files={"file": ("s.pdf", pdf, "application/pdf")}, data={"password": "PW12"})
     assert u.status_code == 200 and u.json()["wasEncrypted"]
     assert c.post("/v1/pdf/unlock", files={"file": ("s.pdf", pdf, "application/pdf")}, data={"password": "x"}).status_code == 422
+
+
+def test_money_rotation_and_adjusted_turnover():
+    from app.cashflow import analyse
+    txns = []
+    for m in range(1, 7):
+        d = f"2026-0{m}"
+        txns += [
+            {"date": f"{d}-03", "narration": "NEFT CR-ACME TRADERS-INV", "credit": 100000.0, "debit": 0.0, "balance": None},
+            {"date": f"{d}-05", "narration": "NEFT DR-ACME TRADERS-RET", "credit": 0.0, "debit": 98000.0, "balance": None},
+            {"date": f"{d}-10", "narration": "UPI/1234/KIRANA SALES/PAY", "credit": 60000.0, "debit": 0.0, "balance": None},
+            {"date": f"{d}-12", "narration": "BY CASH DEPOSIT", "credit": 40000.0, "debit": 0.0, "balance": None},
+            {"date": f"{d}-13", "narration": "ATM CASH WDL", "credit": 0.0, "debit": 39000.0, "balance": None},
+            {"date": f"{d}-20", "narration": "LOAN DISB FROM QUICKFIN", "credit": 50000.0, "debit": 0.0, "balance": None},
+        ]
+    r = analyse(txns, "RAVI KUMAR", 10000.0)
+    rot = r["summary"]["rotation"]
+    assert rot["roundTrips"] == 6 and rot["cashCycles"] == 6
+    assert rot["rotatedAmount"] == 6 * 140000
+    assert rot["loanCredits"] == 6 * 50000
+    # inflow excludes loan credits; adjusted inflow also drops the rotated money: only the UPI sales remain
+    assert r["monthly"][0]["inflow"] == 200000
+    assert r["monthly"][0]["adjustedInflow"] == 60000
+    assert r["summary"]["avgMonthlyAdjustedInflow"] == 60000
+    assert 0.5 < rot["rotationShare"] < 0.6
+    assert any("Round trip" in f for t in txns for f in t["flags"])
+
+
+def test_no_rotation_on_ordinary_statement(salaried):
+    r = analyse_statement(g.render_pdf(salaried), "application/pdf")
+    assert r["summary"]["rotation"]["rotationShare"] < 0.1
+    assert r["summary"]["avgMonthlyAdjustedInflow"] > 0

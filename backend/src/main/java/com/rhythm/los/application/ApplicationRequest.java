@@ -28,4 +28,7 @@ public record ApplicationRequest(
         boolean consentBureau,
         boolean consentAa,
         boolean consentKyc,
-        @Pattern(regexp = "^$|en|hi|mr|ta|ml|kn|te|bn|gu", message = "must be one of en, hi, mr, ta, ml, kn, te, bn, gu") String preferredLanguage) {}
+        @Pattern(regexp = "^$|en|hi|mr|ta|ml|kn|te|bn|gu", message = "must be one of en, hi, mr, ta, ml, kn, te, bn, gu") String preferredLanguage,
+        @Pattern(regexp = "^$|KIRANA|DAIRY|TRANSPORT|MANUFACTURING|SERVICES|TRADING|AGRI|SALARIED|OTHER", message = "is not a known industry") String industry,
+        @DecimalMin("6.0") @DecimalMax("38.0") Double addressLat,
+        @DecimalMin("68.0") @DecimalMax("98.0") Double addressLng) {}

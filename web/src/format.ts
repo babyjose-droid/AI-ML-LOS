@@ -28,5 +28,5 @@ export const REASON: Record<string, string> = {
   'RC-011': 'Identity / KYC mismatch', 'RC-012': 'Fraud risk above review threshold', 'RC-013': 'Application data incomplete',
   'RC-014': 'Policy exception needs human approval', 'RC-015': 'External data unavailable (thin file)', 'RC-016': 'Exposure limit exceeded',
   'RC-017': 'Business cash-flow volatility', 'RC-018': 'Recent borrowing increase', 'RC-019': 'Negative internal repayment history',
-  'RC-020': 'Model or data quality error', 'RC-021': 'Betting / gambling transactions in bank statement', 'RC-022': 'Not eligible for this product',
+  'RC-020': 'Model or data quality error', 'RC-021': 'Betting / gambling transactions in bank statement', 'RC-022': 'Not eligible for this product', 'RC-023': 'Money rotation in the bank statement', 'RC-024': 'Linked to risky applications (network)', 'RC-025': 'Household repayments above the microfinance cap',
 }

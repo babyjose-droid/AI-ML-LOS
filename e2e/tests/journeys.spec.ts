@@ -46,7 +46,7 @@ test('new application: capture, documents, automated checks, decision', async ({
   await page.locator('input[name=businessVintageYears]').fill('5')
   await page.locator('input[name=declaredMonthlyIncome]').fill('80000')
   await page.locator('input[name=essentialExpenses]').fill('25000')
-  await page.locator('input[name=bankAccountNo]').fill('123456789012')
+  await page.locator('input[name=bankAccountNo]').fill('732145698012')
   await page.locator('input[name=bankIfsc]').fill('ICIC0000123')
   for (const c of ['consentKyc', 'consentAa', 'consentBureau']) await page.locator(`input[name=${c}]`).check()
   await page.getByRole('button', { name: 'Save and submit' }).click()

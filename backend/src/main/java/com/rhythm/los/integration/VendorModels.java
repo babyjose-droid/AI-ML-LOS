@@ -12,9 +12,16 @@ public final class VendorModels {
     public record KycBundle(PanResult pan, AadhaarResult aadhaar, CkycResult ckyc,
                             double nameMatch, double dobMatch, double idMatch, double addressMatch, double contactMatch) {}
 
-    /** Bank data for underwriting: from the Account Aggregator, or from an AI-read bank statement (gambling is then known). */
+    /**
+     * Bank data for underwriting: from the Account Aggregator, or from an AI-read bank statement (gambling and money rotation
+     * are then known). With a statement, inflows are the adjusted turnover: rotated money, self transfers and loan credits left out.
+     */
     public record AaStatement(String fipName, String maskedAccount, int months, List<Double> inflows, List<Double> outflows,
-                              double avgBalance, int bounces, double detectedEmi, int gambling) {
+                              double avgBalance, int bounces, double detectedEmi, int gambling, double rotationShare, double grossMonthlyInflow) {
+        public AaStatement(String fipName, String maskedAccount, int months, List<Double> inflows, List<Double> outflows,
+                           double avgBalance, int bounces, double detectedEmi, int gambling) {
+            this(fipName, maskedAccount, months, inflows, outflows, avgBalance, bounces, detectedEmi, gambling, 0, 0);
+        }
         public AaStatement(String fipName, String maskedAccount, int months, List<Double> inflows, List<Double> outflows,
                            double avgBalance, int bounces, double detectedEmi) {
             this(fipName, maskedAccount, months, inflows, outflows, avgBalance, bounces, detectedEmi, 0);

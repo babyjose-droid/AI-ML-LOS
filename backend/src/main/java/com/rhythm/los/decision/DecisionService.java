@@ -169,6 +169,9 @@ public class DecisionService {
         DecisionRecord d = toRecord(r, lvl, conditions);
         d.setApplicationId(a.getId());
         d.setCreditMemo(CreditMemoWriter.write(a, p, in, r, lvl));
+        d.setNetworkScore(in.fraud() == null ? null : in.fraud().networkScore());
+        var card = scorecards == null ? java.util.Optional.<com.rhythm.los.risk.Scorecard.Result>empty() : scorecards.score(a, in, r, fieldData.apply(a));
+        if (card.isPresent()) d.setScorecardJson(Json.write(card.get()));
         String inputJson = Json.write(in);
         d.setInputJson(inputJson);
         d.setInputHash(hash);
@@ -220,7 +223,8 @@ public class DecisionService {
         }
         long dup = appRepo.countOtherPansWithMobile(a.getMobile(), a.getPan());
         long velocity = appRepo.countByPanSince(a.getPan(), Instant.now().minus(30, ChronoUnit.DAYS));
-        EngineInput.Fraud fraud = new EngineInput.Fraud((int) dup, documents.anyTampered(a.getId()), (int) Math.max(1, velocity));
+        EngineInput.Fraud fraud = new EngineInput.Fraud((int) dup, documents.anyTampered(a.getId()), (int) Math.max(1, velocity),
+                s.rotationShare(), network == null ? 0 : network.score(a));
 
         return new EngineInput(
                 a.getAppNo(), a.getApplicantName(), a.getSegment(), a.ageYears(),
@@ -240,8 +244,24 @@ public class DecisionService {
                         p.getMinVintageYears() == null ? 0 : p.getMinVintageYears().doubleValue(),
                         p.getMinMonthlyIncome() == null ? 0 : p.getMinMonthlyIncome().doubleValue(),
                         served(a, p),
-                        p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()));
+                        p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()),
+                households == null ? null : households.engineInput(a.getId()).orElse(null));
     }
+
+    private com.rhythm.los.risk.NetworkService network;
+    private com.rhythm.los.risk.HouseholdService households;
+    private com.rhythm.los.risk.ScorecardService scorecards;
+    private java.util.function.Function<LoanApplication, java.util.Map<String, Double>> fieldData = x -> java.util.Map.of();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setRisk(com.rhythm.los.risk.NetworkService n, com.rhythm.los.risk.HouseholdService h, com.rhythm.los.risk.ScorecardService sc) {
+        this.network = n;
+        this.households = h;
+        this.scorecards = sc;
+    }
+
+    /** Field-visit characteristics for the industry scorecards (stock value, shop size, animals...). */
+    public void setFieldData(java.util.function.Function<LoanApplication, java.util.Map<String, Double>> f) { this.fieldData = f; }
 
     /** Geography (FSD 14.1 step 3): null until branches carry their PIN codes and products (Branch hierarchy). */
     Boolean served(LoanApplication a, Product p) { return geography == null ? null : geography.served(a.getPincode(), p.getCode()); }

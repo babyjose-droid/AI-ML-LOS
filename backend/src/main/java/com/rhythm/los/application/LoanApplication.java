@@ -30,6 +30,20 @@ public class LoanApplication {
     private String pan;
     private String mobile;
     private String email;
+    /** Browser or phone the application was keyed on (X-Device-Id); used by the network check. */
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "device_id") private String deviceId;
+    @Column(name = "industry") private String industry;
+    @Column(name = "address_lat") private Double addressLat;
+    @Column(name = "address_lng") private Double addressLng;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore public String getDeviceId() { return deviceId; }
+    public void setDeviceId(String v) { this.deviceId = v; }
+    public String getIndustry() { return industry; }
+    public void setIndustry(String v) { this.industry = v; }
+    public Double getAddressLat() { return addressLat; }
+    public void setAddressLat(Double v) { this.addressLat = v; }
+    public Double getAddressLng() { return addressLng; }
+    public void setAddressLng(Double v) { this.addressLng = v; }
     private LocalDate dob;
     private String gender;
     /** Language for the KFS, sanction letter and messages (BR-02, BR-27): en, hi, mr, ta, ml, kn, te, bn, gu. */

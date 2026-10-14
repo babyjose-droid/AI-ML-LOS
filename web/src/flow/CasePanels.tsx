@@ -134,6 +134,8 @@ export function CustomerPanel({ id, rev }: { id: string; rev: number }) {
         <div className="kpi"><span>Exposure (open + disbursed)</span><b>{inr(d.exposure)}</b></div>
       </div>
       {d.otherPansOnMobile.length > 0 && <div className="alert warn small" style={{ marginTop: 10 }}>Other PANs use this mobile number: {d.otherPansOnMobile.join(', ')}. The fraud check counts these links.</div>}
+      <NetworkPanel id={id} rev={rev} />
+      <HouseholdPanel id={id} rev={rev} />
       <div className="panel flush" style={{ marginTop: 10 }}>
         <Table head={['Application', 'Product', 'Amount', 'Stage', 'Decision', 'Disbursed', 'Created', 'Match']} rows={d.applications.map(x => [
           <Link to={`/applications/${x.applicationId}`}>{x.appNo}</Link>, x.product, inr(x.amount), <Pill s={x.state} />,
@@ -142,5 +144,111 @@ export function CustomerPanel({ id, rev }: { id: string; rev: number }) {
         ])} />
       </div>
     </>
+  )
+}
+
+interface NetNode { id: number; appNo: string; name: string; state: string; fraudState: string; self: boolean; visible: boolean }
+interface Net { score: number; factors: string[]; nodes: NetNode[]; edges: { from: number; to: number; via: string }[] }
+
+/** Network risk: applications linked by mobile, bank account, device, email or address with another PAN. */
+export function NetworkPanel({ id, rev }: { id: string; rev: number }) {
+  const n = useLoad(() => api.get<Net>(`/api/applications/${id}/network`), [id, rev])
+  if (!n.data) return <ErrorBox error={n.error} />
+  const d = n.data
+  const W = 520, H = 260, cx = W / 2, cy = H / 2
+  const others = d.nodes.filter(x => !x.self)
+  const pos: Record<number, [number, number]> = {}
+  d.nodes.forEach(x => { if (x.self) pos[x.id] = [cx, cy] })
+  others.forEach((x, i) => { const a = (2 * Math.PI * i) / Math.max(1, others.length); pos[x.id] = [cx + Math.cos(a) * 190, cy + Math.sin(a) * 95] })
+  const color = (x: NetNode) => x.fraudState === 'BLOCK' ? 'var(--bad, #c0392b)' : x.fraudState === 'REVIEW' || x.state === 'REJECTED' ? 'var(--warn, #d68910)' : x.self ? 'var(--accent, #2e86c1)' : 'var(--muted, #7f8c8d)'
+  return (
+    <div className="panel" style={{ marginTop: 10 }} data-network>
+      <h3 style={{ marginTop: 0 }}>Network risk <span className={'pill' + (d.score >= 60 ? ' bad' : d.score >= 30 ? ' warn' : ' ok')}>{d.score}/100</span></h3>
+      {d.nodes.length <= 1 ? <p className="small muted">No other PAN shares this applicant's mobile, bank account, device, email or address.</p> : (
+        <>
+          <ul className="small">{d.factors.map(f => <li key={f}>{f}</li>)}</ul>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto' }} role="img" aria-label="Linked applications">
+            {d.edges.map((e, i) => pos[e.from] && pos[e.to] && (
+              <g key={i}>
+                <line x1={pos[e.from][0]} y1={pos[e.from][1]} x2={pos[e.to][0]} y2={pos[e.to][1]} stroke="currentColor" strokeOpacity={0.3} />
+                <text x={(pos[e.from][0] + pos[e.to][0]) / 2} y={(pos[e.from][1] + pos[e.to][1]) / 2 - 3} fontSize={10} textAnchor="middle" fill="currentColor" opacity={0.7}>{e.via}</text>
+              </g>
+            ))}
+            {d.nodes.map(x => pos[x.id] && (
+              <g key={x.id}>
+                <circle cx={pos[x.id][0]} cy={pos[x.id][1]} r={x.self ? 10 : 7} fill={color(x)} />
+                <text x={pos[x.id][0]} y={pos[x.id][1] + 20} fontSize={10} textAnchor="middle" fill="currentColor">{x.appNo}</text>
+              </g>
+            ))}
+          </svg>
+          <Table head={['Application', 'Applicant', 'Stage', 'Fraud']} rows={others.map(x => [
+            x.visible ? <Link to={`/applications/${x.id}`}>{x.appNo}</Link> : x.appNo, x.name, <Pill s={x.state} />, <Pill s={x.fraudState} />,
+          ])} />
+        </>
+      )}
+    </div>
+  )
+}
+
+interface Earner { name: string; relation: string; occupation?: string; monthlyIncome: number; included: boolean }
+interface HouseholdView { household?: { members: number; monthlyExpenses: number; existingEmi: number; updatedBy?: string }; earners: Earner[]; monthlyIncome?: number; annualIncome?: number; surplus?: number; mfiQualifying?: boolean; mfiRepaymentRoom?: number }
+const RELATIONS = ['SELF', 'SPOUSE', 'SON', 'DAUGHTER', 'FATHER', 'MOTHER', 'BROTHER', 'SISTER', 'OTHER']
+
+/** Household cash flow: members, earners, expenses and repayments (the unit for microfinance). */
+export function HouseholdPanel({ id, rev }: { id: string; rev: number }) {
+  const { user } = useAuth()
+  const [n, setN] = useState(0)
+  const h = useLoad(() => api.get<HouseholdView>(`/api/applications/${id}/household`), [id, rev, n])
+  const [edit, setEdit] = useState<{ members: string; monthlyExpenses: string; existingEmi: string; earners: Earner[] } | null>(null)
+  const [err, setErr] = useState<unknown>(null)
+  const can = ['SALES', 'OPERATIONS', 'FIELD_OFFICER', 'CREDIT_OFFICER', 'ADMIN'].includes(user?.role ?? '')
+  if (!h.data) return <ErrorBox error={h.error} />
+  const d = h.data
+  function start() {
+    setEdit({ members: String(d.household?.members ?? 1), monthlyExpenses: String(d.household?.monthlyExpenses ?? ''), existingEmi: String(d.household?.existingEmi ?? 0),
+      earners: d.earners.length ? d.earners.map(e => ({ ...e })) : [{ name: '', relation: 'SELF', occupation: '', monthlyIncome: 0, included: true }] })
+  }
+  async function save() {
+    try {
+      setErr(null)
+      await api.put(`/api/applications/${id}/household`, { members: Number(edit!.members), monthlyExpenses: Number(edit!.monthlyExpenses || 0), existingEmi: Number(edit!.existingEmi || 0),
+        earners: edit!.earners.map(e => ({ ...e, monthlyIncome: Number(e.monthlyIncome) })) })
+      setEdit(null); setN(x => x + 1)
+    } catch (e) { setErr(e) }
+  }
+  return (
+    <div className="panel" style={{ marginTop: 10 }} data-household>
+      <h3 style={{ marginTop: 0 }}>Household cash flow</h3>
+      <ErrorBox error={err} />
+      {!edit && (d.household ? (
+        <>
+          <p className="small">{d.household.members} members · income {inr(d.monthlyIncome ?? 0)}/month ({inr(d.annualIncome ?? 0)} a year) · expenses {inr(d.household.monthlyExpenses)} · existing repayments {inr(d.household.existingEmi)} ·
+            surplus <b>{inr(d.surplus ?? 0)}</b>. Microfinance: {d.mfiQualifying ? 'qualifies (income up to ₹3 lakh a year)' : 'above the ₹3 lakh household-income limit'}; room for repayments within the 50% cap {inr(d.mfiRepaymentRoom ?? 0)}/month.</p>
+          <Table head={['Member', 'Relation', 'Occupation', 'Income / month', 'Counted']} rows={d.earners.map(e => [e.name, e.relation.toLowerCase(), e.occupation ?? '—', inr(e.monthlyIncome), e.included ? 'Yes' : 'No'])} />
+        </>
+      ) : <p className="small muted">Not captured. Needed for microfinance (the RBI cap uses household income); useful for any family business.</p>)}
+      {!edit && can && <button className="btn sm" data-action="editHousehold" onClick={start}>{d.household ? 'Edit household' : 'Add household'}</button>}
+      {edit && (
+        <div className="form">
+          <label className="fld">Members<input type="number" min={1} name="hhMembers" value={edit.members} onChange={e => setEdit({ ...edit, members: e.target.value })} /></label>
+          <label className="fld">Household expenses / month (₹)<input type="number" name="hhExpenses" value={edit.monthlyExpenses} onChange={e => setEdit({ ...edit, monthlyExpenses: e.target.value })} /></label>
+          <label className="fld">Existing loan repayments / month (₹)<input type="number" name="hhEmi" value={edit.existingEmi} onChange={e => setEdit({ ...edit, existingEmi: e.target.value })} /></label>
+          {edit.earners.map((m, i) => (
+            <div key={i} className="row wide" style={{ gap: 6, flexWrap: 'wrap' }}>
+              <input placeholder="Name" aria-label="Member name" value={m.name} onChange={e => { const c = [...edit.earners]; c[i] = { ...m, name: e.target.value }; setEdit({ ...edit, earners: c }) }} />
+              <select aria-label="Relation" value={m.relation} onChange={e => { const c = [...edit.earners]; c[i] = { ...m, relation: e.target.value }; setEdit({ ...edit, earners: c }) }}>{RELATIONS.map(r => <option key={r}>{r}</option>)}</select>
+              <input placeholder="Occupation" aria-label="Occupation" value={m.occupation ?? ''} onChange={e => { const c = [...edit.earners]; c[i] = { ...m, occupation: e.target.value }; setEdit({ ...edit, earners: c }) }} />
+              <input type="number" placeholder="Income / month" aria-label="Monthly income" value={String(m.monthlyIncome)} onChange={e => { const c = [...edit.earners]; c[i] = { ...m, monthlyIncome: Number(e.target.value) }; setEdit({ ...edit, earners: c }) }} />
+              <label className="check"><input type="checkbox" checked={m.included} onChange={e => { const c = [...edit.earners]; c[i] = { ...m, included: e.target.checked }; setEdit({ ...edit, earners: c }) }} /> counted</label>
+              <button className="btn sm" onClick={() => setEdit({ ...edit, earners: edit.earners.filter((_, j) => j !== i) })}>Remove</button>
+            </div>
+          ))}
+          <div className="row wide">
+            <button className="btn sm" onClick={() => setEdit({ ...edit, earners: [...edit.earners, { name: '', relation: 'SPOUSE', occupation: '', monthlyIncome: 0, included: true }] })}>Add earning member</button>
+            <button className="btn primary" onClick={save}>Save household</button><button className="btn" onClick={() => setEdit(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

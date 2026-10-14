@@ -53,6 +53,13 @@ public class DecisionRecord {
     private String conditionsJson;
     private String narrative;
     @jakarta.persistence.Column(name = "missing_data") private String missingData;
+    @jakarta.persistence.Column(name = "scorecard_json") private String scorecardJson;
+    @jakarta.persistence.Column(name = "network_score") private Integer networkScore;
+
+    public String getScorecardJson() { return scorecardJson; }
+    public void setScorecardJson(String v) { this.scorecardJson = v; }
+    public Integer getNetworkScore() { return networkScore; }
+    public void setNetworkScore(Integer v) { this.networkScore = v; }
     @Column(name = "credit_memo")
     private String creditMemo;
     @Column(name = "model_version")

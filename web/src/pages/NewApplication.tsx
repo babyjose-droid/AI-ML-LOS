@@ -10,7 +10,7 @@ type Form = Record<string, string | boolean>
 const EMPTY: Form = {
   productCode: 'BL-UNS', applicantName: '', pan: '', mobile: '', email: '', dob: '', gender: '', address: '', city: '', pincode: '',
   businessName: '', businessVintageYears: '3', declaredMonthlyIncome: '', essentialExpenses: '', loanAmount: '', tenureMonths: '24',
-  purpose: '', bankAccountNo: '', bankIfsc: '', consentBureau: false, consentAa: false, consentKyc: false, preferredLanguage: 'en',
+  purpose: '', bankAccountNo: '', bankIfsc: '', consentBureau: false, consentAa: false, consentKyc: false, preferredLanguage: 'en', industry: '', addressLat: '', addressLng: '',
 }
 
 function fromApp(a: LoanApplication): Form {
@@ -50,7 +50,8 @@ export default function NewApplication() {
       pan: String(f.pan).toUpperCase(), bankIfsc: String(f.bankIfsc).toUpperCase(),
       businessVintageYears: Number(f.businessVintageYears || 0), declaredMonthlyIncome: Number(f.declaredMonthlyIncome),
       essentialExpenses: Number(f.essentialExpenses || 0), loanAmount: Number(f.loanAmount), tenureMonths: Number(f.tenureMonths),
-      email: f.email || null, gender: f.gender || null,
+      email: f.email || null, gender: f.gender || null, industry: f.industry || null,
+      addressLat: f.addressLat ? Number(f.addressLat) : null, addressLng: f.addressLng ? Number(f.addressLng) : null,
     }
     try {
       const a = id ? await api.put<LoanApplication>('/api/applications/' + id, body) : await api.post<LoanApplication>('/api/applications', body)
@@ -98,12 +99,25 @@ export default function NewApplication() {
           {txt('city', 'City')}
           {txt('pincode', 'PIN code', { inputMode: 'numeric', maxLength: 6 })}
           <label className="fld wide">Address<input name="address" value={String(f.address)} onChange={set('address')} /></label>
+          <div className="fld wide small">
+            {f.addressLat ? <>Business location saved ({Number(f.addressLat).toFixed(5)}, {Number(f.addressLng).toFixed(5)}): the field visit checks in within 150 m of it. </> : 'At the borrower\'s premises? Save the location so the field visit can be checked against it. '}
+            <button type="button" className="btn sm" onClick={() => navigator.geolocation?.getCurrentPosition(
+              pos => setF({ ...f, addressLat: String(pos.coords.latitude), addressLng: String(pos.coords.longitude) }),
+              () => setError(new Error('Location is not available: allow location access in the browser')), { enableHighAccuracy: true, timeout: 15000 })}>Use my current location</button>
+          </div>
         </div>
       </div>
       <div className="panel">
         <h3>Income and business</h3>
         <div className="form">
           {txt('businessName', 'Business or employer')}
+          <label className="fld">Industry (picks the scorecard)
+            <select name="industry" value={String(f.industry)} onChange={set('industry')}>
+              <option value="">—</option>
+              {[['KIRANA', 'Kirana / retail store'], ['TRADING', 'Trading'], ['DAIRY', 'Dairy'], ['AGRI', 'Agriculture'], ['TRANSPORT', 'Transport'],
+                ['MANUFACTURING', 'Manufacturing'], ['SERVICES', 'Services'], ['SALARIED', 'Salaried'], ['OTHER', 'Other']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
           {txt('businessVintageYears', 'Years in business / employment', { type: 'number', min: 0, step: 0.5 })}
           {txt('declaredMonthlyIncome', 'Declared monthly income (₹)', { type: 'number', min: 0 })}
           {txt('essentialExpenses', 'Essential household expenses (₹/month)', { type: 'number', min: 0 })}

@@ -38,7 +38,7 @@ export interface Rule { id: string; description: string; pass: boolean; action: 
 export interface Contribution { label: string; value: number; reasonCode?: string }
 export interface Step { name: string; value: string; status: string }
 
-export interface Decision {
+export interface Decision { scorecardJson?: string; networkScore?: number;
   id: number; decision: string; pd: number; score: number; riskBand: string; fraudScore: number; fraudStatus: string; kycStatus: string
   sustainableIncome: number; maxEmi: number; requestedEmi: number; recommendedAmount: number; recommendedEmi: number; rate: number
   foirPost: number; expectedLoss: number; delegationLevel?: string; rulesJson: string; contributionsJson: string; stepsJson: string
@@ -69,6 +69,7 @@ export interface StatementAnalysis {
   summary: {
     months?: number; avgMonthlyInflow?: number; avgMonthlyOutflow?: number; avgBalance?: number | null; minBalance?: number | null; bounces?: number; bounceCharges?: number
     salary?: { amount: number; employer?: string; months: number } | null; emis?: { counterparty: string; amount: number; months: number }[]; detectedEmi?: number
+    rotation?: { rotationShare: number; roundTrips: number; cashCycles: number; rotatedAmount: number; excludedShare: number }; avgMonthlyAdjustedInflow?: number; adjustedTurnover?: number
     cashDepositShare?: number; roundAmountShare?: number; gamblingCount?: number; gamblingAmount?: number; duplicates?: number; missingMonths?: string[]
     daysSinceLastTransaction?: number | null; declaredVsObserved?: number | null
     topCreditors?: { name: string; amount: number }[]; topDebits?: { name: string; amount: number }[]

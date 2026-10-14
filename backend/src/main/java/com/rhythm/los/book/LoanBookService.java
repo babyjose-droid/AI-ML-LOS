@@ -274,6 +274,7 @@ public class LoanBookService {
         LocalDate on = last == null ? LocalDate.now() : last.plusMonths(1);
         List<FeedRow> rows = new ArrayList<>();
         for (LiveLoan l : loans.findByStatusOrderByIdAsc("ACTIVE")) rows.add(simulate(l, on));
+        if (rows.isEmpty()) throw ApiException.conflict("NO_LOANS", "No active loans to simulate: disburse a loan or load an LMS feed first");
         return ingest(on, rows, "DEMO", by);
     }
 

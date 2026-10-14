@@ -195,6 +195,36 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
+## Phase 3: Portfolio and growth
+
+- **Loan book** (Portfolio → Loan book): loans disbursed in Rhythm join the book at once. The LMS sends outstanding, overdue, days past due, bounces and payments by API (`POST /api/book/feed`) or CSV. Until the LMS is connected, **Run demo LMS feed** seeds a book from the synthetic history and simulates one month per click.
+- **SMA / NPA and provisions:** SMA-0/1/2 and NPA by days past due. An NPA is upgraded only when all arrears are paid (RBI, Nov 2021). RBI minimum provisions (0.4% standard, 10% sub-standard, doubtful by age and security) sit next to the **Ind AS 109 ECL** (stage 1/2/3, 12-month or lifetime PD × LGD × exposure). A shortfall of ECL below the minimum shows as an impairment reserve.
+- **Early warning:** first instalment missed, days past due rising, bounces, behaviour PD, no payment for 45 days, restructured, fraud review. A score of 40 or more puts the loan on the watchlist with a suggested action.
+- **Restructuring** (loan detail → Propose restructuring): tenure extension, moratorium (interest capitalised) or rate cut, with the new schedule. Maker-checker: a credit manager or the CRO approves, never the proposer. On approval the account is NPA (restructured) until a year of on-time payment under the new terms (RBI prudential framework, 2019).
+- **Collections AI** (Portfolio → Collections): a ranked queue with likelihood to pay, next channel (WhatsApp, SMS, call, field visit, notice), best hour (learned from when the borrower answered before) and a script. Calls and visits can only be logged between 8 am and 7 pm. Promises to pay are marked kept or broken from the LMS feed.
+- **Top-up offers** (Portfolio → Top-ups): good payers only (6 months on book, never 30+ days late, no recent bounce, not restructured, behaviour PD under 10%). Exposure is capped at 1.5× the original loan. Taking up an offer creates a pre-filled draft. The borrower gives fresh consent, and the draft is underwritten again.
+- **Rate simulator** (Portfolio → Rate simulator): a rate change applied to the book's mix. It shows the effect on volume (elasticity), ticket size (EMI affordability), adverse selection, yield, NIM, expected loss and risk-adjusted income, with a −300 to +300 bps curve.
+- **Compliance pack** (Portfolio → Compliance and returns): 15 checks computed from the records. They cover:
+  - KFS before disbursement and APR shown
+  - consent before data
+  - rate cap, own-account disbursal, no disbursal under fraud review
+  - delegated authority, restructuring maker-checker, contact hours
+  - classification, provisions
+  - Aadhaar never stored in full, append-only audit, independent model approval, bureau-reporting identifiers
+
+  Each check shows its exceptions and evidence, and the pack downloads as CSV.
+- **Regulatory returns:**
+  - asset classification with NPA age classes
+  - NPA movement for any period
+  - exposure by segment, product and region, with top-20 concentration
+  - the fortnightly credit bureau (CIC) file, with a readiness check. The full file contains PAN and is for compliance only.
+- **Branch and officer scores:** out of 100, with the parts shown.
+  - Branches: book quality, disbursals, speed, promises kept.
+  - Officers: early delinquency, conversion, volume, complete data.
+- **Policy assistant** (`/assistant`): answers from the live policy, products, delegation matrix, rules and reason codes. Give an application number to have its decision explained. Names, PAN, Aadhaar and mobile numbers are masked before anything leaves Rhythm.
+  - With `ANTHROPIC_API_KEY` on the AI service, Claude writes the answer from the retrieved passages, with citations.
+  - Without a key, the passages are quoted.
+
 ## Phase 2: AI copilot
 
 - **Money rotation and adjusted turnover:** the statement AI finds round trips with the same party within 7 days and cash deposited then withdrawn within 2 days. It also separates self transfers, loan credits and refunds. The engine's income is the adjusted turnover, and R19 refers the case when rotation is above 30% of credits.

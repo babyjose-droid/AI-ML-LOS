@@ -25,6 +25,7 @@ import Account from './pages/Account'
 import SanctionLetter from './pages/SanctionLetter'
 import Fairness from './pages/Fairness'
 import FieldApp from './pages/FieldApp'
+import Portfolio from './pages/Portfolio'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -36,6 +37,9 @@ const NAV: [string, NavItem[]][] = [
     { to: '/applications', label: 'Pipeline' },
     { to: '/board', label: 'Stage board' },
     { to: '/applications/new', label: 'New application', roles: ['SALES', 'OPERATIONS', 'ADMIN'] },
+  ]],
+  ['Portfolio', [
+    { to: '/portfolio', label: 'Loan book', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE'] },
   ]],
   ['Operations', [
     { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
@@ -122,6 +126,7 @@ export default function App() {
             <Route path="/applications/:id/letter" element={<SanctionLetter />} />
             <Route path="/fairness" element={<Fairness />} />
             <Route path="/field" element={<FieldApp />} />
+            <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />
             <Route path="/reports" element={<Reports />} />

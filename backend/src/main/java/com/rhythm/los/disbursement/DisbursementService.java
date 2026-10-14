@@ -65,6 +65,11 @@ public class DisbursementService {
         this.payout = payout;
     }
 
+    private com.rhythm.los.book.LoanBookService book;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setBook(com.rhythm.los.book.LoanBookService b) { this.book = b; }
+
     public List<Disbursement> list(Long appId) { return repo.findByApplicationIdOrderByIdAsc(appId); }
 
     @Transactional
@@ -108,6 +113,7 @@ public class DisbursementService {
         d = repo.save(d);
         apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, "UTR " + r.utr() + " · net ₹" + kfs.netDisbursed());
         apps.transition(a, Domain.APP, "DISBURSED", "application.disbursed", by, "Loan booking file sent to LMS");
+        if (book != null) book.onDisbursed(a, kfs, "LN-" + a.getAppNo().replace("APP-", ""));
         return d;
     }
 

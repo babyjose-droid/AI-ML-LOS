@@ -26,6 +26,7 @@ import SanctionLetter from './pages/SanctionLetter'
 import Fairness from './pages/Fairness'
 import FieldApp from './pages/FieldApp'
 import Portfolio from './pages/Portfolio'
+import Pricing from './pages/Pricing'
 
 type NavItem = { to: string; label: string; roles?: Role[] }
 const NAV: [string, NavItem[]][] = [
@@ -40,6 +41,7 @@ const NAV: [string, NavItem[]][] = [
   ]],
   ['Portfolio', [
     { to: '/portfolio', label: 'Loan book', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE'] },
+    { to: '/pricing', label: 'Rate simulator', roles: ['ADMIN', 'CREDIT_MANAGER', 'CRO'] },
   ]],
   ['Operations', [
     { to: '/reports', label: 'Reports', roles: ['ADMIN', 'CRO', 'CREDIT_MANAGER', 'COMPLIANCE', 'OPERATIONS'] },
@@ -127,6 +129,7 @@ export default function App() {
             <Route path="/fairness" element={<Fairness />} />
             <Route path="/field" element={<FieldApp />} />
             <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/audit" element={<Audit />} />
             <Route path="/reports" element={<Reports />} />

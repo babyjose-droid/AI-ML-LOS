@@ -34,6 +34,7 @@ public class LiveLoan {
     private int dpd;
     @Column(name = "max_dpd") private int maxDpd;
     @Column(name = "bounces_3m") private int bounces3m;
+    @Column(name = "npa_hold_until") private LocalDate npaHoldUntil;
     @Column(name = "paid_emis") private int paidEmis;
     @Column(name = "last_payment_date") private LocalDate lastPaymentDate;
     private String classification = "STANDARD";
@@ -122,4 +123,6 @@ public class LiveLoan {
     public int monthsOnBook(LocalDate on) {
         return (int) Math.max(0, java.time.temporal.ChronoUnit.MONTHS.between(disbursedOn.withDayOfMonth(1), on.withDayOfMonth(1)));
     }
+    public LocalDate getNpaHoldUntil() { return npaHoldUntil; }
+    public void setNpaHoldUntil(LocalDate v) { this.npaHoldUntil = v; }
 }

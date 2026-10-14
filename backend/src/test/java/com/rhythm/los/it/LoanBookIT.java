@@ -90,7 +90,8 @@ class LoanBookIT {
         m.put("pincode", "422001"); m.put("businessVintageYears", 6); m.put("declaredMonthlyIncome", 72000);
         m.put("essentialExpenses", 30000); m.put("loanAmount", 500000); m.put("tenureMonths", 24); m.put("purpose", "Test");
         m.put("bankAccountNo", "5010099887766"); m.put("bankIfsc", "HDFC0001234"); m.put("consentBureau", true); m.put("consentAa", true); m.put("consentKyc", true);
-        long id = ok(post("/api/applications"), sales, m).body().get("id").asLong();
+        JsonNode created = ok(post("/api/applications"), sales, m).body();
+        long id = created.get("id").asLong();
         for (String t : List.of("PAN", "AADHAAR", "SALARY_SLIP")) {
             MvcResult r = mvc.perform(multipart("/api/applications/" + id + "/documents")
                     .file(new MockMultipartFile("file", t.toLowerCase() + ".pdf", "application/pdf", "%PDF-1.4 test".getBytes()))
@@ -101,7 +102,7 @@ class LoanBookIT {
         ok(post("/api/applications/" + id + "/sanction"), cm, Map.of());
         ok(post("/api/applications/" + id + "/kfs/accept"), sales, Map.of("otp", "123456"));
         assertThat(ok(post("/api/applications/" + id + "/disburse"), ops, null).body().get("status").asText()).isEqualTo("SUCCESS");
-        String appNo = ok(get("/api/applications/" + id), ops, null).body().get("appNo").asText();
+        String appNo = created.get("appNo").asText();
         JsonNode mine = ok(get("/api/book/loans?q=" + appNo), cro, null).body();
         assertThat(mine.size()).isEqualTo(1);
         assertThat(mine.get(0).get("source").asText()).isEqualTo("RHYTHM");

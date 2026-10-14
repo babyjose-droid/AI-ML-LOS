@@ -4,6 +4,7 @@ import { api, getToken } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, Head, Modal, Pill, Table, useLoad } from '../components/ui'
 import { inr, lakh, pct } from '../format'
+import { Collections, LoanActions, Restructures, Topups } from './Growth'
 
 interface Loan {
   id: number; loanRef: string; applicationId?: number; appNo?: string; borrowerName: string; segment: string; productCode: string
@@ -23,7 +24,7 @@ const CLS_PILL: Record<string, string> = { STANDARD: 'ok', 'SMA-0': 'warn', 'SMA
 /** Loan book: LMS feed, SMA/NPA, Ind AS 109 ECL and the early-warning watchlist. */
 export default function Portfolio() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'summary' | 'loans' | 'watch' | 'feeds'>('summary')
+  const [tab, setTab] = useState<'summary' | 'loans' | 'watch' | 'collections' | 'topups' | 'restructures' | 'feeds'>('summary')
   const [rev, setRev] = useState(0)
   const [msg, setMsg] = useState<string>()
   const [error, setError] = useState<unknown>()
@@ -60,12 +61,16 @@ export default function Portfolio() {
       <ErrorBox error={error ?? s.error} />
       {msg && <div className="alert ok">{msg}</div>}
       <div className="tabs" role="tablist">
-        {([['summary', 'Summary'], ['loans', 'Loans'], ['watch', 'Early warning'], ['feeds', 'LMS feeds']] as const).map(([k, l]) =>
+        {([['summary', 'Summary'], ['loans', 'Loans'], ['watch', 'Early warning'], ['collections', 'Collections'], ['topups', 'Top-ups'], ['restructures', 'Restructuring'], ['feeds', 'LMS feeds']] as const)
+          .filter(([k]) => !(k === 'collections' && user?.role === 'COMPLIANCE') && !(k === 'topups' && !['ADMIN', 'OPERATIONS', 'CREDIT_MANAGER', 'CRO'].includes(user?.role ?? ''))).map(([k, l]) =>
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       {tab === 'summary' && s.data && <SummaryView s={s.data} />}
       {tab === 'loans' && <LoanList rev={rev} watch={false} />}
       {tab === 'watch' && <LoanList rev={rev} watch />}
+      {tab === 'collections' && <Collections rev={rev} />}
+      {tab === 'topups' && <Topups rev={rev} />}
+      {tab === 'restructures' && <Restructures rev={rev} />}
       {tab === 'feeds' && <Feeds rev={rev} />}
     </>
   )
@@ -131,7 +136,8 @@ function LoanList({ rev, watch }: { rev: number; watch: boolean }) {
 interface Snap { feedDate: string; outstanding: number; overdue: number; dpd: number; classification: string; eclStage: number; ecl: number }
 
 function LoanDetail({ id, onClose }: { id: number; onClose: () => void }) {
-  const d = useLoad(() => api.get<{ loan: Loan; ews: { signals?: { reason: string; points: number }[]; action?: string }; history: Snap[]; monthsOnBook: number }>(`/api/book/loans/${id}`), [id])
+  const [r, setR] = useState(0)
+  const d = useLoad(() => api.get<{ loan: Loan; ews: { signals?: { reason: string; points: number }[]; action?: string }; history: Snap[]; monthsOnBook: number }>(`/api/book/loans/${id}`), [id, r])
   return (
     <Modal title="Loan" onClose={onClose}>
       <ErrorBox error={d.error} />
@@ -146,6 +152,8 @@ function LoanDetail({ id, onClose }: { id: number; onClose: () => void }) {
             <h4>Early warning: {l.ewsScore}/100</h4>
             <ul className="small">{(d.data.ews.signals ?? []).map(x => <li key={x.reason}>{x.reason} (+{x.points})</li>)}</ul>
             <p className="small"><b>Suggested action:</b> {d.data.ews.action}</p>
+            <LoanActions loan={l} onChange={() => setR(x => x + 1)} />
+            <h4>Feed history</h4>
             <Table head={['Feed date', 'Outstanding', 'Overdue', 'DPD', 'Class', 'Stage', 'ECL']} rows={d.data.history.map(h => [h.feedDate, inr(h.outstanding), inr(h.overdue), h.dpd, <Pill s={h.classification} />, h.eclStage, inr(h.ecl)])} />
           </div>
         )

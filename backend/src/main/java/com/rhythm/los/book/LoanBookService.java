@@ -186,9 +186,38 @@ public class LoanBookService {
     }
 
     /** Classification, behaviour PD, ECL, provision and early warning from the loan's current figures. */
+    /** Re-runs classification, ECL, provision and early warning (after a restructure, say) and saves the loan. */
+    @Transactional
+    public LiveLoan refresh(LiveLoan l, LocalDate on) {
+        recompute(l, on, l.getDpd());
+        LiveLoan saved = loans.save(l);
+        LoanSnapshot s = snaps.findByLoanIdAndFeedDate(saved.getId(), on).orElse(null);
+        if (s != null) snaps.delete(s);
+        snaps.flush();
+        snaps.save(new LoanSnapshot(saved, on));
+        return saved;
+    }
+
+    /** The loan's own "today": the later of today and its last feed date (the demo feed runs ahead). */
+    public static LocalDate asOf(LiveLoan l) {
+        return l.getLastFeedDate() != null && l.getLastFeedDate().isAfter(LocalDate.now()) ? l.getLastFeedDate() : LocalDate.now();
+    }
+
+    public LiveLoan get(Long id, CurrentUser u) {
+        LiveLoan l = loans.findById(id).orElseThrow(() -> ApiException.notFound("Loan"));
+        if (!visible(scope.visibleBranches(u), l)) throw ApiException.notFound("Loan");
+        return l;
+    }
+
     void recompute(LiveLoan l, LocalDate on, Integer prevDpd) {
         PolicyParams pol = policy.live();
         BookRisk.Classification c = BookRisk.classify(l.getClassification(), l.getNpaSince(), l.getDpd(), l.getOverdue().doubleValue(), on);
+        if (l.getNpaHoldUntil() != null) {
+            // restructured: NPA through the specified period; a slip of more than 30 days restarts it
+            if (l.getDpd() > 30 && on.isBefore(l.getNpaHoldUntil())) l.setNpaHoldUntil(on.plusMonths(12));
+            if (on.isBefore(l.getNpaHoldUntil())) c = new BookRisk.Classification("NPA", l.getNpaSince() == null ? on : l.getNpaSince());
+            else l.setNpaHoldUntil(null);
+        }
         l.setClassification(c.cls());
         l.setNpaSince(c.npaSince());
         int mob = l.monthsOnBook(on);
@@ -316,6 +345,12 @@ public class LoanBookService {
     // ---------------------------------------------------------------- views
 
     boolean visible(Set<Long> vis, LiveLoan l) { return vis == null || l.getBranchId() == null || vis.contains(l.getBranchId()); }
+
+    /** Every loan the user may see (branch scope), no limit. */
+    public List<LiveLoan> visible(CurrentUser u) {
+        Set<Long> vis = scope.visibleBranches(u);
+        return loans.findAll().stream().filter(l -> visible(vis, l)).toList();
+    }
 
     public List<LiveLoan> list(CurrentUser u, String cls, boolean watchOnly, String q) {
         Set<Long> vis = scope.visibleBranches(u);

@@ -34,6 +34,10 @@ public class Collateral {
     @Column(name = "insurance_expiry") private LocalDate insuranceExpiry;
     @Column(name = "insurance_assigned") private boolean insuranceAssigned;
     private String status = "PENDING";
+    @Column(name = "lien_state") private String lienState = "NONE";
+    private String purpose = "ORIGINAL";
+    @Column(name = "substitute_for") private Long substituteFor;
+    @Column(name = "released_at") private Instant releasedAt;
     @Column(name = "risk_score") private Integer riskScore;
     @Column(name = "max_exposure") private BigDecimal maxExposure;
     @Column(name = "ltv_cap") private boolean ltvCap;
@@ -104,4 +108,14 @@ public class Collateral {
     public void setCreatedBy(String v) { this.createdBy = v; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant v) { this.createdAt = v; }
+    public String getLienState() { return lienState; }
+    public void setLienState(String v) { this.lienState = v; }
+    public String getPurpose() { return purpose; }
+    public void setPurpose(String v) { this.purpose = v; }
+    public Long getSubstituteFor() { return substituteFor; }
+    public void setSubstituteFor(Long v) { this.substituteFor = v; }
+    public Instant getReleasedAt() { return releasedAt; }
+    public void setReleasedAt(Instant v) { this.releasedAt = v; }
+    /** Held against the loan now (or, before disbursement, part of the application). */
+    public boolean held() { return !"RELEASED".equals(lienState) && !"SUBSTITUTED".equals(lienState) && !"SUBSTITUTE".equals(purpose) || "SUBSTITUTE".equals(purpose) && "ACTIVE".equals(lienState); }
 }

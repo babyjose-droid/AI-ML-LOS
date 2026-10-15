@@ -19,6 +19,8 @@ EXPECTED_SIGN = {
     "stability": -1, "foirExisting": +1, "bounces": +1, "negMonths": +1, "balanceBuffer": -1, "vintage": -1,
     "thinFile": +1, "bureauScoreGap": +1, "dpd12": +1, "ever90": +1, "enquiries6m": +1, "historyYears": -1,
     "gstFilingGap": +1, "gstTurnoverGap": +1, "internalBad": +1, "loanToIncome": +1, "declaredInflation": +1,
+    # fraud model features
+    "dupLinks": +1, "docTamper": +1, "velocity": +1, "rotationShare": +1, "networkScore": +1, "incomeGap": +1, "idWeakness": +1,
 }
 
 

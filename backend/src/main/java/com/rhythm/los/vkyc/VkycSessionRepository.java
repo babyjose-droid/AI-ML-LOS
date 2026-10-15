@@ -9,4 +9,5 @@ public interface VkycSessionRepository extends JpaRepository<VkycSession, Long> 
     Optional<VkycSession> findByTokenHash(String tokenHash);
     List<VkycSession> findByApplicationIdOrderByIdDesc(Long applicationId);
     List<VkycSession> findByStatusInOrderByIdAsc(List<String> statuses);
+    List<VkycSession> findBySlotAtBetween(java.time.Instant from, java.time.Instant to);
 }

@@ -31,6 +31,7 @@ import Compliance from './pages/Compliance'
 import Scores from './pages/Scores'
 import Assistant from './pages/Assistant'
 import CollateralOverview, { CollateralCase } from './collateral/Collateral'
+import VkycQueue from './vkyc/VkycQueue'
 import { Capital, CoLending } from './pages/Scale'
 import { Benchmarking, Onboarding, Platform } from './pages/Tenancy'
 import { useLoad } from './components/ui'
@@ -42,6 +43,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/overview', label: 'Overview' },
     { to: '/my-work', label: 'My work' },
     { to: '/field', label: 'Field visits', roles: ['FIELD_OFFICER', 'OPERATIONS', 'ADMIN'] },
+    { to: '/vkyc-queue', label: 'Video KYC queue', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER'] },
     { to: '/collateral', label: 'Collateral AI', roles: ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE', 'LEGAL_REVIEWER', 'VALUER', 'FIELD_OFFICER', 'SALES'] },
     { to: '/review-queue', label: 'Review queue', roles: ['CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
     { to: '/applications', label: 'Pipeline' },
@@ -152,6 +154,7 @@ export default function App() {
             <Route path="/scores" element={<Scores />} />
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/collateral" element={<CollateralOverview />} />
+            <Route path="/vkyc-queue" element={<VkycQueue />} />
             <Route path="/colending" element={<CoLending />} />
             <Route path="/platform/tenants" element={<Platform />} />
             <Route path="/onboarding" element={<Onboarding />} />

@@ -9,7 +9,7 @@ import { Poller, grab, mixForRecording, peer, recorder, sleep, type Signal } fro
 
 export interface VkycSession {
   id: number; applicationId: number; status: string; createdBy: string; createdAt: string; expiresAt: string; joinedAt?: string
-  customerLat?: number; customerLng?: number; customerAccuracyM?: number; inIndia?: boolean; customerAgent?: string; officer?: string
+  customerLat?: number; customerLng?: number; customerAccuracyM?: number; inIndia?: boolean; ipCountry?: string; slotAt?: string; bookedBy?: string; customerAgent?: string; officer?: string
   callStartedAt?: string; callEndedAt?: string; recordingSha256?: string; recordingBytes?: number; hasRecording?: boolean
   aiStatus?: string; decision?: string; decisionNote?: string; codeHeard?: boolean; aiOverride?: boolean; decidedBy?: string; decidedAt?: string
   partyId?: number; personName?: string; questionsJson?: string
@@ -104,7 +104,7 @@ export default function VideoKycTab({ id, rev, canRun, onChange }: { id: string;
           <h3 style={{ marginTop: 0 }}>Sessions</h3>
           <Table head={['Created', 'Person', 'Status', 'Customer location', 'Official', 'AI', 'Decision']} onRow={i => setOpen(sessions[i].id)} rows={sessions.map(s => [
             when(s.createdAt), <span>{s.personName ?? 'Applicant'}{s.partyId ? <div className="small muted">co-applicant / guarantor</div> : null}</span>, <Pill s={s.status} />,
-            s.customerLat != null ? <span className="small">{s.customerLat}, {s.customerLng} {s.inIndia ? '· India' : <b className="bad-text">· outside India</b>}</span> : '—',
+            s.customerLat != null ? <span className="small">{s.customerLat}, {s.customerLng} {s.inIndia ? '· India' : <b className="bad-text">· outside India</b>}{s.ipCountry && !['IN', 'PRIVATE', 'UNKNOWN'].includes(s.ipCountry) && <b className="bad-text"> · IP in {s.ipCountry}</b>}</span> : s.slotAt ? <span className="small">Booked for {new Date(s.slotAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span> : '—',
             s.officer ?? '—', s.aiStatus ? <Pill s={s.aiStatus} /> : '—', s.decision ? <Pill s={s.decision} /> : '—',
           ])} />
         </div>
@@ -218,7 +218,7 @@ function CallPanel({ s, canRun, onDone }: { s: VkycSession; canRun: boolean; onD
     <div className="panel" data-vkyc-call={s.status}>
       <div className="head" style={{ marginBottom: 10 }}>
         <h3 style={{ margin: 0 }}>Live call <Pill s={s.status} /></h3>
-        {s.customerLat != null && <span className="small">Customer at {s.customerLat}, {s.customerLng} (±{s.customerAccuracyM ?? '?'} m) {s.inIndia ? '· India' : '· OUTSIDE INDIA'}</span>}
+        {s.customerLat != null && <span className="small">Customer at {s.customerLat}, {s.customerLng} (±{s.customerAccuracyM ?? '?'} m) {s.inIndia ? '· India' : '· OUTSIDE INDIA'}{s.ipCountry ? ` · IP country ${s.ipCountry}` : ''}</span>}
       </div>
       <ErrorBox error={error} />
       {s.status === 'WAITING' && <p className="muted">Waiting for the customer to open the link and give consent…</p>}
@@ -281,6 +281,7 @@ function SessionDetail({ sid, canRun, onChange }: { sid: number; canRun: boolean
           ['Link created', `${when(s.createdAt)} by ${s.createdBy}`],
           ['Customer joined', s.joinedAt ? when(s.joinedAt) : '—'],
           ['Location', s.customerLat != null ? `${s.customerLat}, ${s.customerLng} (±${s.customerAccuracyM ?? '?'} m) · ${s.inIndia ? 'India' : 'OUTSIDE INDIA'}` : '—'],
+          ['IP country', s.ipCountry ?? '—'],
           ['Device', <span className="small">{s.customerAgent ?? '—'}</span>],
           ['Official', s.officer ?? '—'],
           ['Call', s.callStartedAt ? `${when(s.callStartedAt)} – ${s.callEndedAt ? when(s.callEndedAt) : 'in progress'}` : '—'],

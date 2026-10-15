@@ -84,4 +84,31 @@ class WorkflowRulesTest {
         assertThat(StageLibrary.escalationRole("FIELD_OFFICER")).isEqualTo("CREDIT_OFFICER");
         assertThat(StageLibrary.escalationRole("CREDIT_MANAGER")).isEqualTo("CRO");
     }
+
+    static Stage par(Stage s) { return new Stage(s.key(), s.name(), s.role(), s.sla(), s.mode(), s.onFailure(), s.skip(), s.integrations(), true); }
+
+    @Test
+    void parallelStagesFormGroupsButGatesStayAlone() {
+        List<Stage> s = plDefault();
+        int docs = s.indexOf(s.stream().filter(x -> x.key().equals("docs")).findFirst().orElseThrow());
+        s.set(docs, par(s.get(docs)));                       // documents alongside KYC
+        assertThat(WorkflowDesignService.validate(s)).isEmpty();
+        assertThat(WorkflowDefinitions.parse(com.rhythm.los.common.Json.write(s)).get(docs).parallel()).isTrue();
+        assertThat(WorkflowDefinitions.parse("[{\"key\":\"lead\",\"name\":\"Lead\",\"role\":\"SALES\",\"sla\":24,\"mode\":\"MANUAL\",\"onFailure\":\"QUEUE\",\"skip\":\"\",\"integrations\":[]}]")
+                .get(0).parallel()).isFalse();
+
+        List<Stage> bad = plDefault();
+        bad.set(0, par(bad.get(0)));
+        assertThat(WorkflowDesignService.validate(bad)).anyMatch(e -> e.contains("Lead & application cannot run alongside"));
+        bad = plDefault();
+        int uw = bad.indexOf(bad.stream().filter(x -> x.key().equals("uw")).findFirst().orElseThrow());
+        bad.set(uw, par(bad.get(uw)));
+        assertThat(WorkflowDesignService.validate(bad)).anyMatch(e -> e.contains("Underwriting cannot run alongside"));
+        bad = plDefault();
+        int cam = bad.indexOf(bad.stream().filter(x -> x.key().equals("cam")).findFirst().orElse(bad.get(1)));
+        if (bad.get(cam).key().equals("cam") && bad.get(cam - 1).key().equals("uw")) {
+            bad.set(cam, par(bad.get(cam)));
+            assertThat(WorkflowDesignService.validate(bad)).anyMatch(e -> e.contains("needs Underwriting finished first"));
+        }
+    }
 }

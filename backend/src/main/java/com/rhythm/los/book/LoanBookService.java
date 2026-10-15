@@ -68,6 +68,18 @@ public class LoanBookService {
     @org.springframework.beans.factory.annotation.Autowired
     void setParties(LoanPartyRepository lp, com.rhythm.los.party.ApplicationPartyRepository ap) { this.loanParties = lp; this.appParties = ap; }
 
+    private com.rhythm.los.collateral.CollateralRepository collaterals;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setCollaterals(com.rhythm.los.collateral.CollateralRepository c) { this.collaterals = c; }
+
+    /** On disbursement the collateral that passed becomes a lien on the loan. */
+    void activateLiens(LiveLoan l) {
+        if (collaterals == null || l.getApplicationId() == null) return;
+        for (var c : collaterals.findByApplicationIdOrderByIdAsc(l.getApplicationId()))
+            if ("NONE".equals(c.getLienState()) && !"SUBSTITUTE".equals(c.getPurpose()) && !"FAIL".equals(c.getStatus())) { c.setLienState("ACTIVE"); collaterals.save(c); }
+    }
+
     /** The co-applicants and guarantors who signed join the loan, so collections can reach them and the bureau report names them. */
     void copyParties(LiveLoan l) {
         if (loanParties == null || appParties == null || l.getApplicationId() == null || !loanParties.findByLoanIdOrderByIdAsc(l.getId()).isEmpty()) return;
@@ -117,6 +129,7 @@ public class LoanBookService {
             recompute(l, LocalDate.now(), null);
             LiveLoan saved = loans.save(l);
             copyParties(saved);
+            activateLiens(saved);
             return saved;
         });
     }

@@ -197,6 +197,41 @@ class VideoKycIT {
     }
 
     @Test
+    void customerBooksASlotTheQueueShowsItAndAForeignIpBlocksApproval() throws Exception {
+        String sales = login("sales1"), ops = login("ops1");
+        long id = create(sales, "Meera Sen", "MEEPS7009M", "9811170009");
+        Res created = ok(post("/api/applications/" + id + "/vkyc"), ops, null);
+        long sid = created.body().get("session").get("id").asLong();
+        String t = token(created);
+
+        // the customer picks a time instead of joining now
+        JsonNode slots = ok(get("/api/vkyc/c/" + t + "/slots"), null, null).body();
+        assertThat(slots.size()).isGreaterThan(10);
+        String first = slots.get(0).get("at").asText(), second = slots.get(1).get("at").asText();
+        assertThat(call(post("/api/vkyc/c/" + t + "/book"), null, Map.of("slotAt", "2020-01-01T00:00:00Z")).body().get("code").asText()).isEqualTo("BAD_SLOT");
+        assertThat(ok(post("/api/vkyc/c/" + t + "/book"), null, Map.of("slotAt", first)).body().get("slotAt").asText()).isNotEmpty();
+        JsonNode q = ok(get("/api/vkyc/queue"), ops, null).body();
+        assertThat(q.get("booked").toString()).contains("\"sessionId\":" + sid).contains("Meera Sen");
+        assertThat(call(get("/api/vkyc/queue"), sales, null).status()).isEqualTo(403);
+        // staff move it on the customer's call
+        assertThat(ok(post("/api/vkyc/" + sid + "/book"), ops, Map.of("slotAt", second)).body().get("bookedBy").asText()).isEqualTo("ops1");
+
+        // GPS says Pune but the IP address is in the UK (a VPN): the official sees it and cannot approve
+        ok(post("/api/vkyc/c/" + t + "/join").header("X-Forwarded-For", "198.51.100.20, 10.0.0.1"), null, Map.of("consent", true, "lat", 18.5204, "lng", 73.8567));
+        JsonNode sess = ok(get("/api/vkyc/" + sid), ops, null).body().get("session");
+        assertThat(sess.get("inIndia").asBoolean()).isTrue();
+        assertThat(sess.get("ipCountry").asText()).isEqualTo("GB");
+        assertThat(ok(get("/api/vkyc/queue"), ops, null).body().get("waiting").toString()).contains("\"sessionId\":" + sid).contains("\"ipCountry\":\"GB\"");
+        ok(post("/api/vkyc/" + sid + "/start"), ops, null);
+        frames(sid, ops, "front", "left", "right", "code", "pan");
+        recording(sid, ops);
+        ok(post("/api/vkyc/" + sid + "/finish"), ops, null);
+        Res blocked = call(post("/api/vkyc/" + sid + "/decision"), ops, Map.of("approve", true, "codeHeard", true, "note", "Everything checked properly on the call", "answers", java.util.List.of(true, true, true)));
+        assertThat(blocked.body().get("code").asText()).isEqualTo("OUTSIDE_INDIA");
+        assertThat(blocked.body().toString()).contains("IP address in GB");
+    }
+
+    @Test
     void outsideIndiaCannotBeApprovedAndFailedAiNeedsAReasonedOverride() throws Exception {
         String sales = login("sales1"), ops = login("ops1");
 

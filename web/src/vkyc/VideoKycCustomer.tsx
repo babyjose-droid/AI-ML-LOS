@@ -4,7 +4,8 @@ import { getTenant } from '../api'
 
 // The customer's side of video KYC. Opened from the one-time link; no login. The link token is the credential.
 
-type View = { status: string; firstName: string; lender: string; appNo: string; expiresAt: string; iceServers: RTCIceServer[] }
+type View = { status: string; firstName: string; lender: string; appNo: string; expiresAt: string; iceServers: RTCIceServer[]; slotAt?: string | null; callHours?: string | null }
+type Slot = { at: string; label: string; free: number }
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
@@ -33,6 +34,8 @@ export default function VideoKycCustomer() {
   const [consent, setConsent] = useState(false)
   const [stage, setStage] = useState<'intro' | 'starting' | 'waiting' | 'call' | 'ended'>('intro')
   const [instruction, setInstruction] = useState('')
+  const [slots, setSlots] = useState<Slot[] | null>(null)
+  const [pick, setPick] = useState('')
   const self = useRef<HTMLVideoElement>(null)
   const officer = useRef<HTMLVideoElement>(null)
   const media = useRef<MediaStream | null>(null)
@@ -121,6 +124,16 @@ export default function VideoKycCustomer() {
             </label>
             <div style={{ marginTop: 14 }}>
               <button className="btn primary" disabled={!consent} onClick={begin}>Allow location and camera, and join</button>
+            </div>
+            <div style={{ marginTop: 16 }} data-vkyc-booking>
+              {view.slotAt && <p className="small" data-vkyc-booked>Your call is booked for <b>{new Date(view.slotAt).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</b>. Open this link at that time and join.</p>}
+              {!slots ? <button className="btn" onClick={() => call<Slot[]>('GET', base + '/slots').then(setSlots).catch(e => setError(e.message))}>{view.slotAt ? 'Change the time' : 'Not now? Book a time for the call'}</button>
+                : <div className="row">
+                  <select aria-label="Call time" value={pick} onChange={e => setPick(e.target.value)}>
+                    <option value="">Pick a time</option>
+                    {slots.map(x => <option key={x.at} value={x.at} disabled={x.free === 0}>{x.label}{x.free === 0 ? ' (full)' : ''}</option>)}</select>
+                  <button className="btn primary" disabled={!pick} onClick={() => call<View>('POST', base + '/book', { slotAt: pick }).then(v => { setView(v); setSlots(null); setPick('') }).catch(e => setError(e.message))}>Book</button>
+                </div>}
             </div>
           </div>
         )}

@@ -117,6 +117,27 @@ public class VkycController {
 
     // ---- customer (no login: the link token is the credential) ----
 
+    @GetMapping("/api/vkyc/queue")
+    @PreAuthorize(OPS)
+    public Map<String, Object> queue() { return vkyc.queue(CurrentUser.get()); }
+
+    @GetMapping("/api/vkyc/{sid}/slots")
+    @PreAuthorize(OPS)
+    public List<VkycSlots.Slot> staffSlots(@PathVariable Long sid) { return vkyc.slots(vkyc.get(sid)); }
+
+    @PostMapping("/api/vkyc/{sid}/book")
+    @PreAuthorize(OPS)
+    public VkycSession staffBook(@PathVariable Long sid, @RequestBody VkycService.BookRequest r) { return vkyc.bookByStaff(sid, r, CurrentUser.get()); }
+
+    @GetMapping("/api/vkyc/c/{token}/slots")
+    public List<VkycSlots.Slot> slots(@PathVariable String token) { return vkyc.slotsByToken(token); }
+
+    @PostMapping("/api/vkyc/c/{token}/book")
+    public Map<String, Object> book(@PathVariable String token, @RequestBody VkycService.BookRequest r) {
+        vkyc.book(vkyc.byToken(token), r, "customer");
+        return vkyc.customerView(token);
+    }
+
     @GetMapping("/api/vkyc/c/{token}")
     public Map<String, Object> customer(@PathVariable String token) { return vkyc.customerView(token); }
 

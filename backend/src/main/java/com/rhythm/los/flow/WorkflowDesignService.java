@@ -137,6 +137,11 @@ public class WorkflowDesignService {
     // ---------------------------------------------------------------- validation
 
     /** Problems that stop a version from being sent for approval. Empty means it can be published. */
+    /** Gates that always run on their own, in order. */
+    static final Set<String> NOT_PARALLEL = Set.of("lead", "uw", "sanction", "disb");
+    /** Pairs where the second needs the first finished (besides the gates above). */
+    static final List<String[]> MUST_FOLLOW = List.of(new String[]{"uw", "cam"}, new String[]{"cgt", "grt"}, new String[]{"kyc", "uw"}, new String[]{"docs", "uw"});
+
     public static List<String> validate(List<Stage> stages) {
         List<String> e = new ArrayList<>();
         if (stages == null || stages.isEmpty()) return List.of("Add at least the mandatory stages");
@@ -156,6 +161,20 @@ public class WorkflowDesignService {
         order(keys, "uw", "cam", e);
         order(keys, "cgt", "grt", e);
         for (String pre : List.of("field", "cgt", "grt", "val", "gold", "legal")) order(keys, pre, "sanction", e);
+        // parallel stages: each starts with the stage before it; the next stage waits for the whole group
+        List<String> group = new ArrayList<>();
+        for (int i = 0; i < stages.size(); i++) {
+            Stage s = stages.get(i);
+            StageLibrary.Def d = StageLibrary.DEFS.get(s.key());
+            if (d == null) continue;
+            if (!s.parallel()) { group = new ArrayList<>(List.of(s.key())); continue; }
+            if (i == 0 || NOT_PARALLEL.contains(s.key())) { e.add(d.name() + " cannot run alongside another stage"); continue; }
+            for (String g : group)
+                for (String[] pair : MUST_FOLLOW)
+                    if (pair[0].equals(g) && pair[1].equals(s.key()))
+                        e.add(d.name() + " needs " + StageLibrary.def(g).name() + " finished first, so it cannot run alongside it");
+            group.add(s.key());
+        }
         for (Stage s : stages) {
             StageLibrary.Def d = StageLibrary.DEFS.get(s.key());
             if (d == null) continue;
@@ -248,7 +267,7 @@ public class WorkflowDesignService {
         if (req.stages() == null || req.stages().size() > 30) throw ApiException.unprocessable("BAD_STAGES", "Between 1 and 30 stages");
         List<Stage> clean = req.stages().stream().map(s -> new Stage(s.key(), s.name() == null ? null : s.name().trim(), s.role(), s.sla(),
                 s.mode(), s.onFailure() == null ? "QUEUE" : s.onFailure(), s.skip() == null ? "" : s.skip().trim(),
-                s.integrations() == null ? List.of() : s.integrations())).toList();
+                s.integrations() == null ? List.of() : s.integrations(), s.parallel())).toList();
         v.setStagesJson(Json.write(clean));
         if (req.notes() != null) v.setNotes(req.notes().length() > 1000 ? req.notes().substring(0, 1000) : req.notes());
         repo.save(v);

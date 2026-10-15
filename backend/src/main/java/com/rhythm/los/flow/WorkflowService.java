@@ -94,8 +94,11 @@ public class WorkflowService {
         boolean closed = Set.of("REJECTED", "WITHDRAWN").contains(a.getAppState());
         Map<String, Object> facts = null;
         boolean stateActive = false, personOpen = false;
+        // a parallel stage starts with the stage before it: it sees what blocked the group, not its siblings
+        boolean groupState = false, groupPerson = false;
         Instant now = Instant.now();
         for (Stage s : stages) {
+            if (!s.parallel()) { groupState = stateActive; groupPerson = personOpen; }
             StageLibrary.Def d = StageLibrary.def(s.key());
             AppStage r = byKey.get(s.key());
             if (r != null && Set.of("DONE", "SKIPPED").contains(r.getStatus())) continue;
@@ -126,7 +129,7 @@ public class WorkflowService {
             // stages); system stages run one at a time and wait for any person stage before them
             boolean recorded = d.kind() == StageLibrary.Kind.RECORDED;
             boolean personStage = recorded || "AUTO_REVIEW".equals(s.mode());
-            boolean eligible = recorded ? !personOpen : !stateActive && !personOpen;
+            boolean eligible = recorded ? !groupPerson : !groupState && !groupPerson;
             if (eligible && s.skip() != null && !s.skip().isBlank()) {
                 if (facts == null) facts = facts(a);
                 if (Conditions.eval(s.skip(), facts)) {

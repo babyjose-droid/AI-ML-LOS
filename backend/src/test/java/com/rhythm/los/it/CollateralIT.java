@@ -48,6 +48,7 @@ class CollateralIT {
     static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired MockMvc mvc;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     record Res(int status, JsonNode body) {}
 
@@ -294,5 +295,86 @@ class CollateralIT {
             JsonNode s = ok(post("/api/applications/" + a + "/sanction"), cm, Map.of("amount", Math.min(cap, rec), "note", "Within the gold LTV cap after appraisal")).body();
             assertThat(s.get("conditionsJson").asText()).contains("sealed");
         }
+    }
+
+    @Test
+    void liveLoanCollateralIsReleasedOrSwappedOnlyWhenTheLoanStaysCovered() throws Exception {
+        String sales = staff("sales1"), ops = staff("ops1"), valuer = staff("valuer1"), cm = staff("cm1"), admin = staff("admin");
+        long a = app(sales, "LAP", "Lien Holder", "LIEPH1002L", "9877100091", 3_000_000, 120, "PAN", "AADHAAR", "UDYAM");
+        long house = ok(post("/api/applications/" + a + "/collaterals"), sales, declare("RESIDENTIAL", "Lien Holder", "CTS 99/1", "NMC-111", 20.0063, 73.7627, 1850)).body().get("id").asLong();
+        long shop = ok(post("/api/applications/" + a + "/collaterals"), sales, declare("SHOP", "Lien Holder", "CTS 99/2", "NMC-112", 19.9975, 73.7898, 520)).body().get("id").asLong();
+        ok(post("/api/collaterals/" + house + "/valuations"), valuer, Map.of("valuer", "Er. P Deshmukh", "reportDate", LocalDate.now().minusDays(5).toString(), "marketValue", 6_000_000));
+        ok(post("/api/collaterals/" + shop + "/valuations"), valuer, Map.of("valuer", "Er. P Deshmukh", "reportDate", LocalDate.now().minusDays(5).toString(), "marketValue", 2_000_000));
+
+        // automated valuation from recent registered sales nearby (imported here so the test does not age with the seeded rows)
+        JsonNode imp = ok(post("/api/collateral/comparables"), valuer, Map.of("source", "REGISTRY", "rows", List.of(
+                Map.of("type", "RESIDENTIAL", "pincode", "422013", "areaSqft", 1200, "price", 6_500_000, "saleDate", LocalDate.now().minusMonths(1).toString(), "lat", 20.006, "lng", 73.763),
+                Map.of("type", "RESIDENTIAL", "pincode", "422013", "areaSqft", 1700, "price", 9_100_000, "saleDate", LocalDate.now().minusMonths(3).toString(), "lat", 20.007, "lng", 73.761),
+                Map.of("type", "RESIDENTIAL", "pincode", "422013", "areaSqft", 2000, "price", 10_600_000, "saleDate", LocalDate.now().minusMonths(5).toString(), "lat", 20.005, "lng", 73.764),
+                Map.of("type", "RESIDENTIAL", "pincode", "42201", "areaSqft", 1200, "price", 6_500_000, "saleDate", "2026-01-01")))).body();
+        assertThat(imp.get("added").asInt()).isEqualTo(3);
+        assertThat(imp.get("errors").toString()).contains("PIN code");
+        JsonNode avm = ok(get("/api/collaterals/" + house), sales, null).body().get("avm");
+        assertThat(avm.get("comparables").asInt()).isGreaterThanOrEqualTo(3);
+        assertThat(avm.get("value").asDouble()).isBetween(1850 * 3500.0, 1850 * 8000.0);
+        assertThat(avm.get("basis").asText()).contains("sales within");
+        assertThat(ok(get("/api/collateral/comparables"), cm, null).body().size()).isGreaterThan(20);
+
+        // the loan is disbursed (set directly: this test is about what happens after)
+        jdbc.update("update loan_application set app_state = 'DISBURSED' where id = ?", a);
+        jdbc.update("""
+                insert into live_loan (loan_ref, application_id, app_no, borrower_name, segment, product_code, branch_id, sanctioned_amount, disbursed_on, tenure_months,
+                  rate, emi, secured, source, status, outstanding)
+                select 'LN-LIEN-1', id, app_no, applicant_name, segment, product_code, branch_id, 3000000, current_date - 400, 120, 13.5, 45000, true, 'RHYTHM', 'ACTIVE', 3000000
+                from loan_application where id = ?""", a);
+        jdbc.update("update collateral set lien_state = 'ACTIVE' where application_id = ?", a);
+        long loan = jdbc.queryForObject("select id from live_loan where loan_ref = 'LN-LIEN-1'", Long.class);
+
+        JsonNode view = ok(get("/api/book/loans/" + loan + "/collateral"), ops, null).body();
+        assertThat(view.get("ltv").asDouble()).isEqualTo(0.375);
+        Map<Long, JsonNode> byId = new HashMap<>();
+        for (JsonNode c : view.get("collaterals")) byId.put(c.get("id").asLong(), c);
+        assertThat(byId.get(house).get("canRelease").asBoolean()).isFalse();
+        assertThat(byId.get(shop).get("canRelease").asBoolean()).isTrue();
+
+        // the house carries the loan: it cannot go while 30 lakh is outstanding; the shop can (part release)
+        Res noHouse = call(post("/api/book/loans/" + loan + "/collateral/release"), ops, Map.of("collateralId", house, "reason", "Borrower wants the house back"));
+        assertThat(noHouse.status()).isEqualTo(422);
+        assertThat(noHouse.body().get("code").asText()).isEqualTo("COVER_SHORT");
+        long rel = ok(post("/api/book/loans/" + loan + "/collateral/release"), ops, Map.of("collateralId", shop, "reason", "Part-payment made, shop to be sold")).body().get("id").asLong();
+        assertThat(call(post("/api/book/loans/" + loan + "/collateral/release"), ops, Map.of("collateralId", shop, "reason", "Asking for the shop again")).body().get("code").asText()).isEqualTo("ALREADY_REQUESTED");
+        assertThat(call(post("/api/collateral-changes/" + rel + "/decision"), ops, Map.of("approve", true, "note", "Approving my own request")).status()).isEqualTo(403);
+        assertThat(call(post("/api/collateral-changes/" + rel + "/complete"), ops, Map.of("handedTo", "Lien Holder")).body().get("code").asText()).isEqualTo("NOT_APPROVED");
+        ok(post("/api/collateral-changes/" + rel + "/decision"), cm, Map.of("approve", true, "note", "House alone covers the loan at 50% LTV"));
+        JsonNode done = ok(post("/api/collateral-changes/" + rel + "/complete"), ops, Map.of("handedTo", "Lien Holder in person")).body();
+        assertThat(done.get("status").asText()).isEqualTo("COMPLETED");
+        assertThat(done.get("letter").asText()).contains("Release of security").contains("remaining collateral");
+        assertThat(jdbc.queryForObject("select lien_state from collateral where id = ?", String.class, shop)).isEqualTo("RELEASED");
+        assertThat(doc(shop, sales, "EC", Map.of("periodFrom", "2012-01-01"), null).status()).isEqualTo(409);
+
+        // substitution: a flat offered in place of the house must pass and carry the loan
+        long flat = ok(post("/api/book/loans/" + loan + "/collateral/" + house + "/substitute"), ops, declare("RESIDENTIAL", "Lien Holder", "CTS 12/7", "NMC-777", 20.0059, 73.7741, 1500)).body().get("id").asLong();
+        ok(post("/api/collaterals/" + flat + "/valuations"), valuer, Map.of("valuer", "Er. R Bhide", "reportDate", LocalDate.now().toString(), "marketValue", 5_000_000));
+        Res notCleared = call(post("/api/book/loans/" + loan + "/collateral/substitution"), ops, Map.of("collateralId", house, "newCollateralId", flat, "reason", "Selling the house, offering the flat"));
+        assertThat(notCleared.body().get("code").asText()).isEqualTo("SUBSTITUTE_NOT_CLEARED");
+        jdbc.update("update collateral set status = 'PASS' where id = ?", flat);
+        long sub = ok(post("/api/book/loans/" + loan + "/collateral/substitution"), ops, Map.of("collateralId", house, "newCollateralId", flat, "reason", "Selling the house, offering the flat"))
+                .body().get("id").asLong();
+        ok(post("/api/collateral-changes/" + sub + "/decision"), cm, Map.of("approve", true, "note", "Flat covers 32.5 lakh at 65% LTV"));
+        assertThat(ok(post("/api/collateral-changes/" + sub + "/complete"), ops, Map.of("handedTo", "Lien Holder in person")).body().get("letter").asText()).contains("replaced by");
+        assertThat(jdbc.queryForObject("select lien_state from collateral where id = ?", String.class, house)).isEqualTo("SUBSTITUTED");
+        assertThat(jdbc.queryForObject("select lien_state from collateral where id = ?", String.class, flat)).isEqualTo("ACTIVE");
+
+        // closure: release is due within 30 days; five days late costs 25,000
+        jdbc.update("update live_loan set outstanding = 0, status = 'CLOSED', last_payment_date = current_date - 35 where id = ?", loan);
+        JsonNode closed = ok(get("/api/book/loans/" + loan + "/collateral"), ops, null).body();
+        assertThat(closed.get("releaseOverdueDays").asInt()).isEqualTo(5);
+        JsonNode auto = ok(post("/api/book/loans/" + loan + "/collateral/release"), ops, Map.of("collateralId", flat, "reason", "Loan closed, documents back")).body();
+        assertThat(auto.get("status").asText()).isEqualTo("APPROVED");
+        JsonNode late = ok(post("/api/collateral-changes/" + auto.get("id").asLong() + "/complete"), ops, Map.of("handedTo", "Lien Holder in person")).body();
+        assertThat(late.get("daysLate").asInt()).isEqualTo(5);
+        assertThat(late.get("compensation").asDouble()).isEqualTo(25_000);
+        assertThat(late.get("letter").asText()).contains("fully repaid").contains("5 days");
+        assertThat(ok(get("/api/audit?applicationId=" + a), admin, null).body().toString()).contains("collateral.released").contains("collateral.substituted");
     }
 }

@@ -21,13 +21,15 @@ interface Evaluation {
   conditions: string[]
 }
 interface Tx { date: string; type: string; docNo: string; from?: string; to?: string; linkedRef?: string }
-interface Col { id: number; colNo: string; applicationId: number; type: string; description?: string; ownerName?: string; address?: string; pincode?: string; lat?: number; lng?: number; surveyNo?: string; municipalId?: string; areaSqft?: number; condition?: string; constructionStage?: string; occupancy?: string; insurer?: string; insuranceExpiry?: string; insuranceAssigned: boolean; status: string; riskScore?: number; maxExposure?: number; ltvCap: boolean }
+interface Col { id: number; colNo: string; applicationId: number; type: string; description?: string; ownerName?: string; address?: string; pincode?: string; lat?: number; lng?: number; surveyNo?: string; municipalId?: string; areaSqft?: number; condition?: string; constructionStage?: string; occupancy?: string; insurer?: string; insuranceExpiry?: string; insuranceAssigned: boolean; status: string; riskScore?: number; maxExposure?: number; ltvCap: boolean; lienState?: string; purpose?: string; substituteFor?: number }
 interface Doc { document: { id: number; docType: string; version: number; fileName: string; readConfidence?: number; engine?: string; confirmedBy?: string; uploadedBy: string; uploadedAt: string; manipulated: boolean }; extracted: { fields?: Record<string, unknown>; confidence?: Record<string, number>; transactions?: Tx[] }; legalFlag: boolean }
 interface Media { id: number; label: string; lat?: number; lng?: number; distanceM?: number; capturedAt?: string; quality?: string; reuseMatch?: string; tamperScore?: number; manipulated: boolean; uploadedBy: string }
 interface Valuation { id: number; source: string; valuer?: string; reportDate: string; marketValue: number; realisableValue?: number; distressValue?: number; method?: string; approved: boolean; detailsJson?: string }
 interface Policy { type: string; label: string; ecYears: number; haircut: number; maxLtv: number; valuationMaxAgeMonths: number; secondValuationAbove?: number; varianceLimit: number; minImages: number; gpsRadiusM: number; coverageMin: number; revalueMonths: number; requiredDocs: string; optionalDocs?: string; requiredPhotos?: string; updatedBy: string }
 interface Unified { credit: string; collateral: string; decision: string; recommendedAmount?: number; conditions: string[]; note?: string; collaterals: { colNo: string; type: string; status: string; riskScore: number; maxExposure: number }[] }
-interface Detail { collateral: Col; summary: Row; policy: Policy; documents: Doc[]; media: Media[]; valuations: Valuation[]; reviews: Review[]; evaluation?: Evaluation; unified: Unified }
+interface Detail { collateral: Col; summary: Row; policy: Policy; documents: Doc[]; media: Media[]; valuations: Valuation[]; reviews: Review[]; evaluation?: Evaluation; unified: Unified; avm?: Avm }
+export interface Avm { value: number; ratePerSqft: number; low: number; high: number; confidence: number; comparables: number; basis: string
+  used: { id: number; locality?: string; distanceKm: number; monthsAgo: number; areaSqft: number; price: number; ratePerSqft: number; adjustedRate: number; weight: number }[] }
 
 const ST: Record<string, string> = { PASS: 'ok', REFER: 'warn', FAIL: 'bad', PENDING: 'muted', OPEN: 'warn', CLEARED: 'ok', UPHELD: 'bad', SUPERSEDED: 'muted', APPROVE_WITH_CONDITIONS: 'ok', REJECT: 'bad' }
 const TYPES = ['RESIDENTIAL', 'SHOP', 'PLOT', 'VEHICLE', 'GOLD']
@@ -195,8 +197,46 @@ function PolicyView() {
           <Table head={['PIN', 'Locality', 'Type', '₹ / sq ft']} rows={(rates.data?.locality ?? []).map(l => [l.pinPrefix + '…', l.locality, label(l.type), inr(l.ratePerSqft)])} />
         </div>
       </div>
+      <Comparables />
       {edit && <PolicyEdit p={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); setR(x => x + 1) }} />}
     </>
+  )
+}
+
+interface Sale { id: number; type: string; pincode: string; locality?: string; areaSqft: number; price: number; saleDate: string; source: string; addedBy: string }
+
+/** Registered sales behind the automated valuation; the valuation desk pastes or uploads a CSV. */
+function Comparables() {
+  const { user } = useAuth()
+  const [r, setR] = useState(0)
+  const list = useLoad(() => api.get<Sale[]>('/api/collateral/comparables'), [r])
+  const [csv, setCsv] = useState('')
+  const [source, setSource] = useState('REGISTRY')
+  const [res, setRes] = useState<{ added: number; rows: number; errors: string[] }>()
+  const [error, setError] = useState<unknown>()
+  const canImport = user && ['ADMIN', 'VALUER', 'CREDIT_MANAGER'].includes(user.role)
+  async function load() {
+    setError(undefined); setRes(undefined)
+    const lines = csv.trim().split(/\r?\n/).filter(Boolean)
+    const head = lines[0]?.split(',').map(h => h.trim())
+    if (!head?.includes('pincode')) { setError(new Error('The first line must name the columns: type,pincode,locality,lat,lng,areaSqft,price,saleDate,documentNo')); return }
+    const rows = lines.slice(1).map(l => { const v = l.split(','); const o: Record<string, unknown> = {}; head.forEach((h, i) => { const x = (v[i] ?? '').trim(); o[h] = x === '' ? null : ['lat', 'lng', 'areaSqft', 'price'].includes(h) ? Number(x) : x }); return o })
+    try { setRes(await api.post('/api/collateral/comparables', { source, rows })); setR(x => x + 1) } catch (e) { setError(e) }
+  }
+  return (
+    <div className="panel" style={{ marginTop: 12 }} data-testid="comparables">
+      <h3>Comparable sales (automated valuation)</h3>
+      <p className="small muted">Registered sales within 3 km and 24 months, brought to today, give the automated value shown beside the valuer's report. {list.data?.length ?? 0} latest shown; seeded rows are illustrative.</p>
+      <Table head={['Type', 'PIN', 'Locality', 'Area', 'Price', '₹/sq ft', 'Sold', 'Source']} rows={(list.data ?? []).slice(0, 12).map(x => [label(x.type), x.pincode, x.locality ?? '—', `${x.areaSqft} sq ft`, inr(x.price), inr(Math.round(x.price / x.areaSqft)), x.saleDate, x.source.toLowerCase()])} />
+      {canImport && <>
+        <label style={{ marginTop: 8 }}>Add sales (CSV with a header row: type,pincode,locality,lat,lng,areaSqft,price,saleDate,documentNo)
+          <textarea name="comparablesCsv" rows={4} value={csv} onChange={e => setCsv(e.target.value)} placeholder={'type,pincode,locality,lat,lng,areaSqft,price,saleDate,documentNo\nRESIDENTIAL,422013,Gangapur Road,20.006,73.763,1200,6500000,2026-08-14,NSK/4411/2026'} /></label>
+        <div className="row"><select value={source} onChange={e => setSource(e.target.value)} aria-label="Source"><option value="REGISTRY">Sub-registrar data</option><option value="VALUATION">Our past valuations</option><option value="VENDOR">Data vendor</option></select>
+          <button className="btn" data-action="importComparables" onClick={load} disabled={!csv.trim()}>Add sales</button></div>
+        <ErrorBox error={error} />
+        {res && <p className="small">{res.added} of {res.rows} added.{res.errors.length > 0 && <> {res.errors.join('; ')}</>}</p>}
+      </>}
+    </div>
   )
 }
 
@@ -517,6 +557,12 @@ function ValuationTab({ d, onChange }: { d: Detail; onChange: () => void }) {
             {e.valuation.aiValue != null && <><dt>AI cross-check</dt><dd>{inr(e.valuation.aiValue)} (confidence {pct(e.valuation.aiConfidence ?? 0, 0)}; value used is {pct(e.valuation.aiDeviation ?? 0, 0)} from it) · shown only</dd></>}
           </dl>
         </div>
+      </div>}
+      {d.avm && <div className="panel" style={{ marginTop: 12 }} data-testid="avm">
+        <h3>Automated valuation from comparable sales</h3>
+        <p className="small"><b>{inr(d.avm.value)}</b> (range {inr(d.avm.low)} to {inr(d.avm.high)}) at {inr(d.avm.ratePerSqft)}/sq ft · confidence {pct(d.avm.confidence, 0)} · {d.avm.basis}. A cross-check beside the empanelled valuer: it never sets the value.</p>
+        <Table head={['Sale', 'Where', 'Distance', 'When', 'Area', 'Price', '₹/sq ft', 'Today', 'Weight']} rows={d.avm.used.map(u => [<span className="mono">SALE-{u.id}</span>, u.locality ?? '—', `${u.distanceKm} km`, `${u.monthsAgo} months ago`,
+          `${u.areaSqft} sq ft`, inr(u.price), inr(u.ratePerSqft), inr(u.adjustedRate), u.weight])} />
       </div>}
       <div className="panel flush" style={{ marginTop: 12 }}>
         <Table head={['ID', 'Source', 'Valuer', 'Date', 'Market', 'Realisable', 'Distress', 'Method', 'Used']} rows={d.valuations.map(v => [<span className="mono">VAL-{v.id}</span>, label(v.source), v.valuer ?? '—', v.reportDate,

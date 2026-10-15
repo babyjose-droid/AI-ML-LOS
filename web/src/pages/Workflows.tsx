@@ -187,10 +187,10 @@ function VersionEditor({ id, product, lib, onChange }: { id: number; product: Pr
               const l = defs[s.key]
               return (
                 <li key={s.key} className={i === sel ? 'on' : ''} data-wf-stage={s.key} onClick={() => setSel(i)}>
-                  <span className="wf-n">{i + 1}</span>
+                  <span className="wf-n" title={s.parallel ? 'Runs alongside the stage above' : undefined}>{s.parallel ? '∥' : i + 1}</span>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <b>{s.name}</b>
-                    <div className="small muted">{label(s.role)} · {s.sla} h · {MODE_LABEL[s.mode] ?? s.mode}{s.skip ? ' · has skip rule' : ''}{l?.kind === 'RECORDED' ? ' · recorded by a person' : ''}</div>
+                    <div className="small muted">{label(s.role)} · {s.sla} h · {MODE_LABEL[s.mode] ?? s.mode}{s.skip ? ' · has skip rule' : ''}{s.parallel ? ' · alongside the stage above' : ''}{l?.kind === 'RECORDED' ? ' · recorded by a person' : ''}</div>
                   </div>
                   {editable && (
                     <span className="row" style={{ gap: 2, flexWrap: 'nowrap' }} onClick={e => e.stopPropagation()}>
@@ -228,6 +228,8 @@ function VersionEditor({ id, product, lib, onChange }: { id: number; product: Pr
                   {curDef.modes.map(m => <option key={m} value={m}>{MODE_LABEL[m] ?? m}</option>)}</select></label>
                 <label className="fld">If it fails or breaches its SLA<select name="stageOnFailure" value={cur.onFailure} disabled={!editable} onChange={e => change(sel, { onFailure: e.target.value })}>
                   {Object.entries(FAIL_LABEL).map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>
+                <label className="check fld wide"><span><input type="checkbox" name="stageParallel" checked={!!cur.parallel} disabled={!editable || sel === 0 || ['lead', 'uw', 'sanction', 'disb'].includes(cur.key)}
+                  onChange={e => change(sel, { parallel: e.target.checked })} /> Runs alongside the stage above (both start together; the next stage waits for both)</span></label>
                 <label className="fld wide">Skip this stage when
                   <input name="stageSkip" value={cur.skip} disabled={!editable || curDef.mandatory} placeholder={curDef.mandatory ? 'Mandatory stage: cannot be skipped' : 'e.g. segment = SALARIED AND amount <= 5,00,000 AND incomeVerifiedViaAA = true'}
                     onChange={e => change(sel, { skip: e.target.value })} />

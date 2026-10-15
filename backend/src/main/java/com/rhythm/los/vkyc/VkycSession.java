@@ -44,6 +44,10 @@ public class VkycSession {
     /** The co-applicant or guarantor on the call; null for the applicant. */
     @Column(name = "party_id") private Long partyId;
     @Column(name = "person_name") private String personName;
+    @Column(name = "ip_country") private String ipCountry;
+    @Column(name = "slot_at") private Instant slotAt;
+    @Column(name = "booked_by") private String bookedBy;
+    @Column(name = "booked_at") private Instant bookedAt;
     /** The product's video KYC settings when the link was made (later product changes do not apply to it). */
     @JsonIgnore @Column(name = "policy_json") private String policyJson;
     /** The questions asked and whether each was answered satisfactorily. */
@@ -120,4 +124,12 @@ public class VkycSession {
     public Instant getDecidedAt() { return decidedAt; }
     public void setDecidedAt(Instant v) { this.decidedAt = v; }
     public boolean isHasRecording() { return recordingPath != null; }
+    public String getIpCountry() { return ipCountry; }
+    public void setIpCountry(String v) { this.ipCountry = v; }
+    public Instant getSlotAt() { return slotAt; }
+    public void setSlotAt(Instant v) { this.slotAt = v; }
+    public String getBookedBy() { return bookedBy; }
+    public void setBookedBy(String v) { this.bookedBy = v; }
+    public Instant getBookedAt() { return bookedAt; }
+    public void setBookedAt(Instant v) { this.bookedAt = v; }
 }

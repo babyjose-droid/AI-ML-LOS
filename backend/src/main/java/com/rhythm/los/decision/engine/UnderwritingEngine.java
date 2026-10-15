@@ -35,7 +35,10 @@ public final class UnderwritingEngine {
     }
 
     /** With a trained PD model (the approved champion), its coefficients replace the built-in ones; everything else is the same. */
-    public static EngineResult underwrite(EngineInput a, PolicyParams p, PdModel model) {
+    public static EngineResult underwrite(EngineInput a, PolicyParams p, PdModel model) { return underwrite(a, p, model, null); }
+
+    /** With a trained fraud model as well (a separate champion): its weights replace the built-in fraud score's. */
+    public static EngineResult underwrite(EngineInput a, PolicyParams p, PdModel model, PdModel fraudModel) {
         List<EngineResult.Step> steps = new ArrayList<>();
         List<EngineResult.RuleResult> rules = new ArrayList<>();
         Set<String> reasons = new LinkedHashSet<>();
@@ -112,13 +115,10 @@ public final class UnderwritingEngine {
 
         // 5. Fraud
         EngineInput.Fraud f = a.fraud();
-        double mism = a.declaredIncome() / mean;
-        double fz = -4.2 + 1.0 * f.dupLinks() + 2.0 * Math.max(0, mism - 1.25) + 2.6 * (f.docTamper() ? 1 : 0)
-                + 0.6 * Math.max(0, f.velocity() - 1) + 3 * (1 - idScore)
-                + 4.0 * Math.max(0, f.rotationShare() - 0.30) + f.networkScore() / 20.0;
+        double fz = fraudModel != null ? FraudFeatures.z(fraudModel, FraudFeatures.of(a, idScore, mean)) : FraudFeatures.builtInZ(a, idScore, mean);
         int fraud = (int) round(sigmoid(fz) * 100);
         String fraudStatus = fraud >= p.fraudBlock() ? "BLOCK" : fraud >= p.fraudReview() ? "REVIEW" : "CLEAR";
-        steps.add(new EngineResult.Step("Fraud & network", fraud + "/100 · " + fraudStatus,
+        steps.add(new EngineResult.Step("Fraud & network", fraud + "/100 · " + fraudStatus + (fraudModel != null ? " · " + fraudModel.label() : ""),
                 "CLEAR".equals(fraudStatus) ? "ok" : "REVIEW".equals(fraudStatus) ? "warn" : "bad"));
 
         // 6. PD model

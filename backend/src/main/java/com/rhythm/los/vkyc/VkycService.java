@@ -83,6 +83,23 @@ public class VkycService {
         this.products = pr;
     }
 
+    @Value("${rhythm.vkyc.ip-country-file:}") String ipCountryFile = "";
+    @Value("${rhythm.vkyc.slot-capacity:2}") int slotCapacity = 2;
+    private volatile IpCountry ipTable;
+
+    /** Sample ranges plus the lender's geo-IP file (CIDR,country per line). */
+    IpCountry ipTable() {
+        if (ipTable == null) {
+            List<String> lines = new ArrayList<>(IpCountry.SAMPLES);
+            if (ipCountryFile != null && !ipCountryFile.isBlank()) {
+                try { lines.addAll(java.nio.file.Files.readAllLines(java.nio.file.Path.of(ipCountryFile))); }
+                catch (Exception e) { org.slf4j.LoggerFactory.getLogger(VkycService.class).warn("Geo-IP file {} not read: {}", ipCountryFile, e.getMessage()); }
+            }
+            ipTable = new IpCountry(lines);
+        }
+        return ipTable;
+    }
+
     /** The product's video KYC settings for this application (its pinned version, else the live product, else defaults). */
     public VkycPolicy policy(LoanApplication a) {
         String json = apps.product(a).getVkycPolicy();
@@ -290,6 +307,8 @@ public class VkycService {
         if (req.approve()) {
             if (!Boolean.TRUE.equals(s.getInIndia()))
                 throw ApiException.unprocessable("OUTSIDE_INDIA", "The customer's location was not in India; V-CIP cannot be approved");
+            if (s.getIpCountry() != null && !Set.of("IN", "PRIVATE", "UNKNOWN").contains(s.getIpCountry()))
+                throw ApiException.unprocessable("OUTSIDE_INDIA", "The customer joined from an IP address in " + s.getIpCountry() + " although GPS showed India (VPN or a location spoof); V-CIP cannot be approved");
             if (!req.codeHeard())
                 throw ApiException.unprocessable("CODE_NOT_CONFIRMED", "Confirm that the customer read out the random code " + s.getChallengeCode());
             if (s.getRecordingPath() == null)
@@ -383,7 +402,97 @@ public class VkycService {
         m.put("appNo", a.getAppNo());
         m.put("expiresAt", s.getExpiresAt());
         m.put("iceServers", iceServers());
+        m.put("slotAt", s.getSlotAt());
         return m;
+    }
+
+    // ---------------------------------------------------------------- slots and the officials' queue
+
+    Map<Instant, Long> booked(Instant from, Instant to) {
+        return sessions.findBySlotAtBetween(from, to).stream().filter(x -> OPEN.contains(x.getStatus()))
+                .collect(java.util.stream.Collectors.groupingBy(VkycSession::getSlotAt, java.util.stream.Collectors.counting()));
+    }
+
+    public List<VkycSlots.Slot> slots(VkycSession s) {
+        Instant now = Instant.now();
+        return VkycSlots.open(policy(s), java.time.ZonedDateTime.now(), Math.max(1, slotCapacity), booked(now, now.plus(Duration.ofDays(VkycSlots.DAYS + 1))));
+    }
+
+    public List<VkycSlots.Slot> slotsByToken(String token) {
+        VkycSession s = byToken(token);
+        if (!Set.of("WAITING", "JOINED").contains(s.getStatus())) throw ApiException.conflict("LINK_USED", linkMessage(s));
+        return slots(s);
+    }
+
+    public record BookRequest(String slotAt) {}
+
+    /** Books (or moves) the call to a slot; the link is kept open until two hours after it. */
+    @Transactional
+    public VkycSession book(VkycSession s, BookRequest r, String by) {
+        if (!Set.of("WAITING", "JOINED").contains(s.getStatus())) throw ApiException.conflict("LINK_USED", linkMessage(s));
+        Instant at;
+        try { at = Instant.parse(r.slotAt()); } catch (Exception e) { throw ApiException.unprocessable("BAD_SLOT", "Pick one of the times offered"); }
+        VkycPolicy pol = policy(s);
+        if (!VkycSlots.valid(pol, at, java.time.ZonedDateTime.now())) throw ApiException.unprocessable("BAD_SLOT", "Pick one of the times offered");
+        if (!at.equals(s.getSlotAt()) && booked(at, at).getOrDefault(at, 0L) >= Math.max(1, slotCapacity))
+            throw ApiException.conflict("SLOT_FULL", "That time has just been taken; pick another");
+        s.setSlotAt(at);
+        s.setBookedBy(by);
+        s.setBookedAt(Instant.now());
+        if (s.getExpiresAt().isBefore(at.plus(Duration.ofHours(2)))) s.setExpiresAt(at.plus(Duration.ofHours(2)));
+        sessions.save(s);
+        audit.record(by.equals("customer") ? "customer" : by, by.equals("customer") ? "CUSTOMER" : "STAFF", "vkyc.slot_booked", "VKYC", String.valueOf(s.getId()), s.getApplicationId(),
+                "Call booked for " + VkycSlots.label(at.atZone(VkycPolicy.IST), java.time.ZonedDateTime.now(VkycPolicy.IST)) + " by " + by);
+        return s;
+    }
+
+    @Transactional
+    public VkycSession bookByStaff(Long id, BookRequest r, CurrentUser by) {
+        VkycSession s = get(id);
+        requireOfficial(policy(s), by);
+        return book(s, r, by.username());
+    }
+
+    /** Customers waiting on the call now (longest first), then booked calls in time order. */
+    public Map<String, Object> queue(CurrentUser by) {
+        List<Map<String, Object>> waiting = new ArrayList<>(), booked = new ArrayList<>(), inCall = new ArrayList<>();
+        Instant now = Instant.now();
+        for (VkycSession s : sessions.findByStatusInOrderByIdAsc(List.of("WAITING", "JOINED", "IN_CALL"))) {
+            expire(s);
+            if (!OPEN.contains(s.getStatus())) continue;
+            VkycPolicy pol = policy(s);
+            boolean mine = by.role() == com.rhythm.los.org.Role.ADMIN || pol.officerRoles().contains(by.role().name());
+            if (!mine) continue;
+            LoanApplication a = apps.get(s.getApplicationId());
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("sessionId", s.getId());
+            m.put("applicationId", a.getId());
+            m.put("appNo", a.getAppNo());
+            m.put("person", s.getPersonName() == null ? a.getApplicantName() : s.getPersonName());
+            m.put("party", s.getPartyId() != null);
+            m.put("product", a.getProductCode());
+            m.put("status", s.getStatus());
+            m.put("slotAt", s.getSlotAt());
+            m.put("joinedAt", s.getJoinedAt());
+            m.put("officer", s.getOfficer());
+            m.put("inIndia", s.getInIndia());
+            m.put("ipCountry", s.getIpCountry());
+            m.put("languages", pol.languages());
+            if ("IN_CALL".equals(s.getStatus())) inCall.add(m);
+            else if ("JOINED".equals(s.getStatus())) {
+                m.put("waitingMinutes", s.getJoinedAt() == null ? 0 : Duration.between(s.getJoinedAt(), now).toMinutes());
+                m.put("late", s.getSlotAt() != null && now.isAfter(s.getSlotAt().plus(Duration.ofMinutes(VkycSlots.MINUTES))));
+                waiting.add(m);
+            } else if (s.getSlotAt() != null) booked.add(m);
+        }
+        waiting.sort(Comparator.comparing((Map<String, Object> m) -> (Instant) m.get("joinedAt"), Comparator.nullsLast(Comparator.naturalOrder())));
+        booked.sort(Comparator.comparing((Map<String, Object> m) -> (Instant) m.get("slotAt")));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("waiting", waiting);
+        out.put("inCall", inCall);
+        out.put("booked", booked);
+        out.put("slotCapacity", slotCapacity);
+        return out;
     }
 
     public List<?> iceServers() {
@@ -409,10 +518,13 @@ public class VkycService {
         if (req.accuracy() != null) s.setCustomerAccuracyM(BigDecimal.valueOf(req.accuracy()).setScale(1, RoundingMode.HALF_UP));
         s.setInIndia(inIndia(req.lat(), req.lng()));
         s.setCustomerIp(ip == null ? null : ip.substring(0, Math.min(64, ip.length())));
+        IpCountry.Result geo = ipTable().lookup(ip);
+        s.setIpCountry(geo.country() == null ? "UNKNOWN" : geo.country());
         s.setCustomerAgent(agent == null ? null : agent.substring(0, Math.min(300, agent.length())));
         sessions.save(s);
         audit.record("customer", "CUSTOMER", "vkyc.customer_joined", "VKYC", String.valueOf(s.getId()), s.getApplicationId(),
-                "Consent given · location " + s.getCustomerLat() + "," + s.getCustomerLng() + (s.getInIndia() ? " (India)" : " (OUTSIDE INDIA)"));
+                "Consent given · location " + s.getCustomerLat() + "," + s.getCustomerLng() + (s.getInIndia() ? " (India)" : " (OUTSIDE INDIA)")
+                        + " · IP country " + s.getIpCountry() + (geo.outsideIndia() ? " (OUTSIDE INDIA)" : ""));
         return customerView(token);
     }
 

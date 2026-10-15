@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { ErrorBox, Head, Modal, Pill, Table, useLoad } from '../components/ui'
 import { inr, lakh, pct } from '../format'
 import { Collections, LoanActions, Restructures, Topups } from './Growth'
+import { LoanCollateral } from '../collateral/LoanCollateral'
 
 interface Loan {
   id: number; loanRef: string; applicationId?: number; appNo?: string; borrowerName: string; segment: string; productCode: string
@@ -154,6 +155,7 @@ function LoanDetail({ id, onClose }: { id: number; onClose: () => void }) {
             <ul className="small">{(d.data.ews.signals ?? []).map(x => <li key={x.reason}>{x.reason} (+{x.points})</li>)}</ul>
             <p className="small"><b>Suggested action:</b> {d.data.ews.action}</p>
             <LoanActions loan={l} onChange={() => setR(x => x + 1)} />
+            {l.applicationId && <LoanCollateral loanId={l.id} />}
             <h4>Feed history</h4>
             <Table head={['Feed date', 'Outstanding', 'Overdue', 'DPD', 'Class', 'Stage', 'ECL']} rows={d.data.history.map(h => [h.feedDate, inr(h.outstanding), inr(h.overdue), h.dpd, <Pill s={h.classification} />, h.eclStage, inr(h.ecl)])} />
           </div>

@@ -92,7 +92,7 @@ export interface Branch { id: number; code: string; name: string; level: string;
 export interface AppUser { id: number; username: string; fullName: string; role: Role; branchId?: number; email?: string; mobile?: string; active: boolean; mfaEnabled?: boolean; locked?: boolean; lastLoginAt?: string }
 
 // Workflow designer
-export interface Stage { key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; integrations: string[] }
+export interface Stage { key: string; name: string; role: string; sla: number; mode: string; onFailure: string; skip: string; integrations: string[]; parallel?: boolean }
 export interface LibraryStage { key: string; name: string; role: string; sla: number; mode: string; modes: string[]; kind: 'STATE' | 'RECORDED'; integrations: string[]; dataFields: string[]; help: string; mandatory: boolean }
 export interface WorkflowSummary { id: number; version: number; status: string; stageCount: number; createdBy: string; createdAt: string; approvedBy?: string; approvedAt?: string; notes?: string; applications?: number; inFlight?: number }
 export interface ProductWorkflows { productCode: string; productName: string; segment: string; published?: WorkflowSummary; versions: WorkflowSummary[] }

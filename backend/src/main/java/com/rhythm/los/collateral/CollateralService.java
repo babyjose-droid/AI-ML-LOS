@@ -128,12 +128,30 @@ public class CollateralService {
         if (Set.of("REJECTED", "WITHDRAWN", "DISBURSED").contains(a.getAppState())) throw ApiException.conflict("CLOSED", "The application is " + a.getAppState().toLowerCase());
     }
 
+    /** A substitute offered on a live loan stays open for documents, photos and valuation until it is swapped in. */
+    static void open(LoanApplication a, Collateral c) {
+        if (Set.of("RELEASED", "SUBSTITUTED").contains(c.getLienState())) throw ApiException.conflict("RELEASED", c.getColNo() + " has been " + c.getLienState().toLowerCase());
+        if ("SUBSTITUTE".equals(c.getPurpose()) && "NONE".equals(c.getLienState()) && "DISBURSED".equals(a.getAppState())) return;
+        open(a);
+    }
+
+    private PropertySaleRepository sales;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setSales(PropertySaleRepository s) { this.sales = s; }
+
     // ---------------------------------------------------------------- declare and update
 
     @Transactional
     public Collateral declare(Long appId, Declare r, CurrentUser by) {
         LoanApplication a = app(appId, by);
         open(a);
+        return create(a, r, by, null);
+    }
+
+    /** Declares a collateral; a substitute (offered in place of one held on a live loan) can be declared after disbursement. */
+    Collateral create(LoanApplication a, Declare r, CurrentUser by, Collateral replaces) {
+        Long appId = a.getId();
         Product p = products.findByCode(a.getProductCode()).orElseThrow(() -> ApiException.notFound("Product"));
         if (r.type() == null || !TYPES.contains(r.type())) throw ApiException.unprocessable("BAD_TYPE", "Type must be one of " + TYPES);
         if (!p.collateralTypeList().contains(r.type()))
@@ -142,6 +160,7 @@ public class CollateralService {
         c.setApplicationId(appId);
         c.setType(r.type());
         c.setCreatedBy(by.username());
+        if (replaces != null) { c.setPurpose("SUBSTITUTE"); c.setSubstituteFor(replaces.getId()); }
         apply(c, r);
         collaterals.save(c);
         c.setColNo("COL-" + (5000 + c.getId()));
@@ -154,7 +173,7 @@ public class CollateralService {
     @Transactional
     public Collateral update(Long id, Declare r, CurrentUser by) {
         Collateral c = get(id, by);
-        open(app(c.getApplicationId(), by));
+        open(app(c.getApplicationId(), by), c);
         apply(c, r);
         collaterals.save(c);
         audit.record(by, "collateral.updated", "COLLATERAL", c.getColNo(), c.getApplicationId(), null);
@@ -202,7 +221,7 @@ public class CollateralService {
     @Transactional
     public CollateralDocument uploadDocument(Long id, MultipartFile file, String docType, String fieldsJson, String transactionsJson, CurrentUser by) throws Exception {
         Collateral c = get(id, by);
-        open(app(c.getApplicationId(), by));
+        open(app(c.getApplicationId(), by), c);
         if (docType == null || !DOC_TYPES.contains(docType)) throw ApiException.unprocessable("BAD_DOC_TYPE", "Document type must be one of " + new TreeSet<>(DOC_TYPES));
         if (file == null || file.isEmpty()) throw ApiException.unprocessable("EMPTY_FILE", "Choose a file");
         if (file.getSize() > 25L * 1024 * 1024) throw ApiException.unprocessable("TOO_LARGE", "Files must be under 25 MB");
@@ -337,7 +356,7 @@ public class CollateralService {
     @Transactional
     public CollateralMedia uploadMedia(Long id, MultipartFile file, String label, Double lat, Double lng, String capturedAt, CurrentUser by) throws Exception {
         Collateral c = get(id, by);
-        open(app(c.getApplicationId(), by));
+        open(app(c.getApplicationId(), by), c);
         if ("GOLD".equals(c.getType())) throw ApiException.unprocessable("NOT_FOR_GOLD", "Gold is appraised at the branch; no site photos");
         if (label == null || !label.matches("[A-Z_]{2,30}")) throw ApiException.unprocessable("BAD_LABEL", "Label the photo, for example EXTERIOR_FRONT");
         if (file == null || file.isEmpty() || file.getSize() > 15L * 1024 * 1024) throw ApiException.unprocessable("BAD_FILE", "Photos must be under 15 MB");
@@ -401,7 +420,7 @@ public class CollateralService {
     public CollateralValuation addValuation(Long id, ValuationRequest r, CurrentUser by) {
         if (!Set.of(Role.VALUER, Role.ADMIN).contains(by.role())) throw ApiException.forbidden("VALUER_ONLY", "Only the valuation desk records empanelled valuations");
         Collateral c = get(id, by);
-        open(app(c.getApplicationId(), by));
+        open(app(c.getApplicationId(), by), c);
         if ("GOLD".equals(c.getType())) throw ApiException.unprocessable("USE_APPRAISAL", "Gold is valued by appraisal");
         if (r.marketValue() == null || r.marketValue() <= 0) throw ApiException.unprocessable("BAD_VALUE", "Market value is required");
         if (r.realisableValue() != null && r.realisableValue() > r.marketValue() || r.distressValue() != null && r.distressValue() > r.marketValue())
@@ -438,7 +457,7 @@ public class CollateralService {
         if (!Set.of(Role.CREDIT_OFFICER, Role.OPERATIONS, Role.CREDIT_MANAGER, Role.ADMIN).contains(by.role()))
             throw ApiException.forbidden("ROLE", "A credit officer or operations appraises gold");
         Collateral c = get(id, by);
-        open(app(c.getApplicationId(), by));
+        open(app(c.getApplicationId(), by), c);
         if (!"GOLD".equals(c.getType())) throw ApiException.unprocessable("NOT_GOLD", "Appraisal is for gold collateral");
         if (items == null || items.isEmpty()) throw ApiException.unprocessable("NO_ITEMS", "List the items");
         double rate22 = goldRate();
@@ -476,8 +495,21 @@ public class CollateralService {
     }
 
     /** AI value cross-check: locality rate × area for property, depreciated new price for vehicles. Shown only, never used as value. */
+    /** Comparable sales nearby, brought to today; null when fewer than three are usable. */
+    public ComparableAvm.Result avm(Collateral c) {
+        if (sales == null || !CollateralEngine.PROPERTY.contains(c.getType()) || c.getAreaSqft() == null || c.getPincode() == null || c.getPincode().length() < 3) return null;
+        List<ComparableAvm.Sale> pool = sales.findByTypeAndPincodeStartingWith(c.getType(), c.getPincode().substring(0, 3)).stream().map(PropertySale::sale).toList();
+        return ComparableAvm.value(new ComparableAvm.Subject(c.getType(), c.getPincode(), c.getLat(), c.getLng(), c.getAreaSqft().doubleValue(), c.getCondition()),
+                pool, LocalDate.now(), AVM_DRIFT);
+    }
+
+    /** Assumed yearly change in prices, used to bring older sales to today. */
+    static final double AVM_DRIFT = 0.06;
+
     Optional<double[]> aiValue(Collateral c) {
         if (CollateralEngine.PROPERTY.contains(c.getType())) {
+            ComparableAvm.Result comps = avm(c);
+            if (comps != null) return Optional.of(new double[]{comps.value(), comps.confidence()});
             if (c.getAreaSqft() == null || c.getPincode() == null) return Optional.empty();
             List<LocalityRate> rs = localityRates.findByTypeOrderByIdAsc(c.getType()).stream().filter(r -> c.getPincode().startsWith(r.getPinPrefix())).toList();
             if (rs.isEmpty()) return Optional.empty();
@@ -507,7 +539,18 @@ public class CollateralService {
 
     /** Amount asked against this collateral: the application amount shared by declared value when there is more than one. */
     double requestedFor(Collateral c, LoanApplication a) {
-        List<Collateral> all = collaterals.findByApplicationIdOrderByIdAsc(a.getId());
+        if ("SUBSTITUTE".equals(c.getPurpose())) {
+            // a substitute must carry the old collateral's share of what is outstanding now
+            var loan = liveLoans.findByApplicationId(a.getId()).orElse(null);
+            if (loan != null) {
+                List<Collateral> held = collaterals.findByApplicationIdOrderByIdAsc(a.getId()).stream().filter(x -> "ACTIVE".equals(x.getLienState())).toList();
+                double total = held.stream().mapToDouble(this::valueOf).sum();
+                Collateral old = held.stream().filter(x -> x.getId().equals(c.getSubstituteFor())).findFirst().orElse(null);
+                double share = old == null || total <= 0 ? 1 : valueOf(old) / total;
+                return loan.getOutstanding().doubleValue() * share;
+            }
+        }
+        List<Collateral> all = collaterals.findByApplicationIdOrderByIdAsc(a.getId()).stream().filter(x -> !"SUBSTITUTE".equals(x.getPurpose())).toList();
         if (all.size() <= 1) return a.getLoanAmount().doubleValue();
         double mine = valueOf(c), total = all.stream().mapToDouble(this::valueOf).sum();
         return total <= 0 ? a.getLoanAmount().doubleValue() / all.size() : a.getLoanAmount().doubleValue() * mine / total;
@@ -614,6 +657,7 @@ public class CollateralService {
 
     /** Application-level collateral state, the workflow's collateral stage and vehicle/gold valuation stages. */
     void refreshApplication(LoanApplication a) {
+        if ("DISBURSED".equals(a.getAppState())) return;   // a live loan's collateral is tracked by its lien, not the application state
         Product p = products.findByCode(a.getProductCode()).orElse(null);
         List<Collateral> cs = collaterals.findByApplicationIdOrderByIdAsc(a.getId());
         String st;
@@ -757,6 +801,8 @@ public class CollateralService {
         m.put("reviews", reviews.findByCollateralIdOrderByIdAsc(c.getId()));
         evaluations.findFirstByCollateralIdOrderByIdDesc(c.getId()).ifPresent(e -> m.put("evaluation", evaluationView(e)));
         m.put("unified", unified(a, u));
+        ComparableAvm.Result comps = avm(c);
+        if (comps != null) m.put("avm", comps);
         return m;
     }
 
@@ -935,6 +981,51 @@ public class CollateralService {
         goldRates.save(g);
         audit.record(by, "collateral.gold_rate", "GOLD_RATE", d.toString(), null, "₹" + rate22k + "/g (22 carat)");
         return g;
+    }
+
+    public record SaleRow(String type, String pincode, String locality, Double lat, Double lng, Double areaSqft, Double price, String saleDate, String documentNo) {}
+
+    public List<PropertySale> comparables() { return sales.findTop200ByOrderByIdDesc(); }
+
+    /** Adds registered sales (from the registry, the lender's past valuations or a data vendor) for the automated valuation. */
+    @Transactional
+    public Map<String, Object> importSales(List<SaleRow> rows, String source, CurrentUser by) {
+        if (rows == null || rows.isEmpty()) throw ApiException.unprocessable("EMPTY", "No sales to import");
+        if (rows.size() > 5000) throw ApiException.unprocessable("TOO_MANY", "At most 5,000 sales at a time");
+        List<String> errors = new ArrayList<>();
+        int ok = 0, n = 0;
+        for (SaleRow r : rows) {
+            n++;
+            try {
+                if (r.type() == null || !CollateralEngine.PROPERTY.contains(r.type().toUpperCase())) throw new IllegalArgumentException("type must be one of " + CollateralEngine.PROPERTY);
+                if (r.pincode() == null || !r.pincode().matches("[1-9][0-9]{5}")) throw new IllegalArgumentException("PIN code must be 6 digits");
+                if (r.areaSqft() == null || r.areaSqft() < 50 || r.areaSqft() > 500_000) throw new IllegalArgumentException("area must be 50 to 5,00,000 sq ft");
+                if (r.price() == null || r.price() < 10_000) throw new IllegalArgumentException("price is missing");
+                double rate = r.price() / r.areaSqft();
+                if (rate < 100 || rate > 200_000) throw new IllegalArgumentException("price per sq ft " + Math.round(rate) + " looks wrong");
+                LocalDate d = LocalDate.parse(r.saleDate());
+                if (d.isAfter(LocalDate.now())) throw new IllegalArgumentException("sale date is in the future");
+                if (r.lat() != null && (r.lat() < 6 || r.lat() > 37) || r.lng() != null && (r.lng() < 68 || r.lng() > 98)) throw new IllegalArgumentException("location is outside India");
+                PropertySale x = new PropertySale();
+                x.setType(r.type().toUpperCase());
+                x.setPincode(r.pincode());
+                x.setLocality(r.locality() == null ? null : r.locality().trim());
+                x.setLat(r.lat());
+                x.setLng(r.lng());
+                x.setAreaSqft(money(r.areaSqft()));
+                x.setPrice(money(r.price()));
+                x.setSaleDate(d);
+                x.setDocumentNo(r.documentNo());
+                x.setSource(source == null || source.isBlank() ? "IMPORT" : source.trim().toUpperCase());
+                x.setAddedBy(by.username());
+                sales.save(x);
+                ok++;
+            } catch (Exception e) {
+                if (errors.size() < 100) errors.add("Row " + n + ": " + (e instanceof java.time.format.DateTimeParseException ? "sale date must be YYYY-MM-DD" : e.getMessage()));
+            }
+        }
+        audit.record(by, "collateral.comparables_imported", "COLLATERAL", "SALES", null, ok + " of " + n + " sales added");
+        return Map.of("added", ok, "rows", n, "errors", errors);
     }
 
     public Map<String, Object> rates() {

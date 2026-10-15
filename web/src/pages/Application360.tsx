@@ -11,7 +11,7 @@ import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '
 import { LoanDocsTab } from '../docgen/LoanDocsTab'
 import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Loan documents', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
@@ -118,7 +118,7 @@ export default function Application360() {
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}
           {tab === 'Documents' && <Documents id={id!} canUpload={v.actions.includes('uploadDocument')} canReview={v.actions.includes('reviewDocuments')} missing={v.missingDocuments} rev={rev} onChange={refresh} />}
           {tab === 'Bank statement' && <StatementTab id={id!} rev={rev} />}
-          {tab === 'Loan documents' && <LoanDocsTab id={id!} onChange={refresh} />}
+          {tab === 'Signing pack' && <LoanDocsTab id={id!} onChange={refresh} />}
           {tab === 'Video KYC' && <VideoKycTab id={id!} rev={rev} canRun={v.actions.includes('videoKyc')} onChange={refresh} />}
           {tab === 'Data' && <DataTab id={id!} rev={rev} />}
           {tab === 'Decision' && <DecisionTab id={id!} rev={rev} />}

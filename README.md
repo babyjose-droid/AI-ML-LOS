@@ -277,12 +277,12 @@ sanction letter, KFS, loan agreement, deed of guarantee, DPN, hypothecation deed
   - Each template has versions per language. Compliance or the CRO approves; the drafter cannot.
   - Approving retires the earlier version.
   - An application keeps the version (and language) it was first made with, unless staff choose the newer one and give a reason.
-- **Products → Loan documents:**
+- **Products → Signing pack:**
   - Choose which documents a product uses.
   - Choose when each is made: with the application, at sanction, before disbursement, after disbursement or at closure.
   - Choose who signs (borrower, co-applicants, guarantors) and when it applies (always, with a guarantor, with collateral, unsecured).
   - Optionally, disbursement waits until the documents are made, up to date and signed.
-- **Application → Loan documents:**
+- **Application → Signing pack:**
   - Make each stage's documents as PDF, in the borrower's language when a translation is approved. They are stored with a fingerprint.
   - View, download, and record each signature by OTP, or a wet-ink signature checked by operations.
   - A document goes out of date when the details it shows change (for example a guarantor is added); it must then be made again and signed again.

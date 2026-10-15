@@ -55,7 +55,7 @@ test('legal drafts a new welcome letter version, compliance approves it, product
   await login(page, 'admin')
   await page.goto('/admin/products')
   await page.getByRole('cell', { name: /Loan against property/ }).first().click()
-  await page.getByRole('tab', { name: 'Loan documents' }).click()
+  await page.getByRole('tab', { name: 'Signing pack' }).click()
   await expect(page.getByTestId('product-loan-docs')).toContainText('Memorandum of deposit of title deeds')
   await expect(page.getByTestId('product-loan-docs')).toContainText('Loan agreement')
 })

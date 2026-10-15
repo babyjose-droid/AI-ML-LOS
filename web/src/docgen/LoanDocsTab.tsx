@@ -36,7 +36,7 @@ export function LoanDocsTab({ id, onChange }: { id: string; onChange: () => void
       {d.renderer === 'BASIC-PDF' && <div className="alert warn small">PDFs are plain text until the AI document service is connected.</div>}
       {d.gate && <div className={'alert ' + (d.blockers.length ? 'warn' : 'ok')} data-testid="loan-docs-gate">
         {d.blockers.length ? <><b>Disbursement waits for:</b><ul style={{ margin: 0 }}>{d.blockers.map(b => <li key={b}>{b}</li>)}</ul></> : 'Every required document is made and signed.'}</div>}
-      {stages.length === 0 && <p className="small muted">This product has no loan documents set up (Products → Loan documents).</p>}
+      {stages.length === 0 && <p className="small muted">This product has no loan documents set up (Products → Signing pack).</p>}
       {stages.map(s => {
         const rows = d.documents.filter(x => x.stage === s)
         const blocked = rows.find(x => x.notYet)?.notYet

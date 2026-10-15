@@ -12,7 +12,7 @@ import { VkycPolicyEditor, parseVkyc } from '../vkyc/VkycPolicyEditor'
 // Product builder (FSD 20.5): six tabs, saved as a draft of the next version, sent for approval and published by the
 // CRO (not the maker). Applications keep the product version they were created on.
 
-const TABS = ['Basics', 'Eligibility', 'Loan terms', 'Fees & charges', 'Documents', 'Co-applicants & guarantors', 'Video KYC', 'Credit', 'Loan documents'] as const
+const TABS = ['Basics', 'Eligibility', 'Loan terms', 'Fees & charges', 'Documents', 'Co-applicants & guarantors', 'Video KYC', 'Credit', 'Signing pack'] as const
 type Tab = typeof TABS[number]
 type F = Record<string, string | number | boolean | null | undefined>
 
@@ -128,7 +128,7 @@ function ProductEditor({ code, product, onChange }: { code: string; product: Pro
     'Co-applicants & guarantors': <PartyRulesEditor value={f.partyRules} editable={editable} onChange={r => set('partyRules', JSON.stringify(r))} />,
     'Video KYC': <VkycPolicyEditor value={f.vkycPolicy} editable={editable} rule={{ videoKycRule: f.videoKycRule as string | undefined, videoKycThreshold: f.videoKycThreshold as number | null | undefined }}
       onChange={p => set('vkycPolicy', JSON.stringify(p))} onRule={r => setF(x => ({ ...x, videoKycRule: r.videoKycRule, videoKycThreshold: r.videoKycThreshold ?? null }))} />,
-    'Loan documents': isNew ? <p className="small muted">Save the product first, then choose its loan documents.</p> : <ProductLoanDocs code={String(code)} />,
+    'Signing pack': isNew ? <p className="small muted">Save the product first, then choose its loan documents.</p> : <ProductLoanDocs code={String(code)} />,
     'Credit': <div className="form-grid">
       {pick('scoringModel', 'Scoring model', [['AUTO', 'RHY-PD-THICK if bureau record, else RHY-PD-NTC']])}
       <label className="fld">Credit policy version<input disabled value="Live policy (Credit policy studio)" /></label>

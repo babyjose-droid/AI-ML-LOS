@@ -4,7 +4,7 @@ import { useAuth } from '../auth'
 import { ErrorBox, Table, useLoad } from '../components/ui'
 import { CONDITION_LABEL, SIGNER_LABEL, STAGE_LABEL } from './common'
 
-// Products → Loan documents: which approved templates this product uses, when they are made, who signs, and whether
+// Products → Signing pack: which approved templates this product uses, when they are made, who signs, and whether
 // disbursement waits until they are signed.
 
 interface Line { templateCode: string; stage: string; signers: string[]; condition: string; required: boolean; name?: string; languages?: string[] }

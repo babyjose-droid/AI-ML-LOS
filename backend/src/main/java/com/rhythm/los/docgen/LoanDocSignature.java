@@ -6,7 +6,7 @@ import java.time.Instant;
 /** A signature on a generated document. */
 @Entity
 @Table(name = "loan_doc_signature")
-public class AppDocumentSignature {
+public class LoanDocSignature {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "loan_doc_id") private Long appDocumentId;
     @Column(name = "signer_role") private String signerRole;

@@ -92,12 +92,12 @@ public class DocController {
 
     @PostMapping("/applications/{id}/documents-pack/generate")
     @PreAuthorize(STAFF)
-    public List<AppDocument> generate(@PathVariable Long id, @RequestBody DocPackService.GenerateRequest r) { return packs.generate(id, r, CurrentUser.get()); }
+    public List<LoanDoc> generate(@PathVariable Long id, @RequestBody DocPackService.GenerateRequest r) { return packs.generate(id, r, CurrentUser.get()); }
 
     @GetMapping(value = "/app-documents/{docId}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize(STAFF)
     public ResponseEntity<byte[]> pdf(@PathVariable Long docId) {
-        AppDocument d = packs.document(docId);
+        LoanDoc d = packs.document(docId);
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + d.getTemplateCode().toLowerCase() + "-v" + d.getTemplateVersion() + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF).body(packs.pdf(d));
     }
@@ -106,11 +106,11 @@ public class DocController {
     @GetMapping("/app-documents/{docId}/html")
     @PreAuthorize(STAFF)
     public Map<String, Object> html(@PathVariable Long docId) {
-        AppDocument d = packs.document(docId);
+        LoanDoc d = packs.document(docId);
         return Map.of("name", d.getName(), "html", d.getHtml());
     }
 
     @PostMapping("/app-documents/{docId}/sign")
     @PreAuthorize(STAFF)
-    public AppDocumentSignature sign(@PathVariable Long docId, @RequestBody DocPackService.SignRequest r) { return packs.sign(docId, r, CurrentUser.get()); }
+    public LoanDocSignature sign(@PathVariable Long docId, @RequestBody DocPackService.SignRequest r) { return packs.sign(docId, r, CurrentUser.get()); }
 }

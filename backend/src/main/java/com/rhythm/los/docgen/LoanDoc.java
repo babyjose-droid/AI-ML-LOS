@@ -6,7 +6,7 @@ import java.time.Instant;
 /** A document made for an application from a template version. */
 @Entity
 @Table(name = "loan_doc")
-public class AppDocument {
+public class LoanDoc {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(name = "application_id") private Long applicationId;
     @Column(name = "template_code") private String templateCode;

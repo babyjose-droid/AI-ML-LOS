@@ -35,8 +35,8 @@ public class DocPackService {
 
     private final ProductDocumentRepository mappings;
     private final DocTemplateRepository templates;
-    private final AppDocumentRepository docs;
-    private final AppDocumentSignatureRepository signatures;
+    private final LoanDocRepository docs;
+    private final LoanDocSignatureRepository signatures;
     private final DocTemplateService library;
     private final DocData data;
     private final DocRenderer renderer;
@@ -46,7 +46,7 @@ public class DocPackService {
     private final AuditService audit;
     @Value("${rhythm.kfs.otp:123456}") String demoOtp = "123456";
 
-    public DocPackService(ProductDocumentRepository mappings, DocTemplateRepository templates, AppDocumentRepository docs, AppDocumentSignatureRepository signatures,
+    public DocPackService(ProductDocumentRepository mappings, DocTemplateRepository templates, LoanDocRepository docs, LoanDocSignatureRepository signatures,
                           DocTemplateService library, DocData data, DocRenderer renderer, StorageService storage, ApplicationService apps,
                           JdbcTemplate jdbc, AuditService audit) {
         this.mappings = mappings;
@@ -176,10 +176,10 @@ public class DocPackService {
         return sha(Json.write(DocTemplateEngine.pick(values, paths)).getBytes(StandardCharsets.UTF_8));
     }
 
-    static Set<String> fieldsOf(AppDocument d) { return d.getFields() == null || d.getFields().isBlank() ? Set.of() : new TreeSet<>(List.of(d.getFields().split(","))); }
+    static Set<String> fieldsOf(LoanDoc d) { return d.getFields() == null || d.getFields().isBlank() ? Set.of() : new TreeSet<>(List.of(d.getFields().split(","))); }
 
     /** True when the details this document shows have changed since it was made. */
-    static boolean outdated(AppDocument d, Map<String, Object> values) { return !d.getDataHash().equals(dataHash(values, fieldsOf(d))); }
+    static boolean outdated(LoanDoc d, Map<String, Object> values) { return !d.getDataHash().equals(dataHash(values, fieldsOf(d))); }
 
     static String sha(byte[] b) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(b)); }
@@ -210,9 +210,9 @@ public class DocPackService {
             x.put("stage", m.getStage());
             x.put("required", m.isRequired());
             x.put("notYet", notYet(m.getStage(), a, sanctioned));
-            AppDocument d = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(appId, m.getTemplateCode()).stream().filter(z -> "CURRENT".equals(z.getStatus())).findFirst().orElse(null);
+            LoanDoc d = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(appId, m.getTemplateCode()).stream().filter(z -> "CURRENT".equals(z.getStatus())).findFirst().orElse(null);
             List<Signer> need = signersFor(splitSigners(m.getSigners()), values);
-            List<AppDocumentSignature> signed = d == null ? List.of() : signatures.findByAppDocumentIdOrderByIdAsc(d.getId());
+            List<LoanDocSignature> signed = d == null ? List.of() : signatures.findByAppDocumentIdOrderByIdAsc(d.getId());
             List<Map<String, Object>> sx = new ArrayList<>();
             for (Signer s : need) {
                 Map<String, Object> y = new LinkedHashMap<>();
@@ -246,7 +246,7 @@ public class DocPackService {
 
     /** Makes (or re-makes) the documents of a stage, or one document. */
     @Transactional
-    public List<AppDocument> generate(Long appId, GenerateRequest r, CurrentUser by) {
+    public List<LoanDoc> generate(Long appId, GenerateRequest r, CurrentUser by) {
         if (!MAKE.contains(by.role())) throw ApiException.forbidden("NOT_ALLOWED", "Your role does not make loan documents");
         library.ensureDefaults();
         LoanApplication a = apps.get(appId);
@@ -255,7 +255,7 @@ public class DocPackService {
         boolean sanctioned = !((Map<?, ?>) values.get("sanction")).isEmpty();
         boolean latest = Boolean.TRUE.equals(r.latestVersion());
         if (latest && (r.note() == null || r.note().trim().length() < 10)) throw ApiException.unprocessable("REASON_REQUIRED", "Say why the newer template version is used (at least 10 characters)");
-        List<AppDocument> made = new ArrayList<>();
+        List<LoanDoc> made = new ArrayList<>();
         for (ProductDocument m : mappings.findByProductCodeOrderBySortAscIdAsc(a.getProductCode())) {
             if (r.templateCode() != null ? !r.templateCode().equals(m.getTemplateCode()) : !m.getStage().equals(r.stage())) continue;
             if (!applies(m.getCondition(), values)) {
@@ -272,9 +272,9 @@ public class DocPackService {
         return made;
     }
 
-    AppDocument make(LoanApplication a, ProductDocument m, Map<String, Object> values, boolean latest, CurrentUser by) {
+    LoanDoc make(LoanApplication a, ProductDocument m, Map<String, Object> values, boolean latest, CurrentUser by) {
         // the application keeps the template version (and language) it was first made with
-        List<AppDocument> earlier = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(a.getId(), m.getTemplateCode());
+        List<LoanDoc> earlier = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(a.getId(), m.getTemplateCode());
         DocTemplate t = null;
         if (!latest && !earlier.isEmpty()) t = templates.findById(earlier.get(earlier.size() - 1).getTemplateId()).orElse(null);
         if (t == null) {
@@ -290,8 +290,8 @@ public class DocPackService {
         byte[] pdf;
         try { pdf = renderer.pdf(res.html(), t.getName() + " · " + a.getAppNo()); }
         catch (VendorException e) { throw ApiException.conflict("VENDOR_FAILED", "The PDF could not be made: " + e.getMessage()); }
-        for (AppDocument old : earlier) if ("CURRENT".equals(old.getStatus())) { old.setStatus("SUPERSEDED"); docs.save(old); }
-        AppDocument d = new AppDocument();
+        for (LoanDoc old : earlier) if ("CURRENT".equals(old.getStatus())) { old.setStatus("SUPERSEDED"); docs.save(old); }
+        LoanDoc d = new LoanDoc();
         d.setApplicationId(a.getId());
         d.setTemplateCode(t.getCode());
         d.setTemplateId(t.getId());
@@ -313,17 +313,17 @@ public class DocPackService {
         return docs.save(d);
     }
 
-    public AppDocument document(Long id) { return docs.findById(id).orElseThrow(() -> ApiException.notFound("Document")); }
+    public LoanDoc document(Long id) { return docs.findById(id).orElseThrow(() -> ApiException.notFound("Document")); }
 
-    public byte[] pdf(AppDocument d) { return storage.read(d.getStoragePath()); }
+    public byte[] pdf(LoanDoc d) { return storage.read(d.getStoragePath()); }
 
     public record SignRequest(String role, Long partyId, String otp, String channel) {}
 
     /** A signer confirms with the OTP sent to their own mobile (demo OTP until SMS/e-sign is integrated). */
     @Transactional
-    public AppDocumentSignature sign(Long docId, SignRequest r, CurrentUser by) {
+    public LoanDocSignature sign(Long docId, SignRequest r, CurrentUser by) {
         if (!SIGN.contains(by.role())) throw ApiException.forbidden("NOT_ALLOWED", "Your role does not record signatures");
-        AppDocument d = document(docId);
+        LoanDoc d = document(docId);
         LoanApplication a = apps.get(d.getApplicationId());
         if (!"CURRENT".equals(d.getStatus())) throw ApiException.conflict("SUPERSEDED", "This version was replaced: sign the current one");
         Map<String, Object> values = data.of(a);
@@ -337,7 +337,7 @@ public class DocPackService {
         if ("OTP".equals(channel) && (r.otp() == null || !r.otp().equals(demoOtp))) throw ApiException.unprocessable("BAD_OTP", "The OTP is not correct");
         if ("WET_INK".equals(channel) && !Set.of(Role.OPERATIONS, Role.ADMIN).contains(by.role()))
             throw ApiException.forbidden("NOT_ALLOWED", "Operations records wet-ink signatures after checking the signed original");
-        AppDocumentSignature z = new AppDocumentSignature();
+        LoanDocSignature z = new LoanDocSignature();
         z.setAppDocumentId(docId);
         z.setSignerRole(s.role());
         z.setPartyId(s.partyId());
@@ -358,10 +358,10 @@ public class DocPackService {
         for (ProductDocument m : mappings.findByProductCodeOrderBySortAscIdAsc(a.getProductCode())) {
             if (!m.isRequired() || !BEFORE_DISBURSEMENT.contains(m.getStage()) || !applies(m.getCondition(), values)) continue;
             String name = approvedName(m.getTemplateCode());
-            AppDocument d = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(a.getId(), m.getTemplateCode()).stream().filter(z -> "CURRENT".equals(z.getStatus())).findFirst().orElse(null);
+            LoanDoc d = docs.findByApplicationIdAndTemplateCodeOrderByIdDesc(a.getId(), m.getTemplateCode()).stream().filter(z -> "CURRENT".equals(z.getStatus())).findFirst().orElse(null);
             if (d == null) { out.add(name + " has not been made"); continue; }
             if (outdated(d, values)) { out.add(name + " is out of date (the application changed): make it again"); continue; }
-            List<AppDocumentSignature> signed = signatures.findByAppDocumentIdOrderByIdAsc(d.getId());
+            List<LoanDocSignature> signed = signatures.findByAppDocumentIdOrderByIdAsc(d.getId());
             for (Signer s : signersFor(splitSigners(d.getSigners()), values))
                 if (signed.stream().noneMatch(z -> z.getSignerRole().equals(s.role()) && Objects.equals(z.getPartyId(), s.partyId())))
                     out.add(name + ": waiting for " + s.name() + "'s signature");

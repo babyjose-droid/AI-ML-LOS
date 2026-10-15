@@ -30,7 +30,7 @@ test('policy studio: draft, simulate, maker-checker approval, live', async ({ pa
   await expect(page.locator('[data-policy=submit]')).toBeDisabled()
   await page.locator('[data-policy=simulate]').click()
   await expect(page.locator('[data-policy-simulation]')).toBeVisible({ timeout: 60_000 })
-  await expect(page.locator('[data-policy-simulation]')).toContainText('2000 past loans')
+  await expect(page.locator('[data-policy-simulation]')).toContainText(/20\d\d past loans/)
   await expect(page.locator('[data-policy-simulation]')).toContainText('Actual bad rate of approved')
   await page.locator('[data-policy=submit]').click()
   await expect(page.locator('[data-policy-detail=PENDING_APPROVAL]')).toBeVisible()

@@ -192,6 +192,7 @@ Admin → **Workflow designer** (admin or credit manager edits, the CRO approves
 - The role on each stage decides who acts: the Run automated checks, KYC, document review, field visit and disbursement buttons, the API permission and the My work task all follow it (an admin can always act; video KYC stays with operations, as RBI V-CIP needs a trained official).
 - Stages a person records (JLG group formation and GRT, vehicle valuation, gold appraisal, legal) hold the decision, sanction and disbursement until done. A failed GRT rejects the application.
 - Every application is fixed to the workflow version published when it was created (shown in the pipeline and the application header). Publishing a new version affects only applications created afterwards; older ones finish on their own version. The database refuses any change of version once an application is submitted. The designer shows how many applications are on each version and how many are still in progress.
+- **Parallel stages:** tick "Runs alongside the stage above" and both start together (for example documents with KYC, or legal with the vehicle valuation); the stage after the group waits for all of them. Lead, Underwriting, Sanction and Disbursement always run alone, and a stage cannot run alongside one it needs finished first (Credit memo after Underwriting, GRT after CGT).
 - Demo: Lakshmi Devi (JLG) waits at group formation. Sign in as `field1` to record CGT, then `co1` to record GRT.
 - SLA check interval: `WORKFLOW_SLA_CHECK_MS` (default 60000).
 
@@ -217,6 +218,13 @@ Also per product: liveness required, call hours (India time), calls allowed per 
 questions the official must ask and confirm before approving. Always on (RBI V-CIP): a trained official, consent,
 location in India, the random code and the recording. Each session keeps the settings it was created with.
 
+- **IP country as well as GPS:** the country of the customer's IP address is recorded when they join; a call from a
+  foreign IP (a VPN or a spoofed location) cannot be approved even when GPS shows India. Load your geo-IP provider's
+  ranges (one `CIDR,country` per line) with `rhythm.vkyc.ip-country-file`; private addresses count as unknown network.
+- **Queue and booked slots:** Work → **Video KYC queue** shows customers waiting now (longest first, late bookings
+  marked), calls in progress and booked calls. A customer who cannot take the call now books a 15-minute slot on the
+  link page (staff can book or move it for them); each slot takes `rhythm.vkyc.slot-capacity` calls (default 2).
+
 ## Co-applicants and guarantors
 
 Every product has its own rules (Products → **Co-applicants & guarantors**, approved by the CRO like any product change):
@@ -236,7 +244,25 @@ Every product has its own rules (Products → **Co-applicants & guarantors**, ap
 - **Checks:** KYC (from their own documents when document AI is on, else the KYC provider) and a bureau pull per person; the decision waits until every party is verified.
 - **Decision:** counted co-applicants' income and their EMIs join the applicant's for affordability; rule **R23** refers the case when a party misses the policy (bureau score, no credit record for a guarantor, age at maturity, more than two other open guarantees) with reason code RC-026. The credit memo has a joint section.
 - **Gates:** sanction waits for co-owners, credit's requests and a re-run decision if someone joined after it; disbursement waits until every party has signed by OTP (co-applicants the KFS and agreement, guarantors the guarantee deed).
+- **Company and firm guarantors** (business, used CV and LAP products): a company, LLP, partnership, trust or HUF can stand guarantor, never co-applicant. The PAN must be of its type (fourth letter C, F, T or H), an authorised signatory is named, and KYC needs the board resolution, partnership deed, LLP agreement or trust deed.
+- **Income checked against their own bank data:** where the product counts co-applicant income, it counts only after their bank statement (read by AI) or Account Aggregator data has been checked, with their consent; the lower of declared and found income counts.
+- **After sanction:** the sanction letter, KFS and borrower portal name every co-applicant and guarantor; they join the live loan; collections may contact a co-applicant any time and a guarantor only at 30+ days past due or after a broken promise; the credit bureau file reports each person on the account in their own role (JOINT, GUARANTOR).
 - Applications created before this release keep the old behaviour.
+
+## Collateral after disbursement
+
+- On disbursement each collateral that passed becomes a lien on the loan (Portfolio → loan → **Collateral**).
+- **Release:** after closure the original documents are due back within 30 days (₹5,000 a day late is shown and paid, RBI 2023); before closure one collateral can be released after a part-payment only if what remains covers the outstanding within each type's maximum LTV.
+- **Substitution:** a new collateral offered in place of one held goes through the usual checks; it can be swapped in only when it has passed and still covers the loan.
+- Operations or credit asks, a credit manager or the CRO approves (never the person who asked), operations records the handover and a release letter is issued.
+- **Automated valuation:** registered sales within 3 km in the last 24 months, brought to today and weighted by distance, age and size, give a value and range beside the empanelled valuer's report (a cross-check; it never sets the value). Import sales (registry data, your past valuations) under Collateral AI → Policy.
+
+## Models, templates and cost per file
+
+- **Your own loan history:** Admin → Risk models → **Our own loan history** imports past loans (CSV; columns listed on the screen). Bad = 90+ days past due in the first 12 months or written off. Tick "Only our own loans" to train without the synthetic book.
+- **Fraud model:** a separate model trained on fraud outcomes (imported history and every case a fraud analyst confirmed or cleared here); same governance as the PD models, and once the CRO approves it, its weights replace the built-in fraud score.
+- **Templates:** Admin → **Templates** edits the sanction letter and KFS wording per language and the customer messages (OTP, invites, video KYC link, sanction, disbursement, reminders), with placeholder checks, preview, versions and audit.
+- **Cost per file:** Benchmarking shows vendor and staff cost per disbursed file (direct and all-in, by product and item) at rates the admin or CRO sets, and compares it with peers.
 
 ## Phase 4: Scale
 

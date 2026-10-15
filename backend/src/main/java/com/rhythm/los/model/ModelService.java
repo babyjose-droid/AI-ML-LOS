@@ -31,6 +31,9 @@ public class ModelService {
     /** Separate calibrated models for applicants with and without a bureau record (BR-11, FSD 14.4). */
     public static final String NAME_THICK = "RHY-PD-THICK-TRAINED";
     public static final String NAME_NTC = "RHY-PD-NTC-TRAINED";
+    /** The separate fraud model: same governance (candidate, CRO approval, champion), its own features and labels. */
+    public static final String NAME_FRAUD = "RHY-FRAUD-TRAINED";
+    static final int MIN_FRAUD = 20;
     static final Set<Role> TRAINERS = EnumSet.of(Role.CREDIT_MANAGER, Role.CRO, Role.ADMIN);
     static final int MIN_ROWS = 200, MIN_BAD = 20;
     /** Bureau features have no meaning for a new-to-credit applicant, so the NTC model does not use them. */
@@ -57,11 +60,17 @@ public class ModelService {
         Map<String, Optional<PdModel>> c = championsByTenant.get(com.rhythm.los.tenant.TenantContext.code());
         if (c == null) {
             c = new HashMap<>();
-            for (String k : List.of("THICK", "NTC"))
+            for (String k : List.of("THICK", "NTC", "FRAUD"))
                 c.put(k, repo.findFirstByKindAndStatusOrderByIdDesc(k, "CHAMPION").map(ModelService::toModel));
             championsByTenant.put(com.rhythm.los.tenant.TenantContext.code(), c);
         }
         return c.get(thick ? "THICK" : "NTC");
+    }
+
+    /** The approved fraud model; empty = the built-in fraud score. */
+    public Optional<PdModel> fraudChampion() {
+        champion(true);
+        return championsByTenant.get(com.rhythm.los.tenant.TenantContext.code()).getOrDefault("FRAUD", Optional.empty());
     }
 
     /** The model the engine uses for this applicant. */
@@ -83,7 +92,8 @@ public class ModelService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("model", v);
         List<Map<String, Object>> terms = Json.read(v.getTermsJson(), new TypeReference<List<Map<String, Object>>>() {});
-        for (Map<String, Object> t : terms) t.put("label", Features.def((String) t.get("feature")).label());
+        for (Map<String, Object> t : terms) t.put("label", "FRAUD".equals(v.getKind()) ? com.rhythm.los.decision.engine.FraudFeatures.label((String) t.get("feature"))
+                : Features.def((String) t.get("feature")).label());
         m.put("terms", terms);
         m.put("metrics", Json.read(v.getMetricsJson(), Map.class));
         return m;
@@ -94,9 +104,13 @@ public class ModelService {
      * trainer for a candidate of each. A set too small to train on is skipped and reported.
      */
     @Transactional
-    public Map<String, Object> train(CurrentUser by) {
+    public Map<String, Object> train(CurrentUser by) { return train(by, false); }
+
+    /** onlyOwn: train on the lender's imported loans only (no synthetic or demo data). */
+    @Transactional
+    public Map<String, Object> train(CurrentUser by, boolean onlyOwn) {
         if (!TRAINERS.contains(by.role())) throw ApiException.forbidden("NOT_ALLOWED", "Only credit managers and the CRO can train models");
-        List<HistoricalLoan> loans = book.findAllByOrderByIdAsc();
+        List<HistoricalLoan> loans = book.findAllByOrderByIdAsc().stream().filter(h -> !onlyOwn || "IMPORT".equals(h.getSource())).toList();
         PolicyParams pol = policy.live();
         Map<String, List<Map<String, Object>>> rows = new LinkedHashMap<>(Map.of("THICK", new ArrayList<>(), "NTC", new ArrayList<>()));
         Map<String, Set<String>> sources = new HashMap<>(Map.of("THICK", new TreeSet<>(), "NTC", new TreeSet<>()));
@@ -125,6 +139,93 @@ public class ModelService {
         out.put("candidates", trained);
         out.put("skipped", skipped);
         return out;
+    }
+
+    private com.rhythm.los.audit.AuditRepository auditRepo;
+    private com.rhythm.los.decision.DecisionRecordRepository decisionsForFraud;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setFraudSources(com.rhythm.los.audit.AuditRepository a, @org.springframework.context.annotation.Lazy com.rhythm.los.decision.DecisionRecordRepository d) {
+        this.auditRepo = a;
+        this.decisionsForFraud = d;
+    }
+
+    /**
+     * Synthetic loans have no fraud outcome; for the demo one is simulated from the built-in fraud score (deterministic per
+     * loan). Imported loans carry the lender's own fraud flag.
+     */
+    static boolean fraudLabel(HistoricalLoan h, EngineInput in) {
+        if (!"SYNTHETIC".equals(h.getSource())) return h.isOutcomeFraud();
+        double u = (Math.abs(h.getRef().hashCode() * 2654435761L) % 100000) / 100000.0;
+        return u < com.rhythm.los.decision.engine.FraudFeatures.builtInProbability(in);
+    }
+
+    /**
+     * Trains the fraud model: past loans with a fraud outcome, plus every application a fraud analyst confirmed (fraud)
+     * or cleared (not fraud) here, so the model learns from the lender's own reviews.
+     */
+    @Transactional
+    public Map<String, Object> trainFraud(CurrentUser by, boolean onlyOwn) {
+        if (!TRAINERS.contains(by.role())) throw ApiException.forbidden("NOT_ALLOWED", "Only credit managers and the CRO can train models");
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Set<String> sources = new TreeSet<>();
+        int frauds = 0, reviewed = 0;
+        for (HistoricalLoan h : book.findAllByOrderByIdAsc()) {
+            if (onlyOwn && !"IMPORT".equals(h.getSource())) continue;
+            EngineInput in = Json.read(h.getInputJson(), EngineInput.class);
+            boolean f = fraudLabel(h, in);
+            rows.add(Map.of("features", com.rhythm.los.decision.engine.FraudFeatures.of(in), "bad", f,
+                    "championPd", com.rhythm.los.decision.engine.FraudFeatures.builtInProbability(in)));
+            sources.add(h.getSource());
+            if (f) frauds++;
+        }
+        if (auditRepo != null && decisionsForFraud != null) {
+            Map<Long, Boolean> label = new HashMap<>();
+            for (var e : auditRepo.findByActionIn(List.of("fraud.confirmed", "fraud.cleared")))
+                if (e.getApplicationId() != null) label.put(e.getApplicationId(), "fraud.confirmed".equals(e.getAction()));
+            for (var x : label.entrySet()) {
+                var d = decisionsForFraud.findFirstByApplicationIdOrderByIdDesc(x.getKey()).orElse(null);
+                if (d == null || d.getInputJson() == null) continue;
+                EngineInput in = Json.read(d.getInputJson(), EngineInput.class);
+                rows.add(Map.of("features", com.rhythm.los.decision.engine.FraudFeatures.of(in), "bad", x.getValue(),
+                        "championPd", com.rhythm.los.decision.engine.FraudFeatures.builtInProbability(in)));
+                sources.add("REVIEWED");
+                reviewed++;
+                if (x.getValue()) frauds++;
+            }
+        }
+        if (rows.size() < MIN_ROWS || frauds < MIN_FRAUD)
+            throw ApiException.unprocessable("NOT_ENOUGH_DATA", "Not enough cases to train a fraud model: " + rows.size() + " loans and reviews with " + frauds
+                    + " confirmed frauds (need " + MIN_ROWS + " and " + MIN_FRAUD + ")");
+        Map<String, Object> out = trainer.train(Map.of("features", com.rhythm.los.decision.engine.FraudFeatures.ALL, "rows", rows, "l2", 1.0));
+        PdModel current = fraudChampion().orElse(null);
+        ModelVersion v = new ModelVersion();
+        v.setName(NAME_FRAUD);
+        v.setKind("FRAUD");
+        v.setVersion("1." + (repo.countByName(NAME_FRAUD) + 1));
+        v.setStatus("CANDIDATE");
+        v.setIntercept(((Number) out.get("intercept")).doubleValue());
+        v.setTermsJson(Json.write(out.get("terms")));
+        Map<String, Object> metrics = new LinkedHashMap<>(out);
+        metrics.remove("terms");
+        metrics.remove("intercept");
+        metrics.put("championName", current == null ? "Built-in fraud score" : current.label());
+        metrics.put("frauds", frauds);
+        metrics.put("analystReviews", reviewed);
+        v.setMetricsJson(Json.write(metrics));
+        v.setDataSource(sources.size() > 1 ? "MIXED" : sources.isEmpty() ? "NONE" : sources.iterator().next());
+        v.setRowsUsed(rows.size());
+        v.setTrainedBy(by.username());
+        v.setBaselineJson(Json.write(baselineOf(rows, com.rhythm.los.decision.engine.FraudFeatures.ALL, toModelFrom(NAME_FRAUD, v.getVersion(), v.getIntercept(), v.getTermsJson()))));
+        repo.save(v);
+        Object hold = metrics.get("holdout");
+        audit.record(by, "model.trained", "MODEL", v.getName() + " " + v.getVersion(), null,
+                rows.size() + " cases, " + frauds + " frauds (" + v.getDataSource() + ") · hold-out " + (hold instanceof Map<?, ?> hm ? "AUC " + hm.get("auc") : ""));
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("candidate", v);
+        res.put("frauds", frauds);
+        res.put("analystReviews", reviewed);
+        return res;
     }
 
     private ModelVersion trainOne(String kind, List<Map<String, Object>> rows, Set<String> sources, CurrentUser by) {
@@ -263,12 +364,18 @@ public class ModelService {
             if (d.getInputJson() == null || "INCOMPLETE".equals(d.getDecision())) continue;
             EngineInput in;
             try { in = Json.read(d.getInputJson(), EngineInput.class); } catch (Exception e) { continue; }
+            if ("FRAUD".equals(kind)) {
+                com.rhythm.los.decision.engine.FraudFeatures.of(in).forEach((k, x) -> live.computeIfAbsent(k, z -> new ArrayList<>()).add(x));
+                live.computeIfAbsent("pd", z -> new ArrayList<>()).add(d.getFraudScore() / 100.0);
+                continue;
+            }
             if ((in.bureau() != null) != "THICK".equals(kind)) continue;
             Features.of(in).forEach((k, x) -> live.computeIfAbsent(k, z -> new ArrayList<>()).add(x));
             live.computeIfAbsent("pd", z -> new ArrayList<>()).add(d.getPd().doubleValue());
         }
         List<Drift.Psi> psi = new ArrayList<>();
-        base.forEach((f, b) -> psi.add(Drift.psi(f, "pd".equals(f) ? "Predicted PD" : Features.def(f).label(), b, live.getOrDefault(f, List.of()))));
+        base.forEach((f, b) -> psi.add(Drift.psi(f, "pd".equals(f) ? ("FRAUD".equals(kind) ? "Fraud probability" : "Predicted PD")
+                : "FRAUD".equals(kind) ? com.rhythm.los.decision.engine.FraudFeatures.label(f) : Features.def(f).label(), b, live.getOrDefault(f, List.of()))));
         psi.sort(Comparator.comparingDouble(Drift.Psi::psi).reversed());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("kind", kind);
@@ -328,7 +435,7 @@ public class ModelService {
         if (by.role() != Role.CRO) throw ApiException.forbidden("NOT_CHECKER", "Only the CRO can retire the champion model");
         if (note == null || note.trim().length() < 10) throw ApiException.unprocessable("REASON_REQUIRED", "Give a reason of at least 10 characters");
         List<ModelVersion> cs = new ArrayList<>();
-        for (String k : List.of("THICK", "NTC")) repo.findFirstByKindAndStatusOrderByIdDesc(k, "CHAMPION").ifPresent(cs::add);
+        for (String k : List.of("THICK", "NTC", "FRAUD")) repo.findFirstByKindAndStatusOrderByIdDesc(k, "CHAMPION").ifPresent(cs::add);
         if (cs.isEmpty()) throw ApiException.conflict("NO_CHAMPION", "No trained model is in use");
         for (ModelVersion c : cs) {
             c.setStatus("RETIRED");

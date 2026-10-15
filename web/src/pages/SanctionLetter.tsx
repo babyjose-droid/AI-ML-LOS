@@ -9,6 +9,7 @@ import type { Kfs } from '../types'
 interface Letter {
   language: string; lender: string; applicationNo: string; borrower: string; address: string; product: string; sanctionedOn: string
   approver: string; level: string; conditions: string[]; kfs: Kfs; acceptedAt?: string; acceptedLanguage?: string; validDays: number
+  texts?: Record<string, string>; textsEn?: Record<string, string>
 }
 
 /** FR-SAN-03: sanction letter and KFS in the borrower's language with English, ready to print or save as PDF. */
@@ -20,7 +21,10 @@ export default function SanctionLetter() {
   if (!l.data) return <ErrorBox error={l.error} />
   const d = l.data, k = d.kfs, L = d.language
   const T = ({ k: key, suffix }: { k: string; suffix?: string }) => {
-    const b = both(L, key)
+    const b0 = both(L, key)
+    // the lender's own wording (Admin → Templates) replaces the built-in text
+    const en = d.textsEn?.[key] ?? b0.en, local = L === 'en' ? undefined : d.texts?.[key] ?? b0.local
+    const b = { en: L === 'en' ? d.texts?.[key] ?? en : en, local: local && local !== en ? local : undefined }
     return <span>{b.local && <span className="local" lang={L}>{b.local}{suffix}<br /></span>}<span className={b.local ? 'small muted' : ''}>{b.en}{suffix}</span></span>
   }
   const row = (key: string, value: React.ReactNode) => <tr><th><T k={key} /></th><td>{value}</td></tr>

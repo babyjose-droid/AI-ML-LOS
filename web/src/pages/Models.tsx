@@ -32,14 +32,24 @@ export default function Models() {
   const [skipped, setSkipped] = useState<string[]>([])
   const current = sel ?? models.find(m => m.status === 'CANDIDATE')?.id ?? champion?.id ?? models[0]?.id ?? null
   const canTrain = !!user && ['CREDIT_MANAGER', 'CRO', 'ADMIN'].includes(user.role)
+  const [onlyOwn, setOnlyOwn] = useState(false)
 
   async function train() {
     setBusy(true)
     setError(undefined)
     try {
-      const v = await api.post<{ candidates: ModelVersion[]; skipped: string[] }>('/api/models/train')
+      const v = await api.post<{ candidates: ModelVersion[]; skipped: string[] }>('/api/models/train', { onlyOwn })
       setSel(v.candidates[0]?.id ?? null)
       setSkipped(v.skipped)
+      setRev(r => r + 1)
+    } catch (e) { setError(e) } finally { setBusy(false) }
+  }
+  async function trainFraud() {
+    setBusy(true)
+    setError(undefined)
+    try {
+      const v = await api.post<{ candidate: ModelVersion }>('/api/models/train-fraud', { onlyOwn })
+      setSel(v.candidate.id)
       setRev(r => r + 1)
     } catch (e) { setError(e) } finally { setBusy(false) }
   }
@@ -52,15 +62,17 @@ export default function Models() {
   return (
     <>
       <Head title="Risk models" sub="Train the probability-of-default model on past loans, compare it with the model in use, and approve it (CRO) before it decides anything.">
+        {canTrain && <label className="check small"><input type="checkbox" checked={onlyOwn} onChange={e => setOnlyOwn(e.target.checked)} /> Only our own loans</label>}
         {canTrain && <button className="btn primary" disabled={busy} onClick={train} data-model="train">{busy ? 'Training…' : 'Train a new candidate'}</button>}
+        {canTrain && <button className="btn" disabled={busy} onClick={trainFraud} data-model="train-fraud">Train a fraud model</button>}
       </Head>
       <ErrorBox error={error ?? list.error} />
       <div className="panel small">
         In use now: <b data-model="inuse">{['THICK', 'NTC'].map(k => {
           const c = champions.find(m => m.kind === k)
           return c ? `${k === 'THICK' ? 'bureau record' : 'new to credit'}: ${c.name} ${c.version} (approved by ${c.decidedBy})` : `${k === 'THICK' ? 'bureau record' : 'new to credit'}: built-in ${k === 'THICK' ? 'RHY-PD-THICK' : 'RHY-PD-NTC'}`
-        }).join(' · ')}</b>
-        <div className="small muted">Separate models score applicants with a bureau record (THICK) and new-to-credit applicants (NTC).</div>
+        }).join(' · ')} · fraud: {champions.find(m => m.kind === 'FRAUD') ? `${champions.find(m => m.kind === 'FRAUD')!.name} ${champions.find(m => m.kind === 'FRAUD')!.version}` : 'built-in fraud score'}</b>
+        <div className="small muted">Separate models score applicants with a bureau record (THICK) and new-to-credit applicants (NTC); a separate fraud model learns from confirmed frauds and the fraud analysts' reviews.</div>
         {skipped.length > 0 && <div className="small muted">Not trained this time: {skipped.join('; ')}</div>}
         {champion && user?.role === 'CRO' && <> · <a href="#" onClick={e => { e.preventDefault(); retire() }}>go back to the built-in model</a></>}
       </div>
@@ -73,7 +85,47 @@ export default function Models() {
         <div>{current && <ModelDetail key={current + ':' + rev} id={current} onChange={() => setRev(r => r + 1)} />}</div>
       </div>
       <BuiltInMonitoring champions={champions.map(c => c.kind ?? '')} />
+      {canTrain && <HistoryImport onDone={() => setRev(r => r + 1)} />}
     </>
+  )
+}
+
+interface History { bySource: { source: string; loans: number; bad: number; fraud: number }[]; columns: string[]; recent: { ref: string; segment: string; product: string; amount: number; bad: boolean; fraud: boolean; batch: string }[] }
+
+/** The lender's own past loans: paste or upload a CSV; each row becomes a training case with its 12-month outcome. */
+function HistoryImport({ onDone }: { onDone: () => void }) {
+  const [r, setR] = useState(0)
+  const h = useLoad(() => api.get<History>('/api/models/history'), [r])
+  const [csv, setCsv] = useState('')
+  const [res, setRes] = useState<{ rows: number; added: number; updated: number; bad: number; fraud: number; errors: string[]; batch: string }>()
+  const [error, setError] = useState<unknown>()
+  async function load() {
+    setError(undefined); setRes(undefined)
+    const lines = csv.trim().split(/\r?\n/).filter(Boolean)
+    const head = (lines[0] ?? '').split(',').map(x => x.trim())
+    if (!head.includes('ref')) { setError(new Error('The first line must name the columns (ref, segment, amount, …)')); return }
+    const rows = lines.slice(1).map(l => { const v = l.split(','); const o: Record<string, string> = {}; head.forEach((k, i) => { o[k] = (v[i] ?? '').trim() }); return o })
+    try { setRes(await api.post('/api/models/history', { rows })); setR(x => x + 1); onDone() } catch (e) { setError(e) }
+  }
+  async function file(f?: File) { if (f) setCsv(await f.text()) }
+  return (
+    <div className="panel" data-testid="history-import" style={{ marginTop: 12 }}>
+      <h3>Our own loan history</h3>
+      <p className="small">Import past loans from your LMS so the models learn from your borrowers. Outcome: <b>bad</b> when the loan reached 90 days past due in its first 12 months or was written off; <b>fraud</b> when fraud was confirmed. Rows with the same reference are updated.</p>
+      <Table head={['Source', 'Loans', 'Bad', 'Fraud']} rows={(h.data?.bySource ?? []).map(x => [x.source.toLowerCase(), x.loans, x.bad, x.fraud])} empty="No history yet." />
+      <details className="small" style={{ margin: '8px 0' }}><summary>Columns</summary>
+        <p className="mono">{(h.data?.columns ?? []).join(',')}</p>
+        <p>Required: ref, segment (SALARIED, MSME or MICROFINANCE), amount, tenureMonths, age, declaredMonthlyIncome, monthlyCredits (6 to 12 months separated by |) or avgMonthlyCredits, and maxDpd or writtenOff. Leave bureauScore blank when there was no bureau record. Y/N for ever90, secured, docTamper, writtenOff and fraud.</p>
+      </details>
+      <textarea name="historyCsv" rows={5} value={csv} onChange={e => setCsv(e.target.value)} placeholder="ref,segment,amount,tenureMonths,age,declaredMonthlyIncome,monthlyCredits,bureauScore,maxDpd,fraud" style={{ width: '100%' }} />
+      <div className="row" style={{ marginTop: 6 }}>
+        <input type="file" accept=".csv,text/csv" aria-label="History CSV" onChange={e => file(e.target.files?.[0])} />
+        <button className="btn primary" data-action="importHistory" disabled={!csv.trim()} onClick={load}>Import</button>
+      </div>
+      <ErrorBox error={error ?? h.error} />
+      {res && <p className="small">{res.added} added and {res.updated} updated of {res.rows} ({res.bad} bad, {res.fraud} fraud) · batch {res.batch}
+        {res.errors.length > 0 && <ul>{res.errors.slice(0, 20).map(e => <li key={e}>{e}</li>)}</ul>}</p>}
+    </div>
   )
 }
 

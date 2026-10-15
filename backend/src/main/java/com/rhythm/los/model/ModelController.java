@@ -13,8 +13,12 @@ import java.util.Map;
 @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN','COMPLIANCE')")
 public class ModelController {
     private final ModelService models;
+    private final com.rhythm.los.portfolio.HistoryImportService history;
 
-    public ModelController(ModelService models) { this.models = models; }
+    public ModelController(ModelService models, com.rhythm.los.portfolio.HistoryImportService history) {
+        this.models = models;
+        this.history = history;
+    }
 
     @GetMapping
     public List<ModelVersion> list() { return models.list(); }
@@ -28,9 +32,24 @@ public class ModelController {
     @GetMapping("/monitoring/built-in/{kind}")
     public java.util.Map<String, Object> builtIn(@PathVariable String kind) { return models.monitoringBuiltIn(kind); }
 
+    public record TrainRequest(Boolean onlyOwn) {}
+
     @PostMapping("/train")
     @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN')")
-    public Map<String, Object> train() { return models.train(CurrentUser.get()); }
+    public Map<String, Object> train(@RequestBody(required = false) TrainRequest r) { return models.train(CurrentUser.get(), r != null && Boolean.TRUE.equals(r.onlyOwn())); }
+
+    @PostMapping("/train-fraud")
+    @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN')")
+    public Map<String, Object> trainFraud(@RequestBody(required = false) TrainRequest r) { return models.trainFraud(CurrentUser.get(), r != null && Boolean.TRUE.equals(r.onlyOwn())); }
+
+    public record HistoryRows(List<Map<String, Object>> rows) {}
+
+    @PostMapping("/history")
+    @PreAuthorize("hasAnyRole('CREDIT_MANAGER','CRO','ADMIN')")
+    public com.rhythm.los.portfolio.HistoryImportService.Result importHistory(@RequestBody HistoryRows r) { return history.importRows(r.rows(), CurrentUser.get()); }
+
+    @GetMapping("/history")
+    public Map<String, Object> history() { return history.summary(); }
 
     @PostMapping("/{id}/decision")
     @PreAuthorize("hasRole('CRO')")

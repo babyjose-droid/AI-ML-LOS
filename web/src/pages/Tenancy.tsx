@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, Head, Table, useLoad } from '../components/ui'
-import { pct, when } from '../format'
+import { inr, pct, when } from '../format'
 
 interface TenantRow { code: string; name: string; schema_name: string; status: string; benchmarking_opt_in: boolean; created_at: string; created_by: string; go_live_approved_at?: string; users?: number; applications?: number }
 
@@ -105,7 +105,7 @@ export function Onboarding() {
 
 interface Bm { optedIn: boolean; minPeers: number; includesSyntheticPeers: boolean; period: string; metrics: { key: string; label: string; unit: string; higherIsBetter: boolean; mine?: number; lenders: number; p25?: number; median?: number; p75?: number; quartile?: number }[] }
 
-const fmt = (v: number | undefined, unit: string) => v == null || Number.isNaN(v) ? '—' : unit === 'share' ? pct(v, 1) : unit === 'days' ? v.toFixed(1) + ' days' : v.toFixed(2) + '%'
+const fmt = (v: number | undefined, unit: string) => v == null || Number.isNaN(v) ? '—' : unit === 'share' ? pct(v, 1) : unit === 'days' ? v.toFixed(1) + ' days' : unit === '₹' ? inr(Math.round(v)) : v.toFixed(2) + '%'
 
 /** Anonymised benchmarking against peer lenders (FSD 19.5). */
 export function Benchmarking() {
@@ -131,6 +131,64 @@ export function Benchmarking() {
         </div>
         <p className="small muted">Period {b.data.period}. Origination measures cover the last 180 days; portfolio measures use the live loan book.</p>
       </>}
+      <CostPerFile />
     </>
+  )
+}
+
+interface Cost {
+  days: number; files: number; disbursed: number; directPerDisbursed?: number; vendorPerDisbursed?: number; staffPerDisbursed?: number; allInPerDisbursed?: number; perFileStarted?: number
+  byProduct: { product: string; files: number; disbursed: number; directPerDisbursed?: number; allInPerDisbursed?: number }[]
+  byItem: { item: string; label: string; kind: string; uses: number; cost: number }[]
+}
+interface Rate { item: string; label: string; kind: string; unitCost: number; updatedBy: string; updatedAt: string }
+
+/** What a loan file costs: vendor calls and staff handling at the lender's own rates. */
+function CostPerFile() {
+  const { user } = useAuth()
+  const [days, setDays] = useState(180)
+  const [r, setR] = useState(0)
+  const c = useLoad(() => api.get<Cost>(`/api/benchmarking/cost?days=${days}`), [days, r])
+  const rates = useLoad(() => api.get<Rate[]>('/api/benchmarking/cost-rates'), [r])
+  const [edit, setEdit] = useState<Record<string, string>>({})
+  const [error, setError] = useState<unknown>()
+  const canEdit = !!user && ['ADMIN', 'CRO'].includes(user.role)
+  async function save() {
+    setError(undefined)
+    try {
+      await api.put('/api/benchmarking/cost-rates', { rates: Object.entries(edit).map(([item, v]) => ({ item, unitCost: Number(v) })) })
+      setEdit({}); setR(x => x + 1)
+    } catch (e) { setError(e) }
+  }
+  const money = (v?: number | null) => v == null ? '—' : inr(v)
+  return (
+    <div className="panel" data-testid="cost-per-file" style={{ marginTop: 12 }}>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0 }}>Cost per file</h3>
+        <label className="small">Period <select value={days} onChange={e => setDays(Number(e.target.value))}>{[30, 90, 180, 365].map(d => <option key={d} value={d}>last {d} days</option>)}</select></label>
+      </div>
+      <ErrorBox error={error ?? c.error} />
+      {c.data && <>
+        <div className="grid2" style={{ marginTop: 8 }}>
+          <dl className="dl">
+            <dt>Files started</dt><dd>{c.data.files}</dd><dt>Disbursed</dt><dd>{c.data.disbursed}</dd>
+            <dt>Cost of a disbursed file</dt><dd><b>{money(c.data.directPerDisbursed)}</b> (vendors {money(c.data.vendorPerDisbursed)}, staff {money(c.data.staffPerDisbursed)})</dd>
+          </dl>
+          <dl className="dl">
+            <dt>All-in per disbursed file</dt><dd><b>{money(c.data.allInPerDisbursed)}</b><div className="small muted">includes the files rejected or withdrawn along the way</div></dd>
+            <dt>Average per file started</dt><dd>{money(c.data.perFileStarted)}</dd>
+          </dl>
+        </div>
+        <Table head={['Product', 'Files', 'Disbursed', 'Per disbursed file', 'All-in']} rows={c.data.byProduct.map(p => [p.product, p.files, p.disbursed, money(p.directPerDisbursed), money(p.allInPerDisbursed)])} empty="No files in this period." />
+        <h4>Where the money goes</h4>
+        <Table head={['Item', 'Kind', 'Uses', 'Cost']} rows={c.data.byItem.slice(0, 12).map(i => [i.label, i.kind === 'VENDOR' ? 'vendor' : 'staff', i.uses, inr(i.cost)])} empty="Nothing yet." />
+      </>}
+      <details style={{ marginTop: 8 }}><summary className="small">Rates used</summary>
+        <Table head={['Item', 'Kind', '₹ each', 'Changed']} rows={(rates.data ?? []).map(x => [x.label, x.kind === 'VENDOR' ? 'per successful call' : 'per stage completed',
+          canEdit ? <input inputMode="decimal" style={{ maxWidth: 100 }} aria-label={`Rate for ${x.label}`} value={edit[x.item] ?? String(x.unitCost)} onChange={e => setEdit({ ...edit, [x.item]: e.target.value })} /> : inr(x.unitCost),
+          <span className="small muted">{x.updatedBy} · {when(x.updatedAt)}</span>])} />
+        {canEdit && Object.keys(edit).length > 0 && <button className="btn primary" onClick={save}>Save rates</button>}
+      </details>
+    </div>
   )
 }

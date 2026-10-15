@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface AuditRepository extends JpaRepository<AuditEvent, Long> {
     List<AuditEvent> findByApplicationIdOrderByIdDesc(Long applicationId);
+    List<AuditEvent> findByActionIn(java.util.Collection<String> actions);
     List<AuditEvent> findAllByOrderByIdDesc(Pageable page);
     List<AuditEvent> findByCreatedAtBetweenOrderByIdAsc(java.time.Instant from, java.time.Instant to);
 }

@@ -24,7 +24,8 @@ public class BenchmarkService {
             new Metric("dpd30At6", "30+ days past due at 6 months on book", false, "share"),
             new Metric("fraudCatchRate", "Applications stopped for fraud", true, "share"),
             new Metric("yield", "Portfolio yield", true, "% a year"),
-            new Metric("collectionEfficiency", "Book current (no days past due)", true, "share"));
+            new Metric("collectionEfficiency", "Book current (no days past due)", true, "share"),
+            new Metric("costPerFile", "Cost per disbursed file (vendors and staff, rejected files included)", false, "₹"));
     public static final int MIN_PEERS = 5;
 
     private final JdbcTemplate jdbc;
@@ -55,6 +56,12 @@ public class BenchmarkService {
         m.put("fraudCatchRate", one("select avg(case when fraud_state in ('REVIEW', 'BLOCK') then 1.0 else 0.0 end) from loan_application where created_at > now() - interval '180 days' and app_state <> 'DRAFT'"));
         m.put("yield", one("select sum(outstanding * rate) / nullif(sum(outstanding), 0) from live_loan where status = 'ACTIVE'"));
         m.put("collectionEfficiency", one("select sum(case when dpd = 0 then outstanding else 0 end) / nullif(sum(outstanding), 0) from live_loan where status = 'ACTIVE'"));
+        m.put("costPerFile", one("""
+                with apps as (select id, app_state from loan_application where created_at > now() - interval '180 days' and app_state <> 'DRAFT'),
+                v as (select coalesce(sum(r.unit_cost), 0) c from integration_log l join cost_rate r on r.item = l.operation where l.status = 'SUCCESS' and l.application_id in (select id from apps)),
+                s as (select coalesce(sum(r.unit_cost), 0) c from app_stage st join cost_rate r on r.item = 'stage:' || st.stage_key where st.status = 'DONE' and st.application_id in (select id from apps)),
+                d as (select count(*) n from apps where app_state = 'DISBURSED')
+                select (v.c + s.c) / nullif(d.n, 0) from v, s, d"""));
         return m;
     }
 
@@ -81,7 +88,8 @@ public class BenchmarkService {
         TenantContext.run(TenantContext.DEFAULT, () -> {
             for (int i = 1; i <= 5; i++) {
                 Map<String, Double> m = Map.of("approvalRate", 0.45 + r.nextDouble() * 0.3, "tatDays", 2 + r.nextDouble() * 8, "straightThrough", 0.05 + r.nextDouble() * 0.4,
-                        "dpd30At6", 0.02 + r.nextDouble() * 0.08, "fraudCatchRate", 0.01 + r.nextDouble() * 0.05, "yield", 16 + r.nextDouble() * 8, "collectionEfficiency", 0.85 + r.nextDouble() * 0.12);
+                        "dpd30At6", 0.02 + r.nextDouble() * 0.08, "fraudCatchRate", 0.01 + r.nextDouble() * 0.05, "yield", 16 + r.nextDouble() * 8, "collectionEfficiency", 0.85 + r.nextDouble() * 0.12,
+                        "costPerFile", 1200 + r.nextDouble() * 2400);
                 String code = "synthetic-" + i;
                 m.forEach((k, v) -> jdbc.update("""
                         insert into platform.benchmark_metric (tenant_code, period, metric, value, source) values (?, ?, ?, ?, 'SYNTHETIC')

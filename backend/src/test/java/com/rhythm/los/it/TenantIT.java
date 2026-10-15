@@ -156,7 +156,18 @@ class TenantIT {
         assertThat(ok(post("/api/benchmarking/refresh"), admin, null).body().get("tenants").asInt()).isGreaterThanOrEqualTo(1);
         JsonNode bm = ok(get("/api/benchmarking"), acme, null).body();
         assertThat(bm.get("optedIn").asBoolean()).isTrue();
-        assertThat(bm.get("metrics").size()).isEqualTo(7);
+        assertThat(bm.get("metrics").size()).isEqualTo(8);
+        assertThat(bm.get("metrics").toString()).contains("costPerFile");
         assertThat(bm.get("metrics").get(0).has("median")).isFalse();
+
+        // cost per file: the lender's own rates, in its own schema
+        JsonNode cost = ok(get("/api/benchmarking/cost?days=90"), acme, null).body();
+        assertThat(cost.get("days").asInt()).isEqualTo(90);
+        assertThat(cost.has("byItem")).isTrue();
+        JsonNode rates = ok(get("/api/benchmarking/cost-rates"), acme, null).body();
+        assertThat(rates.toString()).contains("bureau.pull").contains("stage:field");
+        assertThat(call(put("/api/benchmarking/cost-rates"), acme, Map.of("rates", List.of(Map.of("item", "bureau.pull", "unitCost", -5)))).status()).isEqualTo(422);
+        assertThat(ok(put("/api/benchmarking/cost-rates"), acme, Map.of("rates", List.of(Map.of("item", "bureau.pull", "unitCost", 42)))).body().toString()).contains("42");
+        assertThat(call(put("/api/benchmarking/cost-rates"), acmeSales, Map.of("rates", List.of(Map.of("item", "bureau.pull", "unitCost", 1)))).status()).isEqualTo(403);
     }
 }

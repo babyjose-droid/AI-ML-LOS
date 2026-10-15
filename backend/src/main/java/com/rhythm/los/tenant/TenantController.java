@@ -13,6 +13,10 @@ import java.util.Map;
 public class TenantController {
     private final TenantService tenants;
     private final BenchmarkService benchmarks;
+    private CostService costs;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setCosts(CostService c) { this.costs = c; }
     private final TenantRegistry registry;
 
     public TenantController(TenantService tenants, BenchmarkService benchmarks, TenantRegistry registry) {
@@ -73,6 +77,20 @@ public class TenantController {
     @GetMapping("/benchmarking")
     @PreAuthorize("hasAnyRole('ADMIN','CRO','CREDIT_MANAGER','COMPLIANCE')")
     public Map<String, Object> benchmarking() { return benchmarks.view(CurrentUser.get()); }
+
+    @GetMapping("/benchmarking/cost")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','CRO','CREDIT_MANAGER','COMPLIANCE','OPERATIONS')")
+    public Map<String, Object> cost(@RequestParam(defaultValue = "180") int days) { return costs.perFile(days); }
+
+    @GetMapping("/benchmarking/cost-rates")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','CRO','CREDIT_MANAGER','COMPLIANCE','OPERATIONS')")
+    public java.util.List<Map<String, Object>> costRates() { return costs.rates(); }
+
+    public record Rates(java.util.List<CostService.RateChange> rates) {}
+
+    @PutMapping("/benchmarking/cost-rates")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','CRO')")
+    public java.util.List<Map<String, Object>> setCostRates(@RequestBody Rates r) { return costs.updateRates(r.rates(), CurrentUser.get()); }
 
     @PostMapping("/benchmarking/refresh")
     @PreAuthorize("hasRole('ADMIN')")

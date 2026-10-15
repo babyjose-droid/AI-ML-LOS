@@ -279,10 +279,20 @@ public class SanctionService {
         m.put("acceptedAt", r.getKfsAcceptedAt());
         m.put("acceptedLanguage", r.getKfsLanguage());
         m.put("validDays", 30);
+        // wording the lender changed (Admin → Templates), for the letter's language and English
+        if (templates != null) {
+            m.put("texts", templates.letterTexts(language));
+            m.put("textsEn", templates.letterTexts("en"));
+        }
         return m;
     }
 
     @Value("${rhythm.lender.name:Rhythm Demo Finance Ltd (NBFC)}") String lenderName = "Rhythm Demo Finance Ltd (NBFC)";
+
+    private com.rhythm.los.template.TemplateService templates;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTemplates(com.rhythm.los.template.TemplateService t) { this.templates = t; }
 
     public Kfs kfs(Long appId) {
         return records.findFirstByApplicationIdAndActionOrderByIdDesc(appId, "APPROVED")

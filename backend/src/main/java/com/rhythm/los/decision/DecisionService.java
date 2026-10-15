@@ -131,7 +131,7 @@ public class DecisionService {
                             p.getRateMin() == null ? 0 : p.getRateMin().doubleValue(), p.getRateMax() == null ? 0 : p.getRateMax().doubleValue()));
         }
         PolicyParams pol = policy.liveFor(in.eligibility() == null ? null : in.eligibility().product(), in.segment());
-        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null), models.fraudChampion().orElse(null));
         Delegation.Level lvl = Delegation.of(r);
         DecisionRecord d = toRecord(r, lvl, new ArrayList<>(r.conditions()));
         d.setInputJson(Json.write(in));
@@ -154,7 +154,7 @@ public class DecisionService {
         Product p = apps.product(a);
         PolicyParams pol = policy.liveFor(p.getCode(), a.getSegment());
         EngineInput in = buildInput(a, p, pol);
-        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null));
+        EngineResult r = UnderwritingEngine.underwrite(in, pol, models.champion(in.bureau() != null).orElse(null), models.fraudChampion().orElse(null));
         Delegation.Level lvl = Delegation.of(r);
         String hash = sha256(Json.write(in) + "|" + Json.write(pol));
         DecisionRecord prev = latest(appId).orElse(null);

@@ -21,6 +21,10 @@ public class HistoricalLoan {
     @JsonIgnore @Column(name = "input_json") private String inputJson;
     @Column(name = "outcome_bad") private boolean outcomeBad;
     @Column(name = "created_at") private Instant createdAt = Instant.now();
+    @Column(name = "outcome_fraud") private boolean outcomeFraud;
+    @Column(name = "max_dpd") private Integer maxDpd;
+    @Column(name = "imported_by") private String importedBy;
+    private String batch;
 
     protected HistoricalLoan() {}
 
@@ -45,4 +49,18 @@ public class HistoricalLoan {
     public LocalDate getDisbursedOn() { return disbursedOn; }
     public String getInputJson() { return inputJson; }
     public boolean isOutcomeBad() { return outcomeBad; }
+    public boolean isOutcomeFraud() { return outcomeFraud; }
+    public void setOutcomeFraud(boolean v) { this.outcomeFraud = v; }
+    public Integer getMaxDpd() { return maxDpd; }
+    public void setMaxDpd(Integer v) { this.maxDpd = v; }
+    public String getImportedBy() { return importedBy; }
+    public void setImportedBy(String v) { this.importedBy = v; }
+    public String getBatch() { return batch; }
+    public void setBatch(String v) { this.batch = v; }
+    public void setInputJson(String v) { this.inputJson = v; }
+    public void setOutcomeBad(boolean v) { this.outcomeBad = v; }
+    public void setAmount(BigDecimal v) { this.amount = v; }
+    public void setDisbursedOn(LocalDate v) { this.disbursedOn = v; }
+    public void setSegment(String v) { this.segment = v; }
+    public void setProductCode(String v) { this.productCode = v; }
 }

@@ -50,6 +50,12 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
     static final Set<String> AUTHORITY_DOCS = Set.of("BOARD_RESOLUTION", "PARTNERSHIP_DEED", "LLP_AGREEMENT", "TRUST_DEED");
     static final List<String> OVD = List.of("AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT");
     static final java.util.regex.Pattern PAN = java.util.regex.Pattern.compile("[A-Z]{3}P[A-Z][0-9]{4}[A-Z]");
+    private com.rhythm.los.template.TemplateService templates;
+    @org.springframework.beans.factory.annotation.Value("${rhythm.lender.name:Rhythm Demo Finance Ltd (NBFC)}") String lenderName = "Rhythm Demo Finance Ltd (NBFC)";
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTemplates(com.rhythm.los.template.TemplateService t) { this.templates = t; }
+
     private Vendors.AccountAggregator aa;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -377,9 +383,11 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         audit.record(by, "party.invited", "APPLICATION", a.getAppNo(), a.getId(), p.getPartyNo() + " " + p.getName() + " · link sent to " + p.maskedMobile());
         String tenant = com.rhythm.los.tenant.TenantContext.code();
         String path = "/party/" + token + (com.rhythm.los.tenant.TenantContext.isDefault() ? "" : "?t=" + tenant);
-        return Map.of("path", path, "expiresAt", p.getInviteExpiresAt(), "mobile", p.maskedMobile(),
-                "sms", "Rhythm: " + a.getApplicantName().split(" ")[0] + " has named you as " + (PartyRules.GUARANTOR.equals(p.getRole()) ? "a guarantor" : "a co-applicant")
-                        + " for loan " + a.getAppNo() + ". Review and give consent: <link>. Valid 7 days.");
+        String role = PartyRules.GUARANTOR.equals(p.getRole()) ? "a guarantor" : "a co-applicant";
+        String fallback = "Rhythm: " + a.getApplicantName().split(" ")[0] + " has named you as " + role + " for loan " + a.getAppNo() + ". Review and give consent: <link>. Valid 7 days.";
+        String sms = templates == null ? fallback : templates.render("PARTY_INVITE", p.getConsentLanguage(),
+                Map.of("applicantFirstName", a.getApplicantName().split(" ")[0], "role", role, "link", "<link>", "lender", lenderName), fallback);
+        return Map.of("path", path, "expiresAt", p.getInviteExpiresAt(), "mobile", p.maskedMobile(), "sms", sms);
     }
 
     /** Sends an OTP to the party's own mobile (demo OTP until SMS is integrated). */

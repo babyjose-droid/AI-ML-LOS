@@ -162,4 +162,36 @@ public class ApplicationParty {
     /** The mobile with the middle digits hidden, for screens and the invite page. */
     public String maskedMobile() { return mobile == null || mobile.length() < 10 ? mobile : mobile.substring(0, 2) + "xxxxxx" + mobile.substring(8); }
     public boolean active() { return !"REMOVED".equals(status); }
+    @Column(name = "party_type") private String partyType = "INDIVIDUAL";
+    @Column(name = "signatory_name") private String signatoryName;
+    @Column(name = "signatory_designation") private String signatoryDesignation;
+    @Column(name = "registration_no") private String registrationNo;
+    @Column(name = "gstin") private String gstin;
+    @Column(name = "consent_aa") private boolean consentAa;
+    @Column(name = "verified_income") private BigDecimal verifiedIncome;
+    @Column(name = "income_source") private String incomeSource;
+    @Column(name = "income_checked_at") private Instant incomeCheckedAt;
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name = "income_json") private String incomeJson;
+
+    public String getPartyType() { return partyType; }
+    public void setPartyType(String v) { this.partyType = v; }
+    public String getSignatoryName() { return signatoryName; }
+    public void setSignatoryName(String v) { this.signatoryName = v; }
+    public String getSignatoryDesignation() { return signatoryDesignation; }
+    public void setSignatoryDesignation(String v) { this.signatoryDesignation = v; }
+    public String getRegistrationNo() { return registrationNo; }
+    public void setRegistrationNo(String v) { this.registrationNo = v; }
+    public String getGstin() { return gstin; }
+    public void setGstin(String v) { this.gstin = v; }
+    public boolean isConsentAa() { return consentAa; }
+    public void setConsentAa(boolean v) { this.consentAa = v; }
+    public BigDecimal getVerifiedIncome() { return verifiedIncome; }
+    public void setVerifiedIncome(BigDecimal v) { this.verifiedIncome = v; }
+    public String getIncomeSource() { return incomeSource; }
+    public void setIncomeSource(String v) { this.incomeSource = v; }
+    public Instant getIncomeCheckedAt() { return incomeCheckedAt; }
+    public void setIncomeCheckedAt(Instant v) { this.incomeCheckedAt = v; }
+    @com.fasterxml.jackson.annotation.JsonIgnore public String getIncomeJson() { return incomeJson; }
+    public void setIncomeJson(String v) { this.incomeJson = v; }
+    public boolean entity() { return partyType != null && !"INDIVIDUAL".equals(partyType); }
 }

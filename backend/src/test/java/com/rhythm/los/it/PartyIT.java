@@ -130,7 +130,7 @@ class PartyIT {
         // co-applicant consents in the branch with the OTP sent to her own phone
         ok(post("/api/parties/" + asha + "/otp"), sales, null);
         assertThat(call(post("/api/parties/" + asha + "/consent"), sales, Map.of("otp", "000000", "consentKyc", true, "consentBureau", true)).body().get("code").asText()).isEqualTo("BAD_OTP");
-        assertThat(ok(post("/api/parties/" + asha + "/consent"), sales, Map.of("otp", "123456", "consentKyc", true, "consentBureau", true, "language", "mr"))
+        assertThat(ok(post("/api/parties/" + asha + "/consent"), sales, Map.of("otp", "123456", "consentKyc", true, "consentBureau", true, "consentAa", true, "language", "mr"))
                 .body().get("status").asText()).isEqualTo("CONSENTED");
 
         // guarantor through the invite link on his own phone, without staff sign-in
@@ -150,11 +150,13 @@ class PartyIT {
 
         // KYC and bureau for each party, then the decision with the spouse's income and the guarantor policy
         steps = ok(post("/api/applications/" + id + "/process"), ops, null).body().get("steps");
-        assertThat(steps.toString()).contains("Asha Joint: KYC verified").contains("Ravi Joint: bureau no hit");
+        assertThat(steps.toString()).contains("Asha Joint: KYC verified").contains("Ravi Joint: bureau no hit").contains("Asha Joint: income ₹");
+        JsonNode ashaView = ok(get("/api/applications/" + id + "/parties"), ops, null).body();
+        assertThat(ashaView.toString()).contains("\"incomeSource\":\"AA\"");
         ok(post("/api/applications/" + id + "/field-visit"), field, Map.of("note", "Visited depot, three trucks on site"));
         ok(post("/api/applications/" + id + "/process"), ops, null);
         JsonNode d = ok(get("/api/applications/" + id + "/decision"), ops, null).body();
-        assertThat(d.get("stepsJson").asText()).contains("Co-applicants & guarantors").contains("40,000/mo income from 1 added");
+        assertThat(d.get("stepsJson").asText()).contains("Co-applicants & guarantors").contains("/mo income from 1 added");
         assertThat(d.get("rulesJson").asText()).contains("R23").contains("Ravi Joint (guarantor): no credit record");
         assertThat(d.get("reasonCodes").asText()).contains("RC-026");
         assertThat(d.get("creditMemo").asText()).contains("Joint: 1 co-applicant(s) and 1 guarantor(s)");
@@ -185,7 +187,64 @@ class PartyIT {
         ok(post("/api/applications/" + id + "/disburse"), ops, null);
         assertThat(states(id, ops).get("APP").asText()).isEqualTo("DISBURSED");
         assertThat(ok(get("/api/audit?applicationId=" + id), login("comp1"), null).body().toString())
-                .contains("party.consented").contains("party.signed").contains("party.kyc");
+                .contains("party.consented").contains("party.signed").contains("party.kyc").contains("party.income_checked");
+
+        // the sanction letter names them; they join the live loan
+        assertThat(ok(get("/api/applications/" + id + "/sanction-letter"), ops, null).body().get("parties").toString()).contains("Asha Joint").contains("Ravi Joint");
+        JsonNode loans = ok(get("/api/book/loans?q=Joint"), ops, null).body();
+        long loanId = -1;
+        for (JsonNode l : loans) if (l.get("applicationId").asLong() == id) loanId = l.get("id").asLong();
+        assertThat(loanId).isPositive();
+        JsonNode detail = ok(get("/api/book/loans/" + loanId), ops, null).body();
+        assertThat(detail.get("parties").toString()).contains("Asha Joint").contains("GUARANTOR").doesNotContain("JNTPC9050L");
+
+        // collections: the co-applicant may be contacted, the guarantor not while the loan is current
+        JsonNode coll = ok(get("/api/collections/loans/" + loanId), ops, null).body();
+        long ravisLoanParty = -1, ashasLoanParty = -1;
+        for (JsonNode p : coll.get("parties")) {
+            if (p.get("name").asText().equals("Ravi Joint")) { ravisLoanParty = p.get("id").asLong(); assertThat(p.get("canContact").asBoolean()).isFalse(); }
+            if (p.get("name").asText().equals("Asha Joint")) { ashasLoanParty = p.get("id").asLong(); assertThat(p.get("canContact").asBoolean()).isTrue(); }
+        }
+        Res tooEarly = call(post("/api/collections/loans/" + loanId + "/contacts"), ops, Map.of("channel", "SMS", "outcome", "SENT", "partyId", ravisLoanParty));
+        assertThat(tooEarly.status()).isEqualTo(409);
+        assertThat(tooEarly.body().get("code").asText()).isEqualTo("GUARANTOR_TOO_EARLY");
+        assertThat(ok(post("/api/collections/loans/" + loanId + "/contacts"), ops, Map.of("channel", "SMS", "outcome", "SENT", "partyId", ashasLoanParty)).body()
+                .get("contactName").asText()).isEqualTo("Asha Joint (co-applicant)");
+
+        // credit bureau file: one row per person on the account, in their own role
+        String cic = mvc.perform(get("/api/regulatory/cic.csv").header("Authorization", "Bearer " + login("comp1"))).andReturn().getResponse().getContentAsString();
+        assertThat(cic).contains("Ownership,ConsumerType").contains("JNTPA4321J").contains("JNTPB4321K");
+        String ravi9050 = cic.lines().filter(x -> x.contains("JNTPC9050L")).findFirst().orElse("");
+        assertThat(ravi9050).endsWith(",GUARANTOR,CONSUMER");
+        assertThat(cic.lines().filter(x -> x.contains("JNTPA4321J")).findFirst().orElse("")).endsWith(",JOINT,BORROWER");
+    }
+
+    @Test
+    void companyGuarantorNeedsItsPanTypeASignatoryAndAnAuthority() throws Exception {
+        String sales = login("sales1"), ops = login("ops1");
+        long id = create(sales, app("BL-UNS", "Firm Owner", "FRMPA4321F", "9855000301", 400_000, 24), "PAN", "AADHAAR", "UDYAM");
+        assertThat(ok(get("/api/applications/" + id + "/parties"), sales, null).body().get("entityTypes").toString()).contains("COMPANY");
+        Map<String, Object> co = party("GUARANTOR", "GROUP_COMPANY", "Owner Traders Pvt Ltd", "AAACO4321K", "9855000302", 8, null, false);
+        co.put("partyType", "COMPANY");
+        // the company's PAN has C as its fourth letter, and someone must sign for it
+        Map<String, Object> badPan = new LinkedHashMap<>(co); badPan.put("pan", "AAAPO4321K");
+        assertThat(call(post("/api/applications/" + id + "/parties"), sales, badPan).body().get("code").asText()).isEqualTo("BAD_PAN");
+        assertThat(call(post("/api/applications/" + id + "/parties"), sales, co).body().get("code").asText()).isEqualTo("SIGNATORY_REQUIRED");
+        // a company cannot be a co-applicant, nor have its income counted
+        Map<String, Object> asCo = new LinkedHashMap<>(co); asCo.put("role", "CO_APPLICANT"); asCo.put("signatoryName", "Mira Owner");
+        assertThat(call(post("/api/applications/" + id + "/parties"), sales, asCo).status()).isEqualTo(422);
+        co.put("signatoryName", "Mira Owner"); co.put("signatoryDesignation", "Director"); co.put("registrationNo", "U51909MH2018PTC123456");
+        long gid = ok(post("/api/applications/" + id + "/parties"), sales, co).body().get("id").asLong();
+        ok(post("/api/parties/" + gid + "/otp"), sales, null);
+        ok(post("/api/parties/" + gid + "/consent"), sales, Map.of("otp", "123456", "consentKyc", true, "consentBureau", true));
+        ok(post("/api/applications/" + id + "/process"), ops, null);
+        JsonNode v = ok(get("/api/applications/" + id + "/parties"), ops, null).body();
+        assertThat(v.get("parties").get(0).get("party").get("kycNote").asText()).contains("board resolution");
+        // the board resolution naming the signatory completes its KYC
+        org.springframework.mock.web.MockMultipartFile f = new org.springframework.mock.web.MockMultipartFile("file", "resolution.pdf", "application/pdf", "%PDF-1.4 board resolution".getBytes());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/parties/" + gid + "/documents").file(f).param("docType", "BOARD_RESOLUTION")
+                .header("Authorization", "Bearer " + sales)).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        assertThat(ok(post("/api/applications/" + id + "/parties/checks"), ops, null).body().toString()).contains("Owner Traders Pvt Ltd: KYC verified");
     }
 
     @Test

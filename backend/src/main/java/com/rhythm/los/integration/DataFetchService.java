@@ -189,7 +189,7 @@ public class DataFetchService {
         return true;
     }
 
-    static AaStatement statementToBankData(String analysisJson) {
+    public static AaStatement statementToBankData(String analysisJson) {
         try {
             var n = Json.MAPPER.readTree(analysisJson);
             var in = new java.util.ArrayList<Double>();

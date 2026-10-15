@@ -139,14 +139,14 @@ public class RegulatoryService {
         return rows;
     }
 
-    static final String CIC_HEAD = "MemberReference,AccountNumber,BorrowerName,PAN,DateOfBirth,DateOpened,SanctionedAmount,CurrentBalance,AmountOverdue,DaysPastDue,AssetClassification,AccountStatus,Restructured,DateReported";
+    static final String CIC_HEAD = "MemberReference,AccountNumber,BorrowerName,PAN,DateOfBirth,DateOpened,SanctionedAmount,CurrentBalance,AmountOverdue,DaysPastDue,AssetClassification,AccountStatus,Restructured,DateReported,Ownership,ConsumerType";
 
     /** Credit information submission file (fortnightly) for every loan in the book, with a check of rows the bureaus will reject. */
     public Map<String, Object> cic(LocalDate asOf, CurrentUser u, boolean withFile) {
         LocalDate on = asOf == null ? LocalDate.now() : asOf;
         Map<Long, LoanApplication> byId = apps.findAll().stream().collect(Collectors.toMap(LoanApplication::getId, a -> a));
         StringBuilder b = new StringBuilder(CIC_HEAD).append('\n');
-        int rows = 0, missingPan = 0, missingDob = 0;
+        int rows = 0, missingPan = 0, missingDob = 0, partyRows = 0;
         for (LiveLoan l : book.visible(u)) {
             if (l.getDisbursedOn().isAfter(on)) continue;
             LoanApplication a = l.getApplicationId() == null ? null : byId.get(l.getApplicationId());
@@ -156,21 +156,34 @@ public class RegulatoryService {
             if (dob.isEmpty()) missingDob++;
             String cls = !"ACTIVE".equals(l.getStatus()) ? "" : "NPA".equals(l.getClassification()) ? npaClass(l.getNpaSince(), on) : l.getClassification();
             String status = "ACTIVE".equals(l.getStatus()) ? "OPEN" : "CLOSED".equals(l.getStatus()) ? "CLOSED" : "WRITTEN-OFF";
-            b.append(String.join(",", "RHYTHM", l.getLoanRef(), CompliancePackService.q(l.getBorrowerName()), pan, dob, l.getDisbursedOn().toString(),
+            var parties = book.parties(l.getId());
+            boolean joint = parties.stream().anyMatch(p -> !p.guarantor());
+            String tail = String.join(",", l.getDisbursedOn().toString(),
                     l.getSanctionedAmount().toPlainString(), l.getOutstanding().toPlainString(), l.getOverdue().toPlainString(), String.valueOf(l.getDpd()), cls, status,
-                    l.isRestructured() ? "Y" : "N", on.toString())).append('\n');
+                    l.isRestructured() ? "Y" : "N", on.toString());
+            b.append(String.join(",", "RHYTHM", l.getLoanRef(), CompliancePackService.q(l.getBorrowerName()), pan, dob, tail, joint ? "JOINT" : "INDIVIDUAL", "BORROWER")).append('\n');
             rows++;
+            // each co-applicant (joint account holder) and guarantor is reported on the same account in their own role
+            for (var p : parties) {
+                String ppan = Objects.toString(p.getPan(), ""), pdob = p.getDob() == null ? "" : p.getDob().toString();
+                if (ppan.isEmpty()) missingPan++;
+                if (pdob.isEmpty() && "INDIVIDUAL".equals(p.getPartyType())) missingDob++;
+                b.append(String.join(",", "RHYTHM", l.getLoanRef(), CompliancePackService.q(p.getName()), ppan, pdob, tail,
+                        p.guarantor() ? "GUARANTOR" : "JOINT", "INDIVIDUAL".equals(p.getPartyType()) ? "CONSUMER" : "COMMERCIAL")).append('\n');
+                partyRows++;
+            }
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("asOf", on.toString());
         m.put("rows", rows);
+        m.put("partyRows", partyRows);
         m.put("missingPan", missingPan);
         m.put("missingDob", missingDob);
         m.put("ready", rows > 0 && missingPan == 0);
         m.put("dueDates", "The 15th and the last day of each month (data as of those dates), to all four credit information companies");
         if (withFile) {
             m.put("file", b.toString());
-            audit.record(u, "regulatory.cic_exported", "REPORT", "CIC-" + on, null, rows + " rows (PAN included; restricted file)");
+            audit.record(u, "regulatory.cic_exported", "REPORT", "CIC-" + on, null, rows + " accounts, " + partyRows + " co-applicant and guarantor rows (PAN included; restricted file)");
         }
         return m;
     }

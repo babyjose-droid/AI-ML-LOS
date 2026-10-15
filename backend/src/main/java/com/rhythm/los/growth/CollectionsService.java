@@ -23,7 +23,16 @@ import java.util.stream.Collectors;
 @Service
 public class CollectionsService {
     public static final ZoneId IST = ZoneId.of("Asia/Kolkata");
-    public record Contact(String channel, String outcome, String contactedAt, String ptpDate, Double ptpAmount, String note) {}
+    public record Contact(String channel, String outcome, String contactedAt, String ptpDate, Double ptpAmount, String note, Long partyId) {
+        public Contact(String channel, String outcome, String contactedAt, String ptpDate, Double ptpAmount, String note) { this(channel, outcome, contactedAt, ptpDate, ptpAmount, note, null); }
+    }
+    /** A guarantor is approached only once the borrower is 30+ days overdue or has broken a promise; co-applicants owe the whole loan and may be contacted any time. */
+    public static final int GUARANTOR_DPD = 30;
+
+    static String guarantorBlock(int dpd, long brokenPromises) {
+        return dpd >= GUARANTOR_DPD || brokenPromises > 0 ? null
+                : "A guarantor is contacted only after the borrower is " + GUARANTOR_DPD + "+ days overdue or breaks a promise to pay (now " + dpd + " DPD, no broken promise)";
+    }
 
     static final Set<String> CHANNELS = Set.of("SMS", "WHATSAPP", "CALL", "FIELD_VISIT", "NOTICE");
     static final Set<String> OUTCOMES = Set.of("PROMISE_TO_PAY", "PAID", "NO_ANSWER", "REFUSED", "DISPUTE", "WRONG_NUMBER", "SENT");
@@ -102,6 +111,23 @@ public class CollectionsService {
         List<CollectionContact> cs = new ArrayList<>(contacts.findByLoanIdOrderByIdDesc(loanId));
         Map<String, Object> m = view(l, cs);
         m.put("contacts", cs);
+        long broken = cs.stream().filter(c -> "BROKEN".equals(c.getPtpStatus())).count();
+        String block = guarantorBlock(l.getDpd(), broken);
+        m.put("parties", book.parties(loanId).stream().map(p -> {
+            Map<String, Object> x = new LinkedHashMap<>();
+            x.put("id", p.getId());
+            x.put("role", p.getRole());
+            x.put("partyType", p.getPartyType());
+            x.put("name", p.getName());
+            x.put("signatory", p.getSignatoryName());
+            x.put("relationship", p.getRelationship());
+            x.put("mobile", p.getMobile());
+            x.put("pan", com.rhythm.los.common.Mask.pan(p.getPan()));
+            x.put("canContact", !p.guarantor() || block == null);
+            x.put("why", p.guarantor() ? (block == null ? "Borrower is " + l.getDpd() + " DPD" + (broken > 0 ? " with " + broken + " broken promise(s)" : "") + ": the guarantee may be invoked" : block)
+                    : "Jointly and severally liable for the whole loan");
+            return x;
+        }).toList());
         return m;
     }
 
@@ -117,6 +143,19 @@ public class CollectionsService {
         if (Set.of("CALL", "FIELD_VISIT").contains(r.channel()) && !CollectionsAi.withinContactHours(at.atZone(IST).toLocalTime()))
             throw ApiException.unprocessable("CONTACT_HOURS", "Borrowers may be called or visited only between 8 am and 7 pm (RBI fair practices code)");
         CollectionContact c = new CollectionContact();
+        if (r.partyId() != null) {
+            var p = book.parties(loanId).stream().filter(x -> x.getId().equals(r.partyId())).findFirst()
+                    .orElseThrow(() -> ApiException.unprocessable("BAD_PARTY", "That person is not on this loan"));
+            if (p.guarantor()) {
+                List<CollectionContact> prior = new ArrayList<>(contacts.findByLoanIdOrderByIdDesc(loanId));
+                refreshPromises(l, prior);
+                long broken = prior.stream().filter(x -> "BROKEN".equals(x.getPtpStatus())).count();
+                String block = guarantorBlock(l.getDpd(), broken);
+                if (block != null) throw ApiException.conflict("GUARANTOR_TOO_EARLY", block);
+            }
+            c.setPartyId(p.getId());
+            c.setContactName(p.getName() + " (" + ("GUARANTOR".equals(p.getRole()) ? "guarantor" : "co-applicant") + ")");
+        }
         c.setLoanId(loanId);
         c.setChannel(r.channel());
         c.setOutcome(r.outcome());
@@ -137,7 +176,7 @@ public class CollectionsService {
             c.setPtpStatus("OPEN");
         }
         contacts.save(c);
-        audit.record(by, "collections.contact", "LOAN", l.getLoanRef(), l.getApplicationId(), r.channel() + " · " + r.outcome()
+        audit.record(by, "collections.contact", "LOAN", l.getLoanRef(), l.getApplicationId(), (c.getContactName() == null ? "" : c.getContactName() + " · ") + r.channel() + " · " + r.outcome()
                 + (c.getPtpDate() == null ? "" : " · promised ₹" + c.getPtpAmount() + " by " + c.getPtpDate()));
         return c;
     }

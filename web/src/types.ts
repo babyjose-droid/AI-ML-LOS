@@ -48,7 +48,7 @@ export interface Decision { scorecardJson?: string; networkScore?: number;
   inputHash: string; createdBy: string; createdAt: string
 }
 
-export interface Kfs { contingentCharges?: { name: string; amount: string }[];
+export interface Kfs { contingentCharges?: { name: string; amount: string }[]; parties?: { role: string; name: string; relationship: string }[];
   applicationNo: string; borrower: string; product: string; sanctionedAmount: number; processingFee: number; gstOnFee: number
   insurance: number; netDisbursed: number; ratePa: number; aprPa: number; tenureMonths: number; emi: number; totalInterest: number
   totalPayable: number; coolingOffDays: number; repaymentMode: string; grievanceOfficer: string

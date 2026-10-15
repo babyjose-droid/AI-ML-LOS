@@ -41,7 +41,7 @@ public final class KfsCalculator {
         if (c.penalRatePct() > 0) contingent.add(new Kfs.Charge("Penal charge", c.penalRatePct() + "% p.a. on the overdue amount (not added to the interest rate)"));
         String freq = c.frequency() == null ? "monthly" : c.frequency().toLowerCase();
         return new Kfs(appNo, borrower, product, amount, fee, gst, insurance, net, ratePa, apr, months, emi,
-                totalInterest, totalPayable, 3, "eNACH (" + freq + ")", "Grievance Redressal Officer, grievance@example-nbfc.in", rows, contingent);
+                totalInterest, totalPayable, 3, "eNACH (" + freq + ")", "Grievance Redressal Officer, grievance@example-nbfc.in", rows, contingent, java.util.List.of());
     }
 
     private static double round2(double v) { return Math.round(v * 100) / 100.0; }

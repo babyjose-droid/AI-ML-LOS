@@ -139,4 +139,58 @@ class PartyRulesTest {
         assertThat(PartyRules.parse(null)).isEqualTo(PartyRules.DEFAULT);
         assertThat(PartyRules.parse("not json")).isEqualTo(PartyRules.DEFAULT);
     }
+
+    static final PartyRules BL_VERIFY = PartyRules.parse("""
+            {"coApplicant":{"mode":"OPTIONAL","max":2},"guarantor":{"mode":"OPTIONAL","max":1},"entityGuarantors":true,
+             "incomeClubbing":{"allowed":true,"maxEarners":2,"relationships":["SPOUSE"],"verify":true}}""");
+
+    static PartyRules.Party spouse(Double verified) {
+        return new PartyRules.Party(1, "CO_APPLICANT", "SPOUSE", "Asha", "ABCPA1234Z", LocalDate.of(1985, 1, 1), true, false, "ACTIVE",
+                true, "VERIFIED", "FETCHED", 760, 40_000, 2_000, 0, false, "INDIVIDUAL", verified);
+    }
+
+    @Test
+    void countedIncomeWaitsForBankDataAndTheLowerFigureCounts() {
+        assertThat(BL_VERIFY.incomeClubbing().verify()).isTrue();
+        assertThat(BL.incomeClubbing().verify()).isFalse();
+        // not checked yet: a decision blocker, and nothing counted
+        List<PartyRules.Issue> before = BL_VERIFY.check(facts(300_000), List.of(spouse(null)), List.of(), "Ravi", List.of(), false, 36, TODAY);
+        assertThat(PartyRules.blocking(before, "DECISION")).extracting(PartyRules.Issue::code).contains("PARTY_INCOME");
+        assertThat(BL_VERIFY.joint(List.of(spouse(null)), 36, TODAY).clubbedIncome()).isZero();
+        // bank data shows less than declared: the lower counts; more than declared: the declared figure counts
+        assertThat(BL_VERIFY.joint(List.of(spouse(31_000.0)), 36, TODAY).clubbedIncome()).isEqualTo(31_000);
+        assertThat(BL_VERIFY.joint(List.of(spouse(55_000.0)), 36, TODAY).clubbedIncome()).isEqualTo(40_000);
+        assertThat(PartyRules.blocking(BL_VERIFY.check(facts(300_000), List.of(spouse(38_000.0)), List.of(), "Ravi", List.of(), false, 36, TODAY), "DECISION")).isEmpty();
+        // without the setting, declared income counts as before
+        assertThat(BL.joint(List.of(spouse(null)), 36, TODAY).clubbedIncome()).isEqualTo(40_000);
+    }
+
+    @Test
+    void sustainableIncomeDiscountsOneOffSpikes() {
+        // eleven ordinary months and one big receipt: the spike does not lift the figure
+        List<Double> in = List.of(40_000.0, 41_000.0, 39_000.0, 42_000.0, 40_500.0, 38_500.0, 41_500.0, 40_000.0, 39_500.0, 40_000.0, 41_000.0, 400_000.0);
+        assertThat(PartyRules.sustainableIncome(in)).isBetween(39_500.0, 41_000.0);
+        // irregular: a quarter of months are thin, so it is held to 1.15 x the 25th percentile
+        assertThat(PartyRules.sustainableIncome(List.of(10_000.0, 10_000.0, 60_000.0, 60_000.0))).isLessThan(30_000);
+        assertThat(PartyRules.sustainableIncome(List.of())).isZero();
+    }
+
+    @Test
+    void companiesStandOnlyAsGuarantorsWithTheRightPanAndLink() {
+        assertThat(PartyRules.panLetter("COMPANY")).isEqualTo("C");
+        assertThat(PartyRules.panLetter("LLP")).isEqualTo("F");
+        assertThat(PartyRules.panLetter("PARTNERSHIP")).isEqualTo("F");
+        assertThat(PartyRules.panLetter("HUF")).isEqualTo("H");
+        assertThat(PartyRules.panLetter("TRUST")).isEqualTo("T");
+        assertThat(PartyRules.panLetter("PROPRIETORSHIP")).isEqualTo("P");
+        LocalDate inc = LocalDate.of(2020, 4, 1);
+        assertThat(BL_VERIFY.admit("GUARANTOR", "GROUP_COMPANY", inc, false, 0, 36, TODAY, "COMPANY")).isEmpty();
+        assertThat(BL_VERIFY.admit("CO_APPLICANT", "GROUP_COMPANY", inc, false, 0, 36, TODAY, "COMPANY")).anyMatch(x -> x.contains("Only a guarantor"));
+        assertThat(BL_VERIFY.admit("GUARANTOR", "SPOUSE", inc, false, 0, 36, TODAY, "COMPANY")).anyMatch(x -> x.contains("link must be one of"));
+        assertThat(BL_VERIFY.admit("GUARANTOR", "GROUP_COMPANY", inc, true, 0, 36, TODAY, "COMPANY")).anyMatch(x -> x.contains("income is not counted"));
+        // a product that does not take them
+        assertThat(BL.admit("GUARANTOR", "GROUP_COMPANY", inc, false, 0, 36, TODAY, "COMPANY")).anyMatch(x -> x.contains("does not take company"));
+        // a 6-year-old company is not "under 18"
+        assertThat(BL_VERIFY.admit("GUARANTOR", "EMPLOYER", inc, false, 0, 36, TODAY, "LLP")).isEmpty();
+    }
 }

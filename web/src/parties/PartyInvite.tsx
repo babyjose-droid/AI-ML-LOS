@@ -7,7 +7,7 @@ import { inr, label, when } from '../format'
 
 interface View {
   name: string; role: string; relationship: string; mobile: string; applicant: string; appNo: string; product: string; amount: number; tenureMonths: number
-  liability: string; consented: boolean; kycState: string; signed: boolean; canSign: boolean; terms?: string
+  liability: string; needsAa?: boolean; consented: boolean; kycState: string; signed: boolean; canSign: boolean; terms?: string
   documents?: { docType: string; fileName: string; status: string; uploadedAt: string }[]; documentTypes?: string[]
 }
 
@@ -32,7 +32,7 @@ async function call<T>(method: string, path: string, body?: unknown, form?: Form
   return data as T
 }
 
-const DOC: Record<string, string> = { PAN: 'PAN card', AADHAAR: 'Aadhaar (masked: hide the first 8 digits)', VOTER_ID: 'Voter ID', DRIVING_LICENCE: 'Driving licence', PASSPORT: 'Passport', INCOME_PROOF: 'Income proof (salary slip or ITR)' }
+const DOC: Record<string, string> = { PAN: 'PAN card', AADHAAR: 'Aadhaar (masked: hide the first 8 digits)', VOTER_ID: 'Voter ID', DRIVING_LICENCE: 'Driving licence', PASSPORT: 'Passport', INCOME_PROOF: 'Income proof (salary slip or ITR)', BANK_STATEMENT: 'Bank statement (last 12 months, PDF)', BOARD_RESOLUTION: 'Board resolution', PARTNERSHIP_DEED: 'Partnership deed', LLP_AGREEMENT: 'LLP agreement', TRUST_DEED: 'Trust deed', INCORPORATION_CERTIFICATE: 'Certificate of incorporation' }
 
 export default function PartyInvite() {
   const [v, setV] = useState<View>()
@@ -42,6 +42,7 @@ export default function PartyInvite() {
   const [otp, setOtp] = useState('')
   const [kyc, setKyc] = useState(false)
   const [bureau, setBureau] = useState(false)
+  const [aa, setAa] = useState(false)
   const [lang, setLang] = useState('en')
   const [type, setType] = useState('PAN')
   const [file, setFile] = useState<File>()
@@ -85,10 +86,11 @@ export default function PartyInvite() {
               <div className="borrower-consents">
                 <label><input type="checkbox" checked={kyc} onChange={e => setKyc(e.target.checked)} /> Verify my identity using my PAN and the identity documents I upload</label>
                 <label><input type="checkbox" checked={bureau} onChange={e => setBureau(e.target.checked)} /> Check my credit history with a credit bureau (one report)</label>
+                {v.needsAa && <label><input type="checkbox" checked={aa} onChange={e => setAa(e.target.checked)} /> Check my income from 12 months of my bank account (Account Aggregator, or the bank statement I upload below)</label>}
               </div>
               <label className="fld" style={{ maxWidth: 240, marginTop: 8 }}>My language<select value={lang} onChange={e => setLang(e.target.value)}>
                 {[['en', 'English'], ['hi', 'हिन्दी'], ['mr', 'मराठी'], ['ta', 'தமிழ்'], ['ml', 'മലയാളം'], ['kn', 'ಕನ್ನಡ'], ['te', 'తెలుగు'], ['bn', 'বাংলা'], ['gu', 'ગુજરાતી']].map(([c, l]) => <option key={c} value={c}>{l}</option>)}</select></label>
-              <button className="btn primary" style={{ marginTop: 10 }} disabled={busy || !kyc || !bureau} onClick={() => run(() => call('POST', '/consent', { consentKyc: kyc, consentBureau: bureau, language: lang }), 'Thank you: your consent is recorded.')}>I agree</button>
+              <button className="btn primary" style={{ marginTop: 10 }} disabled={busy || !kyc || !bureau || (!!v.needsAa && !aa)} onClick={() => run(() => call('POST', '/consent', { consentKyc: kyc, consentBureau: bureau, consentAa: aa, language: lang }), 'Thank you: your consent is recorded.')}>I agree</button>
             </div> : <div className="panel"><p style={{ margin: 0 }}>Consent given. Identity check: <b>{label(v.kycState)}</b>.</p></div>}
 
             <div className="panel">

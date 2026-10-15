@@ -62,6 +62,34 @@ public class LoanBookService {
         this.audit = audit;
     }
 
+    private LoanPartyRepository loanParties;
+    private com.rhythm.los.party.ApplicationPartyRepository appParties;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setParties(LoanPartyRepository lp, com.rhythm.los.party.ApplicationPartyRepository ap) { this.loanParties = lp; this.appParties = ap; }
+
+    /** The co-applicants and guarantors who signed join the loan, so collections can reach them and the bureau report names them. */
+    void copyParties(LiveLoan l) {
+        if (loanParties == null || appParties == null || l.getApplicationId() == null || !loanParties.findByLoanIdOrderByIdAsc(l.getId()).isEmpty()) return;
+        for (var p : appParties.findByApplicationIdOrderByIdAsc(l.getApplicationId())) {
+            if (!p.active()) continue;
+            LoanParty x = new LoanParty();
+            x.setLoanId(l.getId());
+            x.setApplicationPartyId(p.getId());
+            x.setRole(p.getRole());
+            x.setPartyType(p.getPartyType() == null ? "INDIVIDUAL" : p.getPartyType());
+            x.setName(p.getName());
+            x.setPan(p.getPan());
+            x.setMobile(p.getMobile());
+            x.setDob(p.getDob());
+            x.setRelationship(p.getRelationship());
+            x.setSignatoryName(p.getSignatoryName());
+            loanParties.save(x);
+        }
+    }
+
+    public java.util.List<LoanParty> parties(Long loanId) { return loanParties == null ? java.util.List.of() : loanParties.findByLoanIdOrderByIdAsc(loanId); }
+
     static BigDecimal money(double v) { return BigDecimal.valueOf(v).setScale(2, RoundingMode.HALF_UP); }
 
     // ---------------------------------------------------------------- joining the book
@@ -87,7 +115,9 @@ public class LoanBookService {
             l.setOutstanding(money(kfs.sanctionedAmount()));
             decisions.findFirstByApplicationIdOrderByIdDesc(a.getId()).ifPresent(d -> l.setAppPd(d.getPd()));
             recompute(l, LocalDate.now(), null);
-            return loans.save(l);
+            LiveLoan saved = loans.save(l);
+            copyParties(saved);
+            return saved;
         });
     }
 
@@ -372,6 +402,8 @@ public class LoanBookService {
         m.put("ews", l.getEwsReasonsJson() == null ? Map.of() : Json.read(l.getEwsReasonsJson(), new TypeReference<Map<String, Object>>() {}));
         m.put("history", snaps.findByLoanIdOrderByFeedDateAsc(id));
         m.put("monthsOnBook", l.monthsOnBook(l.getLastFeedDate() == null ? LocalDate.now() : l.getLastFeedDate()));
+        m.put("parties", parties(id).stream().map(p -> Map.of("id", p.getId(), "role", p.getRole(), "partyType", p.getPartyType(), "name", p.getName(),
+                "pan", com.rhythm.los.common.Mask.pan(p.getPan()), "relationship", p.getRelationship() == null ? "" : p.getRelationship())).toList());
         return m;
     }
 

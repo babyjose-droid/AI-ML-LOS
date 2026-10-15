@@ -43,15 +43,17 @@ export function Collections({ rev }: { rev: number }) {
   )
 }
 
+interface LoanPartyRow { id: number; role: string; partyType: string; name: string; signatory?: string; relationship: string; mobile: string; pan: string; canContact: boolean; why: string }
+
 export function ContactPanel({ loanId, title, onClose, onDone }: { loanId: number; title: string; onClose: () => void; onDone: () => void }) {
   const [r, setR] = useState(0)
-  const d = useLoad(() => api.get<QueueRow & { contacts: ContactRow[] }>(`/api/collections/loans/${loanId}`), [loanId, r])
-  const [f, setF] = useState({ channel: 'CALL', outcome: 'PROMISE_TO_PAY', ptpDate: '', ptpAmount: '', note: '' })
+  const d = useLoad(() => api.get<QueueRow & { contacts: (ContactRow & { contactName?: string })[]; parties?: LoanPartyRow[] }>(`/api/collections/loans/${loanId}`), [loanId, r])
+  const [f, setF] = useState({ channel: 'CALL', outcome: 'PROMISE_TO_PAY', ptpDate: '', ptpAmount: '', note: '', partyId: '' })
   const [error, setError] = useState<unknown>()
   async function save() {
     setError(undefined)
     try {
-      await api.post(`/api/collections/loans/${loanId}/contacts`, { ...f, ptpAmount: f.ptpAmount ? Number(f.ptpAmount) : undefined, ptpDate: f.ptpDate || undefined })
+      await api.post(`/api/collections/loans/${loanId}/contacts`, { ...f, partyId: f.partyId ? Number(f.partyId) : undefined, ptpAmount: f.ptpAmount ? Number(f.ptpAmount) : undefined, ptpDate: f.ptpDate || undefined })
       setR(x => x + 1); onDone(); setF({ ...f, note: '' })
     } catch (e) { setError(e) }
   }
@@ -63,7 +65,15 @@ export function ContactPanel({ loanId, title, onClose, onDone }: { loanId: numbe
         <b>{CH[rec.channel]}</b> · {rec.bestTime} · likely to pay {pct(rec.propensity, 0)}<div className="small">{rec.script}</div>
         {rec.drivers.length > 0 && <div className="small muted">{rec.drivers.join(' · ')}</div>}
       </div>}
+      {(d.data?.parties ?? []).length > 0 && <div className="panel" data-testid="loan-parties" style={{ margin: '8px 0' }}>
+        <h4 style={{ marginTop: 0 }}>Others on this loan</h4>
+        <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{(d.data?.parties ?? []).map(p => <li key={p.id}>
+          <b>{p.name}</b> · {p.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}{p.signatory ? ` (signatory ${p.signatory})` : ''} · {p.mobile}
+          <div className={p.canContact ? 'muted' : 'warn-text'}>{p.why}</div></li>)}</ul>
+      </div>}
       <div className="grid2">
+        {(d.data?.parties ?? []).length > 0 && <label>Person contacted<select name="contactParty" value={f.partyId} onChange={e => setF({ ...f, partyId: e.target.value })}>
+          <option value="">The borrower</option>{(d.data?.parties ?? []).map(p => <option key={p.id} value={p.id} disabled={!p.canContact}>{p.name} ({p.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}){p.canContact ? '' : ': not yet'}</option>)}</select></label>}
         <label>Channel<select value={f.channel} onChange={e => setF({ ...f, channel: e.target.value })}>{Object.entries(CH).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label>Outcome<select value={f.outcome} onChange={e => setF({ ...f, outcome: e.target.value })}>
           {['PROMISE_TO_PAY', 'PAID', 'NO_ANSWER', 'REFUSED', 'DISPUTE', 'WRONG_NUMBER', 'SENT'].map(o => <option key={o} value={o}>{label(o)}</option>)}</select></label>
@@ -75,7 +85,7 @@ export function ContactPanel({ loanId, title, onClose, onDone }: { loanId: numbe
       <label>Note<input value={f.note} maxLength={500} onChange={e => setF({ ...f, note: e.target.value })} /></label>
       <button className="btn primary" data-action="logContact" onClick={save}>Log contact</button>
       <h4>History</h4>
-      <Table head={['When', 'Channel', 'Outcome', 'Promise', 'By']} rows={(d.data?.contacts ?? []).map(c => [when(c.contactedAt), CH[c.channel], label(c.outcome),
+      <Table head={['When', 'Person', 'Channel', 'Outcome', 'Promise', 'By']} rows={(d.data?.contacts ?? []).map(c => [when(c.contactedAt), c.contactName ?? 'Borrower', CH[c.channel], label(c.outcome),
         c.ptpDate ? <span>{inr(c.ptpAmount)} by {c.ptpDate} <span className={'pill ' + (c.ptpStatus === 'KEPT' ? 'ok' : c.ptpStatus === 'BROKEN' ? 'bad' : 'muted')}>{c.ptpStatus?.toLowerCase()}</span></span> : '—', c.createdBy])} empty="No contacts yet." />
     </Modal>
   )

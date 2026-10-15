@@ -250,6 +250,7 @@ function AppView({ id, onBack, onSignOut }: { id: number; onBack: () => void; on
             <dt>Amount you receive</dt><dd>{inr(k.netDisbursed)}</dd>
             <dt>Total you repay</dt><dd>{inr(k.totalPayable)}</dd>
             <dt>Cooling-off</dt><dd>{k.coolingOffDays} days: you can exit without penalty, paying only interest for the days used</dd>
+            {(k.parties ?? []).length > 0 && <><dt>With you on this loan</dt><dd>{(k.parties as { role: string; name: string }[]).map(p => `${p.name} (${p.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'})`).join(', ')}</dd></>}
           </dl>
           {v.canAcceptKfs && (
             <div className="row" style={{ marginTop: 10 }}>

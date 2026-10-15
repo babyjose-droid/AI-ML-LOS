@@ -597,6 +597,7 @@ function SanctionTab({ id, rev, sanctioned }: { id: string; rev: number; sanctio
               <dt>Repayment</dt><dd>{k.repaymentMode}</dd><dt>Grievance</dt><dd className="small">{k.grievanceOfficer}</dd>
             </dl>
           </div>
+          {(k.parties ?? []).length > 0 && <p className="small" data-kfs-parties>On the KFS: {(k.parties ?? []).map(p => `${p.name} (${p.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'})`).join(', ')}</p>}
           <details style={{ marginTop: 10 }}>
             <summary className="small">Repayment schedule ({k.schedule.length} months)</summary>
             <Table head={['Month', 'EMI', 'Interest', 'Principal', 'Balance']} rows={k.schedule.map(r => [r.month, inr(r.emi), inr(r.interest), inr(r.principal), inr(r.balance)])} />

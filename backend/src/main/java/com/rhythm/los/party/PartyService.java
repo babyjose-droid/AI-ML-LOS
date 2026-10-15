@@ -44,9 +44,16 @@ import java.util.*;
  */
 @Service
 public class PartyService implements com.rhythm.los.application.SubmitCheck, com.rhythm.los.decision.DecisionService.PartyGate {
-    static final Set<String> DOC_TYPES = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "INCOME_PROOF");
+    static final Set<String> DOC_TYPES = Set.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "INCOME_PROOF", "BANK_STATEMENT",
+            "BOARD_RESOLUTION", "PARTNERSHIP_DEED", "LLP_AGREEMENT", "TRUST_DEED", "INCORPORATION_CERTIFICATE");
+    /** The document that shows who may sign for a company or firm guarantor. */
+    static final Set<String> AUTHORITY_DOCS = Set.of("BOARD_RESOLUTION", "PARTNERSHIP_DEED", "LLP_AGREEMENT", "TRUST_DEED");
     static final List<String> OVD = List.of("AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT");
     static final java.util.regex.Pattern PAN = java.util.regex.Pattern.compile("[A-Z]{3}P[A-Z][0-9]{4}[A-Z]");
+    private Vendors.AccountAggregator aa;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAa(Vendors.AccountAggregator a) { this.aa = a; }
     static final Set<String> CLOSED = Set.of("REJECTED", "WITHDRAWN", "DISBURSED");
     static final Set<String> AFTER_SANCTION = Set.of("SANCTIONED", "KFS_ACCEPTED");
     static final int MAX_OTP_ATTEMPTS = 5;
@@ -164,6 +171,8 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         out.put("documentTypes", DOC_TYPES.stream().sorted().toList());
         out.put("documentsRead", reader.extractsFields());
         out.put("relationships", r.relationships());
+        out.put("entityTypes", r.entityGuarantors() ? new TreeSet<>(PartyRules.ENTITY_TYPES).stream().toList() : List.of());
+        out.put("entityRelationships", PartyRules.ENTITY_RELATIONSHIPS);
         out.put("vkycParties", vkycPolicy(a).parties());
         return out;
     }
@@ -176,7 +185,15 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
 
     public record PartyRequest(String role, String relationship, String name, String pan, String mobile, String email, LocalDate dob, String gender,
                                String address, String city, String pincode, String occupation, BigDecimal monthlyIncome, BigDecimal existingEmi,
-                               Boolean incomeConsidered, Boolean coOwner, Long requirementId) {}
+                               Boolean incomeConsidered, Boolean coOwner, Long requirementId,
+                               String partyType, String signatoryName, String signatoryDesignation, String registrationNo, String gstin) {
+        public PartyRequest(String role, String relationship, String name, String pan, String mobile, String email, LocalDate dob, String gender,
+                            String address, String city, String pincode, String occupation, BigDecimal monthlyIncome, BigDecimal existingEmi,
+                            Boolean incomeConsidered, Boolean coOwner, Long requirementId) {
+            this(role, relationship, name, pan, mobile, email, dob, gender, address, city, pincode, occupation, monthlyIncome, existingEmi,
+                    incomeConsidered, coOwner, requirementId, null, null, null, null, null);
+        }
+    }
 
     @Transactional
     public ApplicationParty add(Long appId, PartyRequest r, CurrentUser by) {
@@ -190,7 +207,7 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         p.setRole(role);
         fill(p, r, a, rules, null);
         long same = active(appId).stream().filter(x -> role.equals(x.getRole())).count();
-        List<String> problems = rules.admit(role, p.getRelationship(), p.getDob(), p.isIncomeConsidered(), same, a.getTenureMonths(), LocalDate.now());
+        List<String> problems = rules.admit(role, p.getRelationship(), p.getDob(), p.isIncomeConsidered(), same, a.getTenureMonths(), LocalDate.now(), p.getPartyType());
         if (!problems.isEmpty()) throw ApiException.unprocessable("PARTY_RULE", String.join("; ", problems));
         p.setAddedStage("DRAFT".equals(a.getAppState()) ? "APPLICATION" : "SUBMITTED".equals(a.getAppState()) ? "INTAKE" : "UNDERWRITING");
         p.setAddedBy(by.username());
@@ -226,7 +243,7 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         PartyRules rules = rules(a);
         fill(p, r, a, rules, p.getId());
         long same = active(a.getId()).stream().filter(x -> p.getRole().equals(x.getRole()) && !x.getId().equals(p.getId())).count();
-        List<String> problems = rules.admit(p.getRole(), p.getRelationship(), p.getDob(), p.isIncomeConsidered(), same, a.getTenureMonths(), LocalDate.now());
+        List<String> problems = rules.admit(p.getRole(), p.getRelationship(), p.getDob(), p.isIncomeConsidered(), same, a.getTenureMonths(), LocalDate.now(), p.getPartyType());
         if (!problems.isEmpty()) throw ApiException.unprocessable("PARTY_RULE", String.join("; ", problems));
         p.setUpdatedAt(Instant.now());
         audit.record(by, "party.updated", "APPLICATION", a.getAppNo(), a.getId(), p.getPartyNo() + " " + p.getName());
@@ -284,10 +301,18 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
     }
 
     private void fill(ApplicationParty p, PartyRequest r, LoanApplication a, PartyRules rules, Long self) {
+        String type = r.partyType() == null || r.partyType().isBlank() ? "INDIVIDUAL" : r.partyType().trim().toUpperCase();
+        if (!"INDIVIDUAL".equals(type) && !PartyRules.ENTITY_TYPES.contains(type))
+            throw ApiException.unprocessable("BAD_PARTY_TYPE", "Party type must be INDIVIDUAL or one of " + new TreeSet<>(PartyRules.ENTITY_TYPES));
+        boolean entity = !"INDIVIDUAL".equals(type);
         String name = r.name() == null ? "" : r.name().trim().replaceAll("\\s+", " ");
         if (name.length() < 3 || name.length() > 120) throw ApiException.unprocessable("BAD_NAME", "Full name as on PAN (3 to 120 characters)");
         String pan = r.pan() == null ? "" : r.pan().trim().toUpperCase();
-        if (!PAN.matcher(pan).matches()) throw ApiException.unprocessable("BAD_PAN", "PAN must be an individual's PAN, e.g. ABCPK1234L");
+        String letter = PartyRules.panLetter(type);
+        if (!pan.matches("[A-Z]{3}" + letter + "[A-Z][0-9]{4}[A-Z]"))
+            throw ApiException.unprocessable("BAD_PAN", entity && !"PROPRIETORSHIP".equals(type)
+                    ? "A " + type.toLowerCase() + "'s PAN has '" + letter + "' as its fourth letter, e.g. ABC" + letter + "K1234L"
+                    : "PAN must be an individual's PAN, e.g. ABCPK1234L");
         if (pan.equalsIgnoreCase(a.getPan())) throw ApiException.unprocessable("SAME_AS_APPLICANT", "This is the applicant's own PAN");
         if (active(a.getId()).stream().anyMatch(x -> pan.equals(x.getPan()) && !x.getId().equals(self)))
             throw ApiException.conflict("DUPLICATE_PARTY", "A party with PAN " + Mask.pan(pan) + " is already on this application");
@@ -297,9 +322,21 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         if (mobile.equals(a.getMobile())) throw ApiException.unprocessable("SAME_MOBILE", "Use the person's own mobile: OTPs for their consent go to it, not to the applicant's");
         if (active(a.getId()).stream().anyMatch(x -> mobile.equals(x.getMobile()) && !x.getId().equals(self)))
             throw ApiException.unprocessable("SAME_MOBILE", "Another party on this application has that mobile");
-        if (r.dob() == null) throw ApiException.unprocessable("DOB_REQUIRED", "Date of birth is required");
+        if (r.dob() == null) throw ApiException.unprocessable("DOB_REQUIRED", entity ? "Date of incorporation or registration is required" : "Date of birth is required");
         String rel = r.relationship() == null ? "" : r.relationship().trim().toUpperCase();
-        if (!PartyRules.ALL_RELATIONSHIPS.contains(rel)) throw ApiException.unprocessable("BAD_RELATIONSHIP", "Relationship must be one of " + PartyRules.ALL_RELATIONSHIPS);
+        List<String> rels = entity ? PartyRules.ENTITY_RELATIONSHIPS : PartyRules.ALL_RELATIONSHIPS;
+        if (!rels.contains(rel)) throw ApiException.unprocessable("BAD_RELATIONSHIP", "Relationship must be one of " + rels);
+        if (entity) {
+            String sig = r.signatoryName() == null ? "" : r.signatoryName().trim();
+            if (sig.length() < 3) throw ApiException.unprocessable("SIGNATORY_REQUIRED", "Name the authorised signatory who will consent and sign for " + name);
+            if (r.gstin() != null && !r.gstin().isBlank() && !r.gstin().trim().toUpperCase().matches("[0-9]{2}" + pan + "[0-9A-Z]Z[0-9A-Z]"))
+                throw ApiException.unprocessable("BAD_GSTIN", "GSTIN must be 15 characters and contain the guarantor's PAN");
+            p.setSignatoryName(sig);
+            p.setSignatoryDesignation(blank(r.signatoryDesignation()));
+            p.setRegistrationNo(blank(r.registrationNo()));
+            p.setGstin(blank(r.gstin()) == null ? null : r.gstin().trim().toUpperCase());
+        }
+        p.setPartyType(type);
         if (r.monthlyIncome() != null && r.monthlyIncome().signum() < 0 || r.existingEmi() != null && r.existingEmi().signum() < 0)
             throw ApiException.unprocessable("NEGATIVE", "Income and repayments cannot be negative");
         if (r.pincode() != null && !r.pincode().isBlank() && !r.pincode().matches("[1-9][0-9]{5}")) throw ApiException.unprocessable("BAD_PIN", "PIN code must be 6 digits");
@@ -427,7 +464,9 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         if (signedIn) {
             m.put("documents", docs.findByPartyIdOrderByIdAsc(p.getId()).stream().map(d -> Map.of("docType", d.getDocType(), "fileName", d.getFileName(),
                     "status", d.getStatus(), "uploadedAt", d.getUploadedAt())).toList());
-            m.put("documentTypes", List.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "INCOME_PROOF"));
+            m.put("documentTypes", p.entity() ? List.of("PAN", "BOARD_RESOLUTION", "PARTNERSHIP_DEED", "LLP_AGREEMENT", "TRUST_DEED", "INCORPORATION_CERTIFICATE")
+                    : List.of("PAN", "AADHAAR", "VOTER_ID", "DRIVING_LICENCE", "PASSPORT", "INCOME_PROOF", "BANK_STATEMENT"));
+            m.put("needsAa", p.isIncomeConsidered() && rules(a).incomeClubbing().verify());
             if (sanctioned) m.put("terms", signTerms(p, a));
         }
         return m;
@@ -435,7 +474,9 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
 
     // ---------------------------------------------------------------- consent
 
-    public record ConsentRequest(String otp, boolean consentKyc, boolean consentBureau, String language) {}
+    public record ConsentRequest(String otp, boolean consentKyc, boolean consentBureau, String language, Boolean consentAa) {
+        public ConsentRequest(String otp, boolean consentKyc, boolean consentBureau, String language) { this(otp, consentKyc, consentBureau, language, null); }
+    }
 
     /** In the branch: the person reads the consent and tells staff the OTP sent to their own phone. */
     @Transactional(noRollbackFor = ApiException.class)
@@ -455,7 +496,13 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         LoanApplication a = apps.get(p.getApplicationId());
         if (!p.active() || CLOSED.contains(a.getAppState())) throw ApiException.conflict("NOT_ACTIVE", "This party is not active");
         if (!r.consentKyc() || !r.consentBureau()) throw ApiException.unprocessable("CONSENT_MISSING", "Both identity (KYC) and credit bureau consent are needed to be on the loan");
-        if (p.getConsentAt() != null) return parties.save(p);
+        boolean needAa = p.isIncomeConsidered() && rules(a).incomeClubbing().verify();
+        if (needAa && !Boolean.TRUE.equals(r.consentAa()))
+            throw ApiException.unprocessable("CONSENT_MISSING", "Their income is counted for the loan, so their bank data consent (Account Aggregator or statement) is needed too");
+        if (p.getConsentAt() != null) {
+            if (Boolean.TRUE.equals(r.consentAa()) && !p.isConsentAa()) { p.setConsentAa(true); addAaConsent(p, a, channel, r.language()); }
+            return parties.save(p);
+        }
         String lang = r.language() == null || !r.language().matches("en|hi|mr|ta|ml|kn|te|bn|gu") ? "en" : r.language();
         Instant now = Instant.now();
         p.setConsentKyc(true);
@@ -470,8 +517,59 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
                 channel, lang, now.plus(Duration.ofDays(365))));
         consents.save(new Consent(a.getId(), "PARTY_BUREAU", "Check the credit history of " + who, "One credit report on " + p.getName(),
                 channel, lang, now.plus(Duration.ofDays(180))));
+        if (Boolean.TRUE.equals(r.consentAa())) { p.setConsentAa(true); addAaConsent(p, a, channel, lang); }
         audit.record(actor, "PARTY", "party.consented", "APPLICATION", a.getAppNo(), a.getId(), p.getPartyNo() + " KYC and bureau consent · " + channel);
         return parties.save(p);
+    }
+
+    private void addAaConsent(ApplicationParty p, LoanApplication a, String channel, String lang) {
+        consents.save(new Consent(a.getId(), "PARTY_AA", "Check the income of " + p.getName() + " (" + p.getPartyNo() + ")",
+                "12 months of transactions of " + p.getName() + "'s bank account, through an Account Aggregator or an uploaded statement",
+                channel, lang == null ? "en" : lang, Instant.now().plus(Duration.ofDays(365))));
+    }
+
+    // ---------------------------------------------------------------- income check
+
+    /** Counted income is checked against the person's own bank data: an uploaded statement if read by AI, else the Account Aggregator. */
+    String checkIncome(ApplicationParty p, LoanApplication a, CurrentUser by) {
+        if (!p.isConsentAa()) return "waiting for bank data consent";
+        com.rhythm.los.integration.VendorModels.AaStatement st = null;
+        String source = null;
+        Optional<PartyDocument> stmt = docs.findByPartyIdOrderByIdAsc(p.getId()).stream()
+                .filter(d -> "BANK_STATEMENT".equals(d.getDocType()) && !"REJECTED".equals(d.getStatus()) && !"-".equals(d.getStoragePath())).reduce((x, y) -> y);
+        if (stmt.isPresent() && reader.readsStatements()) {
+            PartyDocument d = stmt.get();
+            byte[] bytes = storage.read(d.getStoragePath());
+            var out = gateway.call(a.getId(), reader.name(), "party.statement.analyze",
+                    () -> reader.analyzeStatement(bytes, d.getContentType(), d.getFileName(), p.getName(), p.getMonthlyIncome() == null ? null : p.getMonthlyIncome().doubleValue()),
+                    r -> r.reading().status(), null);
+            if (out.ok() && out.value().analysisJson() != null) {
+                st = DataFetchService.statementToBankData(out.value().analysisJson());
+                source = "STATEMENT";
+            }
+        }
+        if (st == null && aa != null) {
+            LoanApplication shadow = shadow(p, a);
+            var out = gateway.call(a.getId(), aa.name(), "party.aa.fetch", () -> aa.fetchStatements(shadow, 12), x -> x.months() + " months", null);
+            if (!out.ok()) throw ApiException.conflict("VENDOR_FAILED", "Bank data for " + p.getName() + " could not be fetched: " + out.error());
+            st = out.value();
+            source = "AA";
+        }
+        if (st == null || st.inflows() == null || st.inflows().isEmpty()) return "no bank data yet";
+        double sustainable = PartyRules.sustainableIncome(st.inflows());
+        p.setVerifiedIncome(BigDecimal.valueOf(sustainable).setScale(2, java.math.RoundingMode.HALF_UP));
+        p.setIncomeSource(source);
+        p.setIncomeCheckedAt(Instant.now());
+        p.setIncomeJson(Json.write(Map.of("months", st.months(), "inflows", st.inflows(), "avgBalance", st.avgBalance(), "bounces", st.bounces(),
+                "detectedEmi", st.detectedEmi(), "account", st.maskedAccount() == null ? "" : st.maskedAccount(), "source", st.fipName() == null ? "" : st.fipName())));
+        if (st.detectedEmi() > 0 && (p.getExistingEmi() == null || p.getExistingEmi().doubleValue() < st.detectedEmi()))
+            p.setExistingEmi(BigDecimal.valueOf(st.detectedEmi()).setScale(2, java.math.RoundingMode.HALF_UP));
+        parties.save(p);
+        double declared = p.getMonthlyIncome() == null ? 0 : p.getMonthlyIncome().doubleValue();
+        audit.record(by, "party.income_checked", "APPLICATION", a.getAppNo(), a.getId(), p.getPartyNo() + " " + source + ": " + com.rhythm.los.common.Fmt.rupees(sustainable)
+                + "/month sustainable against " + com.rhythm.los.common.Fmt.rupees(declared) + " declared");
+        return "income " + com.rhythm.los.common.Fmt.rupees(sustainable) + "/month from " + ("AA".equals(source) ? "Account Aggregator" : "bank statement")
+                + (declared > 0 ? " (declared " + com.rhythm.los.common.Fmt.rupees(declared) + "; the lower counts)" : "");
     }
 
     // ---------------------------------------------------------------- documents
@@ -502,10 +600,14 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         d.setUploadedBy(actor);
         final byte[] content = bytes;
         final String fname = name;
-        var out = gateway.call(a.getId(), reader.name(), "party.document.read", () -> reader.read(content, ct, fname, t),
-                r -> r.status() + " · " + r.documentType(), null);
+        boolean identity = !AUTHORITY_DOCS.contains(t) && !Set.of("BANK_STATEMENT", "INCORPORATION_CERTIFICATE").contains(t);
+        var out = identity ? gateway.call(a.getId(), reader.name(), "party.document.read", () -> reader.read(content, ct, fname, t),
+                r -> r.status() + " · " + r.documentType(), null) : null;
         byte[] keep = bytes;
-        if (out.ok()) {
+        if (!identity) {
+            d.setStatus("UPLOADED");
+            d.setRemarks("BANK_STATEMENT".equals(t) ? "Read when the income check runs" : "Kept on file; checked by operations");
+        } else if (out.ok()) {
             DocumentReading r = out.value();
             Map<String, String> fields = new LinkedHashMap<>();
             if (r.fields() != null) r.fields().forEach((k, v) -> { if (v != null && v.value() != null) fields.put(k, String.valueOf(v.value())); });
@@ -569,6 +671,8 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
                     pullBureau(p, a, by);
                     log.add(p.getName() + ": bureau " + p.getBureauState().toLowerCase().replace('_', ' ') + (p.getBureauScore() == null ? "" : " " + p.getBureauScore()));
                 }
+                if ("VERIFIED".equals(p.getKycState()) && p.isIncomeConsidered() && p.getVerifiedIncome() == null && rules(a).incomeClubbing().verify())
+                    log.add(p.getName() + ": " + checkIncome(p, a, by));
             } catch (ApiException e) {
                 log.add(p.getName() + ": " + e.getMessage());
             }
@@ -576,12 +680,44 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
         return log;
     }
 
+    @SuppressWarnings("unchecked")
     String runKyc(ApplicationParty p, LoanApplication a, CurrentUser by) {
         PolicyParams pol = policy.liveFor(a.getProductCode(), a.getSegment());
         List<Map<String, Object>> checks = new ArrayList<>();
         double score;
         boolean panMismatch = false;
-        if (kyc.needsVerifiedDocuments()) {
+        if (p.entity()) {
+            // a company or firm: its PAN, and the document that authorises the signatory (board resolution, deed)
+            List<PartyDocument> ds = docs.findByPartyIdOrderByIdAsc(p.getId());
+            boolean authority = ds.stream().anyMatch(d -> AUTHORITY_DOCS.contains(d.getDocType()) && !"REJECTED".equals(d.getStatus()));
+            Map<String, String> pan = ds.stream().filter(d -> "PAN".equals(d.getDocType()) && "VERIFIED".equals(d.getStatus())).reduce((x, y) -> y)
+                    .map(d -> d.getExtractedJson() == null ? Map.<String, String>of() : (Map<String, String>) Json.read(d.getExtractedJson(), Map.class)).orElse(null);
+            if (!authority || kyc.needsVerifiedDocuments() && pan == null) {
+                p.setKycNote("Waiting for " + (kyc.needsVerifiedDocuments() && pan == null ? "the guarantor's PAN card" : "") + (kyc.needsVerifiedDocuments() && pan == null && !authority ? " and " : "")
+                        + (!authority ? "the board resolution, partnership deed, LLP agreement or trust deed naming " + p.getSignatoryName() : ""));
+                parties.save(p);
+                return "waiting for documents";
+            }
+            double id, nm;
+            if (kyc.needsVerifiedDocuments()) {
+                String panNo = pan.get("pan");
+                id = panNo == null ? 0.5 : panNo.equalsIgnoreCase(p.getPan()) ? 1 : 0;
+                panMismatch = panNo != null && !panNo.equalsIgnoreCase(p.getPan());
+                nm = pan.get("name") == null ? 0.5 : NameMatch.score(p.getName(), pan.get("name"));
+                checks.add(check("PAN on card matches", id, Mask.pan(p.getPan()), Mask.pan(panNo)));
+                checks.add(check("Name on PAN matches", nm, p.getName(), pan.get("name")));
+            } else {
+                LoanApplication shadow = shadow(p, a);
+                var out = gateway.call(a.getId(), kyc.name(), "party.kyc.verify", () -> kyc.verify(shadow), k -> "name " + k.nameMatch(), null);
+                if (!out.ok()) throw ApiException.conflict("VENDOR_FAILED", "KYC provider failed: " + out.error());
+                id = out.value().idMatch();
+                nm = out.value().nameMatch();
+                checks.add(check("PAN valid and matches", id, Mask.pan(p.getPan()), out.value().pan() == null ? null : Mask.pan(out.value().pan().pan())));
+                checks.add(check("Name matches PAN register", nm, p.getName(), out.value().pan() == null ? null : out.value().pan().registeredName()));
+            }
+            checks.add(check("Authority to sign for " + p.getName(), 1, p.getSignatoryName(), "document on file"));
+            score = 0.5 * id + 0.35 * nm + 0.15;
+        } else if (kyc.needsVerifiedDocuments()) {
             // KYC from the person's own verified documents, the same comparisons as for the applicant
             Map<String, Map<String, String>> byType = new LinkedHashMap<>();
             for (PartyDocument d : docs.findByPartyIdOrderByIdAsc(p.getId()))
@@ -798,7 +934,7 @@ public class PartyService implements com.rhythm.los.application.SubmitCheck, com
             out.add(new PartyRules.Party(p.getId(), p.getRole(), p.getRelationship(), p.getName(), p.getPan(), p.getDob(), p.isIncomeConsidered(), p.isCoOwner(),
                     p.getStatus(), p.getConsentAt() != null, p.getKycState(), p.getBureauState(), p.getBureauScore(),
                     p.getMonthlyIncome() == null ? 0 : p.getMonthlyIncome().doubleValue(), p.getExistingEmi() == null ? 0 : p.getExistingEmi().doubleValue(), bEmi,
-                    p.getSignedAt() != null));
+                    p.getSignedAt() != null, p.getPartyType(), p.getVerifiedIncome() == null ? null : p.getVerifiedIncome().doubleValue()));
         }
         return out;
     }

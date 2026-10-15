@@ -19,6 +19,8 @@ public class CollectionContact {
     @Column(name = "ptp_status") private String ptpStatus;
     private String note;
     @Column(name = "created_by") private String createdBy;
+    @Column(name = "party_id") private Long partyId;
+    @Column(name = "contact_name") private String contactName;
 
     public Long getId() { return id; }
     public Long getLoanId() { return loanId; }
@@ -41,4 +43,8 @@ public class CollectionContact {
     public void setNote(String v) { this.note = v; }
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String v) { this.createdBy = v; }
+    public Long getPartyId() { return partyId; }
+    public void setPartyId(Long v) { this.partyId = v; }
+    public String getContactName() { return contactName; }
+    public void setContactName(String v) { this.contactName = v; }
 }

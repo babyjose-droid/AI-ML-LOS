@@ -9,13 +9,16 @@ import { inr, label, when } from '../format'
 export interface Slot { mode: 'NOT_ALLOWED' | 'OPTIONAL' | 'MANDATORY'; max: number; requiredWhen: string }
 export interface PartyRules {
   coApplicant: Slot; guarantor: Slot; coOwnersMustJoin: boolean
-  incomeClubbing: { allowed: boolean; maxEarners: number; relationships: string[] }
-  relationships: string[]; minBureauScore: number; minAge: number; maxAgeAtMaturity: number; note: string
+  incomeClubbing: { allowed: boolean; maxEarners: number; relationships: string[]; verify?: boolean }
+  relationships: string[]; minBureauScore: number; minAge: number; maxAgeAtMaturity: number; note: string; entityGuarantors?: boolean
 }
+export const ENTITY_TYPES = ['COMPANY', 'LLP', 'PARTNERSHIP', 'PROPRIETORSHIP', 'TRUST', 'HUF']
+export const ENTITY_RELATIONSHIPS = ['GROUP_COMPANY', 'EMPLOYER', 'BUSINESS_ASSOCIATE', 'OTHER']
 export const RELATIONSHIPS = ['SPOUSE', 'PARENT', 'CHILD', 'SIBLING', 'BUSINESS_PARTNER', 'DIRECTOR', 'RELATIVE', 'FRIEND', 'OTHER']
 export const DEFAULT_RULES: PartyRules = {
   coApplicant: { mode: 'OPTIONAL', max: 2, requiredWhen: '' }, guarantor: { mode: 'OPTIONAL', max: 2, requiredWhen: '' }, coOwnersMustJoin: false,
-  incomeClubbing: { allowed: false, maxEarners: 1, relationships: [] }, relationships: RELATIONSHIPS, minBureauScore: 0, minAge: 18, maxAgeAtMaturity: 70, note: '',
+  incomeClubbing: { allowed: false, maxEarners: 1, relationships: [], verify: false }, relationships: RELATIONSHIPS, minBureauScore: 0, minAge: 18, maxAgeAtMaturity: 70, note: '',
+  entityGuarantors: false,
 }
 const roleLabel = (r: string) => r === 'GUARANTOR' ? 'Guarantor' : 'Co-applicant'
 const relLabel = (r: string) => label(r)
@@ -36,8 +39,9 @@ export function describeRules(r: PartyRules): string[] {
   const slot = (s: Slot, who: string) => s.mode === 'NOT_ALLOWED' ? `${who}: not allowed`
     : `${who}: ${s.mode === 'MANDATORY' ? 'required' : 'optional'}, up to ${s.max}${s.requiredWhen ? `; required before sanction when ${s.requiredWhen}` : ''}`
   const out = [slot(r.coApplicant, 'Co-applicants'), slot(r.guarantor, 'Guarantors')]
-  if (r.incomeClubbing.allowed) out.push(`Income counted: ${r.incomeClubbing.relationships.length ? r.incomeClubbing.relationships.map(relLabel).join(', ').toLowerCase() : 'any co-applicant'}, ${r.incomeClubbing.maxEarners} earners in all`)
+  if (r.incomeClubbing.allowed) out.push(`Income counted: ${r.incomeClubbing.relationships.length ? r.incomeClubbing.relationships.map(relLabel).join(', ').toLowerCase() : 'any co-applicant'}, ${r.incomeClubbing.maxEarners} earners in all${r.incomeClubbing.verify ? '; only after it is checked against their own bank statement or Account Aggregator data' : ''}`)
   else out.push('Co-applicant income is not counted')
+  if (r.entityGuarantors) out.push('A company, LLP, firm, trust or HUF may stand guarantor (board resolution or deed needed)')
   if (r.coOwnersMustJoin) out.push('Every co-owner of the collateral must join as a co-applicant')
   out.push(`Each party: age ${r.minAge}+ and ${r.maxAgeAtMaturity} or younger at maturity${r.minBureauScore ? `; bureau score ${r.minBureauScore}+ (below refers the case)` : ''}`)
   if (r.note) out.push(r.note)
@@ -73,6 +77,7 @@ export function PartyRulesEditor({ value, editable, onChange }: { value: unknown
         <label className="fld">Minimum bureau score of each party (0 = none)<input name="pr_score" type="number" min={0} max={900} disabled={!editable} value={r.minBureauScore} onChange={e => onChange({ ...r, minBureauScore: Number(e.target.value) })} /></label>
         <label className="fld">Minimum age<input name="pr_minAge" type="number" min={18} disabled={!editable} value={r.minAge} onChange={e => onChange({ ...r, minAge: Number(e.target.value) })} /></label>
         <label className="fld">Maximum age at maturity<input name="pr_maxAge" type="number" max={80} disabled={!editable} value={r.maxAgeAtMaturity} onChange={e => onChange({ ...r, maxAgeAtMaturity: Number(e.target.value) })} /></label>
+        <label className="check fld"><span><input type="checkbox" name="pr_entity" disabled={!editable} checked={!!r.entityGuarantors} onChange={e => onChange({ ...r, entityGuarantors: e.target.checked })} /> Companies and firms may stand guarantor</span></label>
         <label className="check fld"><span><input type="checkbox" name="pr_coOwners" disabled={!editable} checked={r.coOwnersMustJoin} onChange={e => onChange({ ...r, coOwnersMustJoin: e.target.checked })} /> Co-owners of the collateral must join as co-applicants</span></label>
       </div>
       <h4>Relationships allowed</h4>
@@ -84,6 +89,8 @@ export function PartyRulesEditor({ value, editable, onChange }: { value: unknown
           onChange={e => onChange({ ...r, incomeClubbing: { ...r.incomeClubbing, allowed: e.target.checked, maxEarners: e.target.checked ? Math.max(2, r.incomeClubbing.maxEarners) : 1 } })} /> Count co-applicants' income for affordability</span></label>
         {r.incomeClubbing.allowed && <label className="fld">Earners in all, the applicant included<input name="pr_earners" type="number" min={2} max={6} disabled={!editable} value={r.incomeClubbing.maxEarners}
           onChange={e => onChange({ ...r, incomeClubbing: { ...r.incomeClubbing, maxEarners: Number(e.target.value) } })} /></label>}
+        {r.incomeClubbing.allowed && <label className="check fld"><span><input type="checkbox" name="pr_verify" disabled={!editable} checked={!!r.incomeClubbing.verify}
+          onChange={e => onChange({ ...r, incomeClubbing: { ...r.incomeClubbing, verify: e.target.checked } })} /> Check their income against their own bank statement or Account Aggregator data (the lower of declared and found counts)</span></label>}
       </div>
       {r.incomeClubbing.allowed && <div className="row" style={{ marginTop: 8 }}>
         <span className="small muted">Whose income counts (none ticked = any co-applicant):</span>
@@ -104,6 +111,8 @@ interface PartyRow {
   consentAt?: string; consentChannel?: string; consentLanguage?: string; invitedAt?: string; kycState: string; kycScore?: number; kycNote?: string
   kycReviewedBy?: string; bureauState: string; bureauScore?: number; signedAt?: string; signedChannel?: string; signedDocument?: string
   removedReason?: string; addedBy: string; addedAt: string
+  partyType?: string; signatoryName?: string; signatoryDesignation?: string; registrationNo?: string; gstin?: string
+  consentAa?: boolean; verifiedIncome?: number; incomeSource?: string; incomeCheckedAt?: string
 }
 interface PartyDoc { id: number; docType: string; fileName: string; status: string; remarks?: string; masked: boolean; readConfidence?: number; uploadedBy: string; uploadedAt: string }
 interface Issue { code: string; gate: string; message: string; role: string }
@@ -114,6 +123,7 @@ interface PartiesView {
   requirements: Requirement[]; issues: Issue[]; coOwners: string[]
   joint?: { coApplicants: number; guarantors: number; earnersCounted: number; clubbedIncome: number; clubbedEmi: number; policyFails: string[] } | null
   canChange: boolean; sanctioned: boolean; documentTypes: string[]; documentsRead: boolean; relationships: string[]; vkycParties?: string
+  entityTypes?: string[]; entityRelationships?: string[]
 }
 const GATE: Record<string, string> = { SUBMIT: 'before submission', DECISION: 'before the decision', SANCTION: 'before sanction', DISBURSE: 'before disbursement' }
 
@@ -191,6 +201,7 @@ export function PartiesTab({ id, rev, onChange }: { id: string; rev: number; onC
             return [
               <span data-party-row={p.partyNo}><b>{p.name}</b> <span className="muted small">{p.partyNo}</span>
                 <div className="small">{roleLabel(p.role)} · {relLabel(p.relationship)}{p.coOwner ? ' · co-owner' : ''}</div>
+                {p.partyType && p.partyType !== 'INDIVIDUAL' && <div className="small" data-party-entity={p.partyNo}>{label(p.partyType)} · signs: {p.signatoryName}{p.signatoryDesignation ? `, ${p.signatoryDesignation}` : ''}</div>}
                 {removed && <div className="small muted">Removed: {p.removedReason}</div>}
                 {x.issues.length > 0 && !removed && <div className="small warn-text">{x.issues.join('; ')}</div>}</span>,
               <span className="small mono">{p.pan}<div>{x.mobile}</div></span>,
@@ -200,11 +211,13 @@ export function PartiesTab({ id, rev, onChange }: { id: string; rev: number; onC
                 {p.kycNote && <div className="muted">{p.kycNote}</div>}
                 {x.vkyc ? <div className="muted">Video KYC: {label(x.vkyc).toLowerCase()}</div> : d.vkycParties === 'ALL' ? <div className="muted">Video KYC needed (Video KYC tab)</div> : null}</span>,
               <span className="small">{p.bureauState === 'FETCHED' ? <b>{p.bureauScore}</b> : label(p.bureauState)}</span>,
-              <span className="small">{p.monthlyIncome ? inr(p.monthlyIncome) + '/mo' : '—'}{p.incomeConsidered && <div className={x.incomeCounted ? '' : 'muted'}>{x.incomeCounted ? 'counted' : 'not countable'}</div>}</span>,
+              <span className="small">{p.monthlyIncome ? inr(p.monthlyIncome) + '/mo' : '—'}{p.incomeConsidered && <div className={x.incomeCounted ? '' : 'muted'}>{x.incomeCounted ? 'counted' : 'not countable'}</div>}
+                {p.verifiedIncome != null && <div data-party-income={p.partyNo}>{inr(p.verifiedIncome)}/mo per {p.incomeSource === 'AA' ? 'Account Aggregator' : 'bank statement'}</div>}
+                {p.incomeConsidered && p.verifiedIncome == null && d.rules.incomeClubbing.verify && <div className="muted">{p.consentAa ? 'to be checked' : 'needs bank data consent'}</div>}</span>,
               <span className="small">{p.signedAt ? <><span className="pill ok">{label(p.signedDocument ?? 'signed')}</span><div className="muted">{channel(p.signedChannel)} · {when(p.signedAt)}</div></> : '—'}</span>,
               removed ? '' : <span className="row">
                 {front && !p.consentAt && <button className="btn sm" onClick={() => setDlg({ kind: 'invite', p })}>Invite link</button>}
-                {front && !p.consentAt && <button className="btn sm" onClick={() => setDlg({ kind: 'consent', p })}>Consent by OTP</button>}
+                {front && (!p.consentAt || p.incomeConsidered && !p.consentAa && d.rules.incomeClubbing.verify) && <button className="btn sm" onClick={() => setDlg({ kind: 'consent', p })}>Consent by OTP</button>}
                 {front && <button className="btn sm" onClick={() => setDlg({ kind: 'docs', p })}>Documents ({x.documents.length})</button>}
                 {['OPERATIONS', 'ADMIN'].includes(role) && p.kycState === 'REVIEW' && <button className="btn sm" onClick={() => setDlg({ kind: 'kyc', p })}>Resolve KYC</button>}
                 {['OPERATIONS', 'ADMIN', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO'].includes(role) && d.canChange && <button className="btn sm" onClick={() => setDlg({ kind: 'income', p })}>Income</button>}
@@ -215,9 +228,9 @@ export function PartiesTab({ id, rev, onChange }: { id: string; rev: number; onC
           })} />
       </div>
 
-      {dlg?.kind === 'add' && <AddParty appId={id} relationships={d.relationships} rules={d.rules} openRequests={open} onClose={() => setDlg(null)} onDone={done} />}
+      {dlg?.kind === 'add' && <AddParty appId={id} relationships={d.relationships} entityTypes={d.entityTypes ?? []} rules={d.rules} openRequests={open} onClose={() => setDlg(null)} onDone={done} />}
       {dlg?.kind === 'invite' && <InviteDialog p={dlg.p} onClose={done} />}
-      {dlg?.kind === 'consent' && <OtpDialog p={dlg.p} kind="consent" onClose={() => setDlg(null)} onDone={done} />}
+      {dlg?.kind === 'consent' && <OtpDialog p={dlg.p} needsAa={dlg.p.incomeConsidered && !!d.rules.incomeClubbing.verify} kind="consent" onClose={() => setDlg(null)} onDone={done} />}
       {dlg?.kind === 'sign' && <OtpDialog p={dlg.p} kind="sign" onClose={() => setDlg(null)} onDone={done} />}
       {dlg?.kind === 'docs' && <DocsDialog p={dlg.p} docs={d.parties.find(x => x.party.id === dlg.p.id)?.documents ?? []} checks={d.parties.find(x => x.party.id === dlg.p.id)?.kycChecks ?? []}
         types={d.documentTypes} read={d.documentsRead} onClose={() => setDlg(null)} onDone={() => setR2(x => x + 1)} />}
@@ -233,17 +246,22 @@ export function PartiesTab({ id, rev, onChange }: { id: string; rev: number; onC
 export interface PartyDraft {
   role: string; relationship: string; name: string; pan: string; mobile: string; email: string; dob: string; gender: string; city: string; pincode: string
   occupation: string; monthlyIncome: string; existingEmi: string; incomeConsidered: boolean; coOwner: boolean; requirementId?: number
+  partyType?: string; signatoryName?: string; signatoryDesignation?: string; registrationNo?: string; gstin?: string
 }
 export const EMPTY_PARTY: PartyDraft = { role: 'CO_APPLICANT', relationship: 'SPOUSE', name: '', pan: '', mobile: '', email: '', dob: '', gender: '', city: '', pincode: '',
   occupation: '', monthlyIncome: '', existingEmi: '', incomeConsidered: false, coOwner: false }
 
 export function partyBody(p: PartyDraft) {
-  return { ...p, pan: p.pan.toUpperCase(), email: p.email || null, gender: p.gender || null, city: p.city || null, pincode: p.pincode || null, occupation: p.occupation || null,
+  const entity = !!p.partyType && p.partyType !== 'INDIVIDUAL'
+  return { ...p, partyType: p.partyType || 'INDIVIDUAL', signatoryName: entity ? p.signatoryName || null : null, signatoryDesignation: entity ? p.signatoryDesignation || null : null,
+    registrationNo: entity ? p.registrationNo || null : null, gstin: entity ? (p.gstin || '').toUpperCase() || null : null, gender: entity ? null : p.gender || null,
+    incomeConsidered: entity ? false : p.incomeConsidered, coOwner: entity ? false : p.coOwner, pan: p.pan.toUpperCase(), email: p.email || null, city: p.city || null, pincode: p.pincode || null, occupation: p.occupation || null,
     monthlyIncome: p.monthlyIncome === '' ? null : Number(p.monthlyIncome), existingEmi: p.existingEmi === '' ? null : Number(p.existingEmi), dob: p.dob || null }
 }
 
 /** The person's details; used in the Add dialog and on the new-application form. */
-export function PartyFields({ p, rules, relationships, onChange }: { p: PartyDraft; rules: PartyRules; relationships: string[]; onChange: (p: PartyDraft) => void }) {
+export function PartyFields({ p, rules, relationships, entityTypes = [], onChange }: { p: PartyDraft; rules: PartyRules; relationships: string[]; entityTypes?: string[]; onChange: (p: PartyDraft) => void }) {
+  const entity = !!p.partyType && p.partyType !== 'INDIVIDUAL'
   const set = (k: keyof PartyDraft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     onChange({ ...p, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value })
   const clubs = p.role === 'CO_APPLICANT' && rules.incomeClubbing.allowed && (rules.incomeClubbing.relationships.length === 0 || rules.incomeClubbing.relationships.includes(p.relationship))
@@ -253,28 +271,38 @@ export function PartyFields({ p, rules, relationships, onChange }: { p: PartyDra
     <label className="fld">{l}<input name={'party_' + k} value={String(p[k] ?? '')} onChange={set(k)} {...props} /></label>
   return (
     <div className="form">
-      <label className="fld">Role<select name="party_role" value={p.role} onChange={set('role')}>{roles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+      <label className="fld">Role<select name="party_role" value={p.role} onChange={e => onChange({ ...p, role: e.target.value, partyType: e.target.value === 'GUARANTOR' ? p.partyType : 'INDIVIDUAL', relationship: e.target.value === 'GUARANTOR' ? p.relationship : relationships[0] ?? 'SPOUSE' })}>{roles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+      {p.role === 'GUARANTOR' && entityTypes.length > 0 && <label className="fld">Guarantor is<select name="party_partyType" value={p.partyType || 'INDIVIDUAL'}
+        onChange={e => onChange({ ...p, partyType: e.target.value, relationship: e.target.value === 'INDIVIDUAL' ? relationships[0] ?? 'SPOUSE' : ENTITY_RELATIONSHIPS[0] })}>
+        <option value="INDIVIDUAL">A person</option>{entityTypes.map(t => <option key={t} value={t}>{label(t)}</option>)}</select></label>}
       <label className="fld">Relationship to the applicant<select name="party_relationship" value={p.relationship} onChange={set('relationship')}>
-        {relationships.map(r => <option key={r} value={r}>{relLabel(r)}</option>)}</select></label>
-      {txt('name', 'Full name (as on PAN)')}
-      {txt('pan', 'PAN', { placeholder: 'ABCPK1234L', maxLength: 10 })}
-      {txt('mobile', 'Their own mobile (OTPs go here)', { inputMode: 'numeric', maxLength: 10 })}
-      {txt('dob', 'Date of birth', { type: 'date' })}
-      <label className="fld">Gender<select name="party_gender" value={p.gender} onChange={set('gender')}><option value="">Prefer not to say</option><option value="FEMALE">Female</option><option value="MALE">Male</option><option value="OTHER">Other</option></select></label>
+        {(entity ? ENTITY_RELATIONSHIPS : relationships).map(r => <option key={r} value={r}>{relLabel(r)}</option>)}</select></label>
+      {txt('name', entity ? 'Registered name (as on PAN)' : 'Full name (as on PAN)')}
+      {txt('pan', entity ? 'PAN of the ' + label(p.partyType ?? '').toLowerCase() : 'PAN', { placeholder: entity ? 'ABCCK1234L' : 'ABCPK1234L', maxLength: 10 })}
+      {txt('mobile', entity ? "Signatory's mobile (OTPs go here)" : 'Their own mobile (OTPs go here)', { inputMode: 'numeric', maxLength: 10 })}
+      {txt('dob', entity ? 'Date of incorporation or registration' : 'Date of birth', { type: 'date' })}
+      {entity && <>
+        {txt('signatoryName', 'Authorised signatory (named in the board resolution or deed)')}
+        {txt('signatoryDesignation', 'Signatory designation (e.g. Director, Partner)')}
+        {txt('registrationNo', 'CIN, LLPIN or registration number')}
+        {txt('gstin', 'GSTIN (optional)', { maxLength: 15 })}
+      </>}
+      {!entity && <label className="fld">Gender<select name="party_gender" value={p.gender} onChange={set('gender')}><option value="">Prefer not to say</option><option value="FEMALE">Female</option><option value="MALE">Male</option><option value="OTHER">Other</option></select></label>}
       {txt('email', 'Email', { type: 'email' })}
       {txt('city', 'City')}
       {txt('pincode', 'PIN code', { inputMode: 'numeric', maxLength: 6 })}
-      {txt('occupation', 'Occupation or business')}
-      {txt('monthlyIncome', 'Monthly income (₹)', { type: 'number', min: 0 })}
+      {!entity && txt('occupation', 'Occupation or business')}
+      {txt('monthlyIncome', entity ? 'Monthly turnover or profit (₹, for the record)' : 'Monthly income (₹)', { type: 'number', min: 0 })}
       {txt('existingEmi', 'Their existing EMIs (₹/month)', { type: 'number', min: 0 })}
-      <label className="check fld"><span><input type="checkbox" name="party_incomeConsidered" disabled={!clubs} checked={p.incomeConsidered && clubs} onChange={set('incomeConsidered')} /> Count this income for affordability
-        {!clubs && <span className="muted"> (not allowed for this {p.role === 'GUARANTOR' ? 'role' : 'relationship'})</span>}</span></label>
+      {!entity && <label className="check fld"><span><input type="checkbox" name="party_incomeConsidered" disabled={!clubs} checked={p.incomeConsidered && clubs} onChange={set('incomeConsidered')} /> Count this income for affordability
+        {!clubs && <span className="muted"> (not allowed for this {p.role === 'GUARANTOR' ? 'role' : 'relationship'})</span>}
+        {clubs && rules.incomeClubbing.verify && <span className="muted"> (checked against their own bank data before it counts)</span>}</span></label>}
       {p.role === 'CO_APPLICANT' && <label className="check fld"><span><input type="checkbox" name="party_coOwner" checked={p.coOwner} onChange={set('coOwner')} /> Co-owns the collateral</span></label>}
     </div>
   )
 }
 
-function AddParty({ appId, relationships, rules, openRequests, onClose, onDone }: { appId: string; relationships: string[]; rules: PartyRules; openRequests: Requirement[]; onClose: () => void; onDone: () => void }) {
+function AddParty({ appId, relationships, entityTypes, rules, openRequests, onClose, onDone }: { appId: string; relationships: string[]; entityTypes: string[]; rules: PartyRules; openRequests: Requirement[]; onClose: () => void; onDone: () => void }) {
   const firstRole = rules.coApplicant.mode !== 'NOT_ALLOWED' ? 'CO_APPLICANT' : 'GUARANTOR'
   const [p, setP] = useState<PartyDraft>({ ...EMPTY_PARTY, role: openRequests[0]?.role ?? firstRole, relationship: relationships[0] ?? 'SPOUSE', requirementId: openRequests[0]?.id })
   const [busy, setBusy] = useState(false)
@@ -289,7 +317,7 @@ function AddParty({ appId, relationships, rules, openRequests, onClose, onDone }
       {openRequests.length > 0 && <label className="fld" style={{ marginBottom: 12 }}>Meets the request from credit
         <select value={p.requirementId ?? ''} onChange={e => { const q = openRequests.find(x => String(x.id) === e.target.value); setP({ ...p, requirementId: q?.id, role: q?.role ?? p.role }) }}>
           <option value="">—</option>{openRequests.map(q => <option key={q.id} value={q.id}>{roleLabel(q.role)}: {q.reason}</option>)}</select></label>}
-      <PartyFields p={p} rules={rules} relationships={relationships} onChange={setP} />
+      <PartyFields p={p} rules={rules} relationships={relationships} entityTypes={entityTypes} onChange={setP} />
       <p className="small muted">They give their own consent by OTP on this mobile (in the branch or through an invite link), are KYC- and bureau-checked on their own, and sign before disbursement.</p>
       <button className="btn primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Add'}</button>
     </Modal>
@@ -319,7 +347,8 @@ function InviteDialog({ p, onClose }: { p: PartyRow; onClose: () => void }) {
   )
 }
 
-function OtpDialog({ p, kind, onClose, onDone }: { p: PartyRow; kind: 'consent' | 'sign'; onClose: () => void; onDone: () => void }) {
+function OtpDialog({ p, kind, needsAa, onClose, onDone }: { p: PartyRow; kind: 'consent' | 'sign'; needsAa?: boolean; onClose: () => void; onDone: () => void }) {
+  const [aa, setAa] = useState(false)
   const [sent, setSent] = useState<{ mobile: string; demo: boolean }>()
   const [otp, setOtp] = useState('')
   const [kyc, setKyc] = useState(false)
@@ -331,7 +360,7 @@ function OtpDialog({ p, kind, onClose, onDone }: { p: PartyRow; kind: 'consent' 
   async function confirm() {
     setBusy(true); setError(undefined)
     try {
-      if (kind === 'consent') await api.post(`/api/parties/${p.id}/consent`, { otp, consentKyc: kyc, consentBureau: bureau, language: lang })
+      if (kind === 'consent') await api.post(`/api/parties/${p.id}/consent`, { otp, consentKyc: kyc, consentBureau: bureau, consentAa: aa, language: lang })
       else await api.post(`/api/parties/${p.id}/sign`, { otp })
       onDone()
     } catch (e) { setError(e) } finally { setBusy(false) }
@@ -343,6 +372,7 @@ function OtpDialog({ p, kind, onClose, onDone }: { p: PartyRow; kind: 'consent' 
         <p className="small">Read this to {p.name} in their language. As {p.role === 'GUARANTOR' ? 'guarantor they agree to repay if the borrower does not' : 'co-applicant they are jointly and severally liable for the whole loan'}.</p>
         <label className="check"><input type="checkbox" checked={kyc} onChange={e => setKyc(e.target.checked)} /> Verify my identity (PAN and the identity documents I give)</label>
         <label className="check"><input type="checkbox" checked={bureau} onChange={e => setBureau(e.target.checked)} /> Check my credit history with a credit bureau (one report)</label>
+        {(needsAa || p.incomeConsidered) && <label className="check"><input type="checkbox" name="party_consentAa" checked={aa} onChange={e => setAa(e.target.checked)} /> Check my income from 12 months of my bank account (Account Aggregator, or the statement I upload){needsAa ? ' (needed: my income is counted)' : ''}</label>}
         <label className="fld" style={{ maxWidth: 240, marginTop: 8 }}>Language the consent was given in<select value={lang} onChange={e => setLang(e.target.value)}>
           {[['en', 'English'], ['hi', 'Hindi'], ['mr', 'Marathi'], ['ta', 'Tamil'], ['ml', 'Malayalam'], ['kn', 'Kannada'], ['te', 'Telugu'], ['bn', 'Bengali'], ['gu', 'Gujarati']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
       </> : <p className="small">{p.name} confirms with the OTP sent to their own phone. Show them the {p.role === 'GUARANTOR' ? 'guarantee deed' : 'KFS and loan agreement'} first.</p>}
@@ -351,7 +381,7 @@ function OtpDialog({ p, kind, onClose, onDone }: { p: PartyRow; kind: 'consent' 
         {sent && <span className="small muted">Sent to {sent.mobile}{sent.demo ? ' (demo OTP 123456 until SMS is integrated)' : ''}</span>}
       </div>
       <label className="fld" style={{ maxWidth: 200, marginTop: 8 }}>OTP they read out<input name="party_otp" inputMode="numeric" maxLength={6} value={otp} onChange={e => setOtp(e.target.value)} /></label>
-      <button className="btn primary" style={{ marginTop: 10 }} disabled={busy || !sent || otp.length < 4 || (kind === 'consent' && (!kyc || !bureau))} onClick={confirm}>
+      <button className="btn primary" style={{ marginTop: 10 }} disabled={busy || !sent || otp.length < 4 || (kind === 'consent' && (!kyc || !bureau || (!!needsAa && !aa)))} onClick={confirm}>
         {kind === 'consent' ? 'Record consent' : 'Record signature'}</button>
     </Modal>
   )

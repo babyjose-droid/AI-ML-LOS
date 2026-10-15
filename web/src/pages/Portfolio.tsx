@@ -137,7 +137,7 @@ interface Snap { feedDate: string; outstanding: number; overdue: number; dpd: nu
 
 function LoanDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const [r, setR] = useState(0)
-  const d = useLoad(() => api.get<{ loan: Loan; ews: { signals?: { reason: string; points: number }[]; action?: string }; history: Snap[]; monthsOnBook: number }>(`/api/book/loans/${id}`), [id, r])
+  const d = useLoad(() => api.get<{ loan: Loan; ews: { signals?: { reason: string; points: number }[]; action?: string }; history: Snap[]; monthsOnBook: number; parties?: { id: number; role: string; partyType: string; name: string; pan: string; relationship: string }[] }>(`/api/book/loans/${id}`), [id, r])
   return (
     <Modal title="Loan" onClose={onClose}>
       <ErrorBox error={d.error} />
@@ -147,6 +147,7 @@ function LoanDetail({ id, onClose }: { id: number; onClose: () => void }) {
           <div data-loan-detail>
             <p><b>{l.borrowerName}</b> · <span className="mono">{l.loanRef}</span>{l.applicationId && <> · <Link to={`/applications/${l.applicationId}`}>{l.appNo}</Link></>}</p>
             <p className="small">{inr(l.sanctionedAmount)} at {l.rate}% for {l.tenureMonths} months, EMI {inr(l.emi)} · disbursed {l.disbursedOn} · {d.data.monthsOnBook} months on book · {l.paidEmis} EMIs paid</p>
+            {(d.data.parties ?? []).length > 0 && <p className="small" data-testid="book-parties">With the borrower: {(d.data.parties ?? []).map(p => `${p.name} (${p.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}, ${p.pan})`).join(', ')}</p>}
             <p className="small">Outstanding {inr(l.outstanding)} · overdue {inr(l.overdue)} · {l.dpd} days past due (worst {l.maxDpd}) · {l.classification} · ECL stage {l.eclStage}: {inr(l.ecl)} · RBI minimum {inr(l.provisionIracp)}
               {l.behaviourPd != null && <> · behaviour PD {pct(l.behaviourPd, 1)}</>}</p>
             <h4>Early warning: {l.ewsScore}/100</h4>

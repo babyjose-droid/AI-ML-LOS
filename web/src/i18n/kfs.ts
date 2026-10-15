@@ -8,6 +8,7 @@ type Dict = Record<string, string>
 
 const en: Dict = {
   letter: 'Sanction letter', kfs: 'Key Fact Statement', dear: 'Dear',
+  parties: 'Co-applicants and guarantors', coApplicant: 'Co-applicant (jointly and severally liable)', guarantor: 'Guarantor (repays if the borrower does not)',
   intro: 'We are pleased to sanction your loan on the terms in this letter and the Key Fact Statement below.',
   appNo: 'Application number', product: 'Product', amount: 'Sanctioned amount', fee: 'Processing fee', gst: 'GST on processing fee',
   insurance: 'Insurance', net: 'Net amount disbursed', rate: 'Interest rate (per year, reducing balance)', apr: 'Annual percentage rate (APR, all charges included)',
@@ -22,6 +23,7 @@ const en: Dict = {
 }
 
 const hi: Dict = {
+  parties: 'सह-आवेदक और गारंटर', coApplicant: 'सह-आवेदक (संयुक्त रूप से और अलग-अलग उत्तरदायी)', guarantor: 'गारंटर (उधारकर्ता के न चुकाने पर चुकाएगा)',
   letter: 'स्वीकृति पत्र', kfs: 'मुख्य तथ्य विवरण', dear: 'प्रिय',
   intro: 'हमें इस पत्र और नीचे दिए गए मुख्य तथ्य विवरण की शर्तों पर आपका ऋण स्वीकृत करते हुए प्रसन्नता है।',
   appNo: 'आवेदन संख्या', product: 'उत्पाद', amount: 'स्वीकृत राशि', fee: 'प्रोसेसिंग शुल्क', gst: 'प्रोसेसिंग शुल्क पर जीएसटी',

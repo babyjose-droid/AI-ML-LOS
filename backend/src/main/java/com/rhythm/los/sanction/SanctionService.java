@@ -100,7 +100,7 @@ public class SanctionService {
         }
 
         Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), amt.doubleValue(),
-                d.getRate().doubleValue(), a.getTenureMonths(), p.charges());
+                d.getRate().doubleValue(), a.getTenureMonths(), p.charges()).withParties(kfsParties(appId));
 
         SanctionRecord s = new SanctionRecord();
         s.setApplicationId(appId);
@@ -137,6 +137,19 @@ public class SanctionService {
     public List<String> partyBlockers(LoanApplication a, String gate) {
         var g = partyGates == null ? null : partyGates.getIfAvailable();
         return g == null ? List.of() : g.blockers(a, gate);
+    }
+
+    private com.rhythm.los.party.ApplicationPartyRepository partyRepo;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPartyRepo(com.rhythm.los.party.ApplicationPartyRepository r) { this.partyRepo = r; }
+
+    /** Co-applicants and guarantors named on the KFS and the sanction letter. */
+    List<Kfs.Party> kfsParties(Long appId) {
+        if (partyRepo == null) return List.of();
+        return partyRepo.findByApplicationIdOrderByIdAsc(appId).stream().filter(com.rhythm.los.party.ApplicationParty::active)
+                .map(x -> new Kfs.Party(x.getRole(), x.entity() ? x.getName() + " (" + x.getPartyType().toLowerCase() + ", signing through " + x.getSignatoryName() + ")" : x.getName(),
+                        x.getRelationship() == null ? "" : x.getRelationship().toLowerCase().replace('_', ' '))).toList();
     }
 
     private com.rhythm.los.collateral.CollateralService collateral;
@@ -258,7 +271,11 @@ public class SanctionService {
         m.put("approver", r.getActor());
         m.put("level", r.getLevel());
         m.put("conditions", conditions);
-        m.put("kfs", Json.read(r.getKfsJson(), Kfs.class));
+        Kfs k = Json.read(r.getKfsJson(), Kfs.class);
+        // sanctions made before parties were on the KFS: name them from the application
+        if (k.parties() == null || k.parties().isEmpty()) k = k.withParties(kfsParties(appId));
+        m.put("kfs", k);
+        m.put("parties", k.parties());
         m.put("acceptedAt", r.getKfsAcceptedAt());
         m.put("acceptedLanguage", r.getKfsLanguage());
         m.put("validDays", 30);
@@ -270,6 +287,7 @@ public class SanctionService {
     public Kfs kfs(Long appId) {
         return records.findFirstByApplicationIdAndActionOrderByIdDesc(appId, "APPROVED")
                 .map(r -> Json.read(r.getKfsJson(), Kfs.class))
+                .map(k -> k.parties() == null || k.parties().isEmpty() ? k.withParties(kfsParties(appId)) : k)
                 .orElseThrow(() -> ApiException.notFound("Key Fact Statement"));
     }
 

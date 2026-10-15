@@ -72,6 +72,10 @@ export default function SanctionLetter() {
         {row('cooling', <>{k.coolingOffDays} <T k="coolingText" /></>)}
         {row('grievance', k.grievanceOfficer)}
       </tbody></table>
+      {(k.parties ?? []).length > 0 && <>
+        <h2><T k="parties" /></h2>
+        <table data-letter-parties><tbody>{(k.parties ?? []).map(p => <tr key={p.role + p.name}><th><T k={p.role === 'GUARANTOR' ? 'guarantor' : 'coApplicant'} /></th><td>{p.name}{p.relationship ? <span className="small muted"> · {p.relationship}</span> : null}</td></tr>)}</tbody></table>
+      </>}
 
       {(k.contingentCharges ?? []).length > 0 && <>
         <h2><T k="contingent" /></h2>

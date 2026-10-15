@@ -18,13 +18,37 @@ import java.util.*;
  * party has signed). An issue blocks its own gate and every later one.
  */
 public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJoin, Clubbing incomeClubbing,
-                         List<String> relationships, int minBureauScore, int minAge, int maxAgeAtMaturity, String note) {
+                         List<String> relationships, int minBureauScore, int minAge, int maxAgeAtMaturity, String note, boolean entityGuarantors) {
+
+    public PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJoin, Clubbing incomeClubbing, List<String> relationships,
+                      int minBureauScore, int minAge, int maxAgeAtMaturity, String note) {
+        this(coApplicant, guarantor, coOwnersMustJoin, incomeClubbing, relationships, minBureauScore, minAge, maxAgeAtMaturity, note, false);
+    }
 
     /** mode: NOT_ALLOWED, OPTIONAL or MANDATORY (at least one). requiredWhen: a workflow condition that makes one mandatory. */
     public record Slot(String mode, int max, String requiredWhen) {}
 
     /** Income of co-applicants added to the applicant's for affordability; maxEarners counts the applicant too. */
-    public record Clubbing(boolean allowed, int maxEarners, List<String> relationships) {}
+    public record Clubbing(boolean allowed, int maxEarners, List<String> relationships, boolean verify) {
+        public Clubbing(boolean allowed, int maxEarners, List<String> relationships) { this(allowed, maxEarners, relationships, false); }
+    }
+
+    /** Non-individual guarantors: their PAN's fourth letter (C company, F firm or LLP, H HUF, T trust; P is a person). */
+    public static final Set<String> ENTITY_TYPES = Set.of("COMPANY", "LLP", "PARTNERSHIP", "PROPRIETORSHIP", "TRUST", "HUF");
+    public static final List<String> ENTITY_RELATIONSHIPS = List.of("GROUP_COMPANY", "EMPLOYER", "BUSINESS_ASSOCIATE", "OTHER");
+
+    /** The fourth letter a PAN must have for the party type. */
+    public static String panLetter(String type) {
+        return switch (type == null ? "INDIVIDUAL" : type) {
+            case "COMPANY" -> "C";
+            case "LLP", "PARTNERSHIP" -> "F";
+            case "HUF" -> "H";
+            case "TRUST" -> "T";
+            default -> "P";   // individuals and proprietorships (a proprietor's own PAN)
+        };
+    }
+
+    public static boolean isEntity(String type) { return type != null && ENTITY_TYPES.contains(type); }
 
     public static final String CO_APPLICANT = "CO_APPLICANT";
     public static final String GUARANTOR = "GUARANTOR";
@@ -75,10 +99,10 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
         Slot co = slot(r.coApplicant()), g = slot(r.guarantor());
         Clubbing c = r.incomeClubbing() == null ? new Clubbing(false, 1, List.of())
                 : new Clubbing(r.incomeClubbing().allowed(), Math.max(1, r.incomeClubbing().maxEarners()),
-                r.incomeClubbing().relationships() == null ? List.of() : List.copyOf(r.incomeClubbing().relationships()));
+                r.incomeClubbing().relationships() == null ? List.of() : List.copyOf(r.incomeClubbing().relationships()), r.incomeClubbing().verify());
         List<String> rel = r.relationships() == null || r.relationships().isEmpty() ? ALL_RELATIONSHIPS : List.copyOf(r.relationships());
         return new PartyRules(co, g, r.coOwnersMustJoin(), c, rel, Math.max(0, r.minBureauScore()), r.minAge() <= 0 ? 18 : r.minAge(),
-                r.maxAgeAtMaturity() <= 0 ? 70 : r.maxAgeAtMaturity(), r.note() == null ? "" : r.note().trim());
+                r.maxAgeAtMaturity() <= 0 ? 70 : r.maxAgeAtMaturity(), r.note() == null ? "" : r.note().trim(), r.entityGuarantors());
     }
 
     private static Slot slot(Slot s) {
@@ -94,8 +118,15 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
     /** A party as the checks see it. Statuses as in application_party. */
     public record Party(long id, String role, String relationship, String name, String pan, LocalDate dob, boolean incomeConsidered,
                         boolean coOwner, String status, boolean consented, String kycState, String bureauState, Integer bureauScore,
-                        double monthlyIncome, double existingEmi, double bureauEmi, boolean signed) {
+                        double monthlyIncome, double existingEmi, double bureauEmi, boolean signed, String partyType, Double verifiedIncome) {
+        public Party(long id, String role, String relationship, String name, String pan, LocalDate dob, boolean incomeConsidered,
+                     boolean coOwner, String status, boolean consented, String kycState, String bureauState, Integer bureauScore,
+                     double monthlyIncome, double existingEmi, double bureauEmi, boolean signed) {
+            this(id, role, relationship, name, pan, dob, incomeConsidered, coOwner, status, consented, kycState, bureauState, bureauScore,
+                    monthlyIncome, existingEmi, bureauEmi, signed, "INDIVIDUAL", null);
+        }
         boolean active() { return !"REMOVED".equals(status); }
+        boolean entity() { return partyType != null && !"INDIVIDUAL".equals(partyType); }
     }
 
     public record Requirement(long id, String role, String reason) {}
@@ -125,7 +156,7 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
             }
         }
         for (Party p : live) {
-            if (!relationships.contains(p.relationship()))
+            if (p.entity() ? !ENTITY_RELATIONSHIPS.contains(p.relationship()) : !relationships.contains(p.relationship()))
                 out.add(new Issue("BAD_RELATIONSHIP", "SUBMIT", p.name() + ": relationship " + p.relationship().toLowerCase().replace('_', ' ') + " is not allowed for this product", p.role()));
             if (!p.consented())
                 out.add(new Issue("PARTY_CONSENT", "DECISION", p.name() + " (" + label(p.role()) + ") has not given consent yet", p.role()));
@@ -133,6 +164,8 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
                 out.add(new Issue("PARTY_KYC", "DECISION", p.name() + " (" + label(p.role()) + "): KYC " + kycWord(p.kycState()), p.role()));
             else if ("NOT_FETCHED".equals(p.bureauState()) || "FAILED".equals(p.bureauState()))
                 out.add(new Issue("PARTY_BUREAU", "DECISION", p.name() + " (" + label(p.role()) + "): bureau report not fetched", p.role()));
+            else if (incomeClubbing.verify() && p.incomeConsidered() && clubs(p.role(), p.relationship()) && p.verifiedIncome() == null)
+                out.add(new Issue("PARTY_INCOME", "DECISION", p.name() + " (" + label(p.role()) + "): income to be checked against their bank statement or Account Aggregator data", p.role()));
             if (sanctioned && !p.signed())
                 out.add(new Issue("PARTY_SIGNATURE", "DISBURSE", p.name() + " (" + label(p.role()) + ") has not signed the " + (GUARANTOR.equals(p.role()) ? "guarantee" : "loan agreement and KFS"), p.role()));
         }
@@ -155,7 +188,21 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
 
     /** Problems with one party to add or change, before it is saved. */
     public List<String> admit(String role, String relationship, LocalDate dob, boolean incomeConsidered, long sameRoleCount, int tenureMonths, LocalDate today) {
+        return admit(role, relationship, dob, incomeConsidered, sameRoleCount, tenureMonths, today, "INDIVIDUAL");
+    }
+
+    public List<String> admit(String role, String relationship, LocalDate dob, boolean incomeConsidered, long sameRoleCount, int tenureMonths, LocalDate today, String partyType) {
         List<String> out = new ArrayList<>();
+        if (partyType != null && !"INDIVIDUAL".equals(partyType)) {
+            Slot s = slot(role);
+            if (!GUARANTOR.equals(role)) out.add("Only a guarantor can be a company or firm; a co-applicant is a person");
+            else if (!entityGuarantors) out.add("This product does not take company or firm guarantors");
+            else if ("NOT_ALLOWED".equals(s.mode())) out.add("This product does not allow a guarantor");
+            else if (sameRoleCount >= s.max()) out.add("This product allows at most " + s.max() + " " + plural(label(role), s.max()));
+            if (!ENTITY_RELATIONSHIPS.contains(relationship)) out.add("A company or firm guarantor's link must be one of " + ENTITY_RELATIONSHIPS);
+            if (incomeConsidered) out.add("A guarantor's income is not counted");
+            return out;
+        }
         Slot s = slot(role);
         if ("NOT_ALLOWED".equals(s.mode())) out.add("This product does not allow a " + label(role));
         else if (sameRoleCount >= s.max()) out.add("This product allows at most " + s.max() + " " + plural(label(role), s.max()));
@@ -187,8 +234,13 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
         for (Party p : live) {
             if (!p.incomeConsidered() || !clubs(p.role(), p.relationship()) || !"VERIFIED".equals(p.kycState())) continue;
             if (counted + 1 >= incomeClubbing.maxEarners()) break;
+            double use = Math.max(0, p.monthlyIncome());
+            if (incomeClubbing.verify()) {
+                if (p.verifiedIncome() == null) continue;   // not counted until checked against bank data
+                use = Math.min(use, Math.max(0, p.verifiedIncome()));
+            }
             counted++;
-            income += Math.max(0, p.monthlyIncome());
+            income += use;
             emi += Math.max(p.existingEmi(), p.bureauEmi());
         }
         List<String> fails = new ArrayList<>();
@@ -199,7 +251,7 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
                 else if (p.bureauScore() != null && p.bureauScore() > 0 && p.bureauScore() < minBureauScore)
                     fails.add(who + ": bureau score " + p.bureauScore() + " below " + minBureauScore);
             }
-            if (p.dob() != null) {
+            if (p.dob() != null && !p.entity()) {
                 double atMaturity = Period.between(p.dob(), today).getYears() + tenureMonths / 12.0;
                 if (atMaturity > maxAgeAtMaturity) fails.add(who + ": " + Math.round(atMaturity) + " at maturity (limit " + maxAgeAtMaturity + ")");
             }
@@ -216,6 +268,20 @@ public record PartyRules(Slot coApplicant, Slot guarantor, boolean coOwnersMustJ
             if (t.length() >= 3 && !out.contains(t)) out.add(t);
         }
         return out;
+    }
+
+    /** Sustainable monthly income from bank credits, as the engine counts it: the lower of the median and 1.15 x the 25th percentile. */
+    public static double sustainableIncome(List<Double> inflows) {
+        if (inflows == null || inflows.isEmpty()) return 0;
+        List<Double> x = inflows.stream().sorted().toList();
+        double med = q(x, 0.5), p25 = q(x, 0.25);
+        return Math.round(Math.min(med, 1.15 * p25));
+    }
+
+    private static double q(List<Double> s, double p) {
+        double pos = p * (s.size() - 1);
+        int lo = (int) Math.floor(pos), hi = (int) Math.ceil(pos);
+        return s.get(lo) + (s.get(hi) - s.get(lo)) * (pos - lo);
     }
 
     public static String label(String role) { return GUARANTOR.equals(role) ? "guarantor" : "co-applicant"; }

@@ -1,0 +1,6 @@
+<h1>Welcome to {{lender.name}}</h1>
+<p>{{today | date}}</p>
+<p>Dear {{applicant.name}},</p>
+<p>Your loan {{loan.ref}} of {{loan.amount | rupees}} was credited to your account {{disbursement.account}} on {{disbursement.date | date}} (reference {{disbursement.utr}}). Your EMI of {{loan.emi | rupees}} will be collected monthly by {{loan.repaymentMode}} for {{loan.tenureMonths}} months.</p>
+<p>Please keep the balance in your account before each due date. For any question or complaint, contact your branch {{branch.name}} or {{lender.grievanceOfficer}}.</p>
+<p>Thank you for choosing us.<br>{{lender.name}}</p>

@@ -1,0 +1,5 @@
+<h1>No dues certificate</h1>
+<p>{{today | date}}</p>
+<p>This is to certify that loan {{loan.ref}} (application {{app.no}}) of {{loan.amount | rupees}} granted to <b>{{applicant.name}}</b>{{#each coApplicants}} and {{name}}{{/each}} has been repaid in full and nothing is due from the borrower(s) under it.</p>
+{{#if collaterals}}<p>The Lender releases its charge on the following security and returns the original documents with this certificate:</p>{{> COLLATERAL_TABLE}}{{/if}}
+<p>For {{lender.name}}<br>Authorised signatory</p>

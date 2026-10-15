@@ -1,0 +1,8 @@
+<h1>Deed of guarantee</h1>
+<p>This deed is made on {{today | date}} in favour of <b>{{lender.name}}</b> (the "Lender") by the guarantor(s) named below, for the loan of {{loan.amount | rupees}} ({{loan.amount | words}}) sanctioned to <b>{{applicant.name}}</b> (the "Borrower") under application {{app.no}}.</p>
+<table><tr><th>Guarantor</th><th>Type</th><th>PAN</th><th>Signing</th></tr>
+{{#each guarantors}}<tr><td>{{name}}</td><td>{{type}}</td><td>{{pan}}</td><td>{{#if signatory}}{{signatory}}{{#if designation}}, {{designation}}{{/if}}, authorised by board resolution or deed{{else}}In person{{/if}}</td></tr>{{/each}}</table>
+<h2>Guarantee</h2>
+<p>In consideration of the Lender granting the loan, the guarantor(s) unconditionally and irrevocably guarantee the due repayment of the loan, interest and charges, and agree to pay on demand any amount the Borrower fails to pay. This is a continuing guarantee and remains in force until the loan is repaid in full. The Lender shall give the guarantor a copy of the loan agreement and Key Fact Statement and shall inform the guarantor of any default by the Borrower.</p>
+{{> CL_LAW}}
+{{> SIGNATURES}}

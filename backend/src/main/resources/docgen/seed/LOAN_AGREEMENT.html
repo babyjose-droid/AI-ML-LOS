@@ -1,0 +1,20 @@
+<h1>Loan agreement</h1>
+<p>This agreement is made at {{branch.city}} on {{today | date}} between <b>{{lender.name}}</b>, {{lender.address}} (the "Lender"), and <b>{{applicant.name}}</b>, PAN {{applicant.pan}}, residing at {{applicant.address}}, {{applicant.city}} {{applicant.pincode}} (the "Borrower"){{#if coApplicants}}, together with the co-applicants named below{{/if}}.</p>
+{{> PARTIES_TABLE}}
+<h2>1. The loan</h2>
+<p>The Lender agrees to lend and the Borrower agrees to borrow <b>{{loan.amount | rupees}}</b> ({{loan.amount | words}}) for {{app.purpose}}, under sanction letter dated {{sanction.date | date}} for application {{app.no}}, on the terms of this agreement and the Key Fact Statement, which forms part of it.</p>
+<h2>2. Terms</h2>
+{{> CL_INTEREST}}
+{{> CL_REPAYMENT}}
+{{> CL_PREPAYMENT}}
+{{> CL_PENAL}}
+{{> CL_JOINT}}
+{{> CL_SECURITY}}
+{{> CL_DEFAULT}}
+{{> CL_RECOVERY}}
+{{> CL_GRIEVANCE}}
+{{> CL_LAW}}
+<h2>Schedule: repayment</h2>
+{{> SCHEDULE_TABLE}}
+<p>Signed by the parties on the date above, after reading and understanding this agreement and the Key Fact Statement.</p>
+{{> SIGNATURES}}

@@ -1,0 +1,5 @@
+<h1>Demand promissory note</h1>
+<p>{{branch.city}}, {{today | date}} · {{loan.amount | rupees}}</p>
+<p>On demand, I/we, <b>{{applicant.name}}</b>{{#each coApplicants}} and <b>{{name}}</b>{{/each}}, jointly and severally promise to pay {{lender.name}} or order the sum of {{loan.amount | rupees}} ({{loan.amount | words}}) with interest at {{loan.rate | percent}} a year, for value received.</p>
+<p class="small">Revenue stamp to be affixed across the signature where applicable.</p>
+{{> SIGNATURES}}

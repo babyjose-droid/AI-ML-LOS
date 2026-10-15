@@ -1,0 +1,21 @@
+<h1>Sanction letter</h1>
+<p>{{lender.name}}<br><span class="small">{{lender.address}} · {{sanction.date | date}} · {{app.no}}</span></p>
+<p>Dear {{applicant.name}},</p>
+<p>We are pleased to sanction your loan on the following terms, subject to the conditions below and the loan agreement.</p>
+<table>
+<tr><th>Product</th><td>{{product.name}}</td></tr>
+<tr><th>Sanctioned amount</th><td><b>{{loan.amount | rupees}}</b> ({{loan.amount | words}})</td></tr>
+<tr><th>Interest rate</th><td>{{loan.rate | percent}} a year, fixed, reducing balance</td></tr>
+<tr><th>APR (all charges)</th><td>{{loan.apr | percent}}</td></tr>
+<tr><th>Tenure and EMI</th><td>{{loan.tenureMonths}} months · EMI {{loan.emi | rupees}}</td></tr>
+<tr><th>Processing fee</th><td>{{loan.processingFee | rupees}} + GST {{loan.gst | rupees}}</td></tr>
+<tr><th>Net amount disbursed</th><td>{{loan.netDisbursed | rupees}}</td></tr>
+</table>
+{{#if parties}}<h2>Co-applicants and guarantors</h2>{{> PARTIES_TABLE}}{{/if}}
+{{#if collaterals}}<h2>Security</h2>{{> COLLATERAL_TABLE}}{{/if}}
+<h2>Conditions of sanction</h2>
+<ol>{{#each sanction.conditions}}<li>{{this}}</li>{{else}}<li>Execution of the loan agreement and the documents listed by the branch.</li>{{/each}}</ol>
+<p>This sanction is valid for {{sanction.validDays}} days. Please read the Key Fact Statement enclosed before you accept.</p>
+<p>For {{lender.name}}<br>Authorised signatory (sanctioned by {{sanction.by}}, level {{sanction.level}})</p>
+<p class="small">I/We accept the sanction on the terms above.</p>
+{{> SIGNATURES}}

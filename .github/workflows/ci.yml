@@ -61,7 +61,7 @@ jobs:
           cache: pip
           cache-dependency-path: ai/requirements-dev.txt
       - name: Install Tesseract
-        run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-osd fonts-dejavu-core
+        run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-osd fonts-dejavu-core libpango-1.0-0 libpangoft2-1.0-0 fonts-noto-core
       - name: Tests
         working-directory: ai
         shell: bash

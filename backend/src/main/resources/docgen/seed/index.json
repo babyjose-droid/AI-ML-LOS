@@ -1,0 +1,22 @@
+[
+  {"code": "CL_INTEREST", "name": "Clause: interest", "type": "CLAUSE"},
+  {"code": "CL_REPAYMENT", "name": "Clause: repayment", "type": "CLAUSE"},
+  {"code": "CL_PREPAYMENT", "name": "Clause: prepayment and foreclosure", "type": "CLAUSE"},
+  {"code": "CL_PENAL", "name": "Clause: penal charges", "type": "CLAUSE"},
+  {"code": "CL_DEFAULT", "name": "Clause: events of default", "type": "CLAUSE"},
+  {"code": "CL_JOINT", "name": "Clause: joint and several liability", "type": "CLAUSE"},
+  {"code": "CL_SECURITY", "name": "Clause: security", "type": "CLAUSE"},
+  {"code": "CL_RECOVERY", "name": "Clause: recovery and fair practices", "type": "CLAUSE"},
+  {"code": "CL_GRIEVANCE", "name": "Clause: grievance redressal", "type": "CLAUSE"},
+  {"code": "CL_LAW", "name": "Clause: governing law and jurisdiction", "type": "CLAUSE"},
+  {"code": "APPLICATION_FORM", "name": "Loan application form", "type": "APPLICATION_FORM"},
+  {"code": "SANCTION_LETTER", "name": "Sanction letter", "type": "SANCTION_LETTER"},
+  {"code": "KFS", "name": "Key Fact Statement", "type": "KFS"},
+  {"code": "LOAN_AGREEMENT", "name": "Loan agreement", "type": "LOAN_AGREEMENT"},
+  {"code": "GUARANTEE_DEED", "name": "Deed of guarantee", "type": "GUARANTEE_DEED"},
+  {"code": "DPN", "name": "Demand promissory note", "type": "DPN"},
+  {"code": "HYPOTHECATION_DEED", "name": "Deed of hypothecation (vehicle)", "type": "HYPOTHECATION"},
+  {"code": "MORTGAGE_MOD", "name": "Memorandum of deposit of title deeds", "type": "MORTGAGE"},
+  {"code": "WELCOME_LETTER", "name": "Welcome letter", "type": "WELCOME"},
+  {"code": "NOC", "name": "No dues certificate", "type": "NOC"}
+]

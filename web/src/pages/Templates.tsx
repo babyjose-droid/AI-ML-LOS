@@ -31,7 +31,7 @@ export default function Templates() {
   const letterKeys = Object.keys(KFS_TEXT.en)
   return (
     <>
-      <Head title="Templates" sub="Sanction letter and KFS wording in each language, and the messages customers receive. Every change is versioned and audited." />
+      <Head title="Message templates" sub="Sanction letter and KFS wording in each language, and the messages customers receive. Every change is versioned and audited." />
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'letter'} className={tab === 'letter' ? 'on' : ''} onClick={() => setTab('letter')}>Sanction letter & KFS</button>
         <button role="tab" aria-selected={tab === 'messages'} className={tab === 'messages' ? 'on' : ''} onClick={() => setTab('messages')}>Customer messages</button>

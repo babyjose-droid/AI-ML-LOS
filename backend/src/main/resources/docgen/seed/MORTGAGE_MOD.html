@@ -1,0 +1,7 @@
+<h1>Memorandum of deposit of title deeds</h1>
+<p>Recorded at {{branch.city}} on {{today | date}}.</p>
+<p><b>{{applicant.name}}</b>{{#each coApplicants}} and <b>{{name}}</b>{{/each}} (the "Mortgagors") have deposited with <b>{{lender.name}}</b> (the "Lender") the original title deeds of the property below, with the intention of creating an equitable mortgage to secure the loan of {{loan.amount | rupees}} ({{loan.amount | words}}) under application {{app.no}}, with interest and charges.</p>
+{{> COLLATERAL_TABLE}}
+<p>The Lender shall register the charge with CERSAI and, on repayment in full, return the original documents within 30 days and file the satisfaction of charge, compensating the Mortgagors at ₹5,000 for each day of delay in returning the documents.</p>
+{{> CL_LAW}}
+{{> SIGNATURES}}

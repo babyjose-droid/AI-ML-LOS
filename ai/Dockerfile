@@ -1,8 +1,10 @@
 FROM python:3.13-slim
 
-# Tesseract OCR (English + Hindi) and the libraries OpenCV needs. Fonts are only for generating specimens.
+# Tesseract OCR (English + Hindi) and the libraries OpenCV needs; Pango and Noto fonts make loan document PDFs
+# in English and Indian languages.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-osd libglib2.0-0 fonts-dejavu-core \
+    libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-noto-core \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

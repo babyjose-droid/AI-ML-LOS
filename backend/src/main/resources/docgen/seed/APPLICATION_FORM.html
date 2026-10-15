@@ -1,0 +1,21 @@
+<h1>Loan application form</h1>
+<p class="small">{{lender.name}} · {{branch.name}} · Application {{app.no}} dated {{app.date | date}}</p>
+<h2>1. Applicant</h2>
+<table>
+<tr><th>Name</th><td>{{applicant.name}}</td><th>PAN</th><td>{{applicant.pan}}</td></tr>
+<tr><th>Date of birth</th><td>{{applicant.dob | date}}</td><th>Mobile</th><td>{{applicant.mobile}}</td></tr>
+<tr><th>Address</th><td colspan="3">{{applicant.address}}, {{applicant.city}} {{applicant.pincode}}</td></tr>
+<tr><th>Email</th><td>{{applicant.email}}</td><th>Segment</th><td>{{applicant.segment}}</td></tr>
+{{#if applicant.businessName}}<tr><th>Business</th><td>{{applicant.businessName}}</td><th>Years in business</th><td>{{applicant.vintageYears}}</td></tr>{{/if}}
+<tr><th>Monthly income (declared)</th><td>{{applicant.monthlyIncome | rupees}}</td><th>Bank account</th><td>{{applicant.bankAccount}} ({{applicant.ifsc}})</td></tr>
+</table>
+<h2>2. Loan requested</h2>
+<table>
+<tr><th>Product</th><td>{{product.name}}</td><th>Amount</th><td>{{app.amount | rupees}}</td></tr>
+<tr><th>Tenure</th><td>{{app.tenureMonths}} months</td><th>Purpose</th><td>{{app.purpose}}</td></tr>
+</table>
+{{#if parties}}<h2>3. Co-applicants and guarantors</h2>{{> PARTIES_TABLE}}{{/if}}
+{{#if collaterals}}<h2>4. Security offered</h2>{{> COLLATERAL_TABLE}}{{/if}}
+<h2>Declaration</h2>
+<p>I/We declare that the information given is true and complete, and that no insolvency proceedings are pending against me/us. I/We have given my/our consent separately for verification of identity, a credit bureau check and, where chosen, bank data through an Account Aggregator, and I/we understand that the loan will be decided on the information given and verified.</p>
+{{> SIGNATURES}}

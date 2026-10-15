@@ -33,6 +33,7 @@ import Assistant from './pages/Assistant'
 import CollateralOverview, { CollateralCase } from './collateral/Collateral'
 import VkycQueue from './vkyc/VkycQueue'
 import Templates from './pages/Templates'
+import DocTemplates from './docgen/DocTemplates'
 import { Capital, CoLending } from './pages/Scale'
 import { Benchmarking, Onboarding, Platform } from './pages/Tenancy'
 import { useLoad } from './components/ui'
@@ -74,7 +75,8 @@ const NAV: [string, NavItem[]][] = [
     { to: '/admin/masters', label: 'Masters and roles' },
     { to: '/admin/products', label: 'Products' },
     { to: '/admin/workflows', label: 'Workflow designer' },
-    { to: '/admin/templates', label: 'Templates', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS'] },
+    { to: '/admin/doc-templates', label: 'Document templates', roles: ['ADMIN', 'COMPLIANCE', 'CREDIT_MANAGER', 'CRO', 'LEGAL_REVIEWER', 'OPERATIONS'] },
+    { to: '/admin/templates', label: 'Message templates', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS'] },
     { to: '/admin/policy', label: 'Credit policy studio' },
     { to: '/admin/models', label: 'Risk models', roles: ['CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'] },
     { to: '/onboarding', label: 'Onboarding and go-live', roles: ['ADMIN', 'CRO', 'COMPLIANCE'] },
@@ -174,6 +176,7 @@ export default function App() {
             <Route path="/admin/models" element={<Models />} />
             <Route path="/admin/workflows" element={<Workflows />} />
             <Route path="/admin/templates" element={<Templates />} />
+            <Route path="/admin/doc-templates" element={<DocTemplates />} />
             <Route path="*" element={<Navigate to="/my-work" replace />} />
           </Routes>
         </main>

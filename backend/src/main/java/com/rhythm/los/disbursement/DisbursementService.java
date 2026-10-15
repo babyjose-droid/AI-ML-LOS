@@ -72,6 +72,11 @@ public class DisbursementService {
 
     public List<Disbursement> list(Long appId) { return repo.findByApplicationIdOrderByIdAsc(appId); }
 
+    private com.rhythm.los.docgen.DocPackService docPacks;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setDocPacks(@org.springframework.context.annotation.Lazy com.rhythm.los.docgen.DocPackService d) { this.docPacks = d; }
+
     @Transactional
     public Disbursement disburse(Long appId, CurrentUser by) {
         LoanApplication a = apps.get(appId);
@@ -81,6 +86,7 @@ public class DisbursementService {
         List<String> recheck = new java.util.ArrayList<>(consents.invalidForDisbursement(a));
         recheck.addAll(newLinksSinceDecision(a));
         recheck.addAll(sanctions.partyBlockers(a, "DISBURSE"));
+        if (docPacks != null) recheck.addAll(docPacks.blockers(a));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
 

@@ -1,9 +1,10 @@
 """Rhythm AI document service. Internal API used by the LOS backend; it does not store documents."""
 import logging
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 
-from . import llm
+from . import docgen, llm
 from .analyze import analyze
 from .statements_analyze import PasswordRequired, analyse_statement, unlock
 
@@ -161,3 +162,34 @@ async def collateral_media(file: UploadFile = File(...)):
     """Collateral Vision AI: EXIF time and GPS, quality and editing hints for one photo."""
     from . import collateral
     return collateral.analyze_media(await file.read())
+
+
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+@app.post("/v1/docs/pdf")
+def doc_pdf(body: dict = Body(...)):
+    """A loan document's HTML (already filled in by the LOS) as a PDF."""
+    html = body.get("html") or ""
+    if not html.strip() or len(html) > 2_000_000:
+        raise HTTPException(422, "html is empty or too large")
+    try:
+        pdf = docgen.render_pdf(html, body.get("title"))
+    except Exception as e:  # noqa: BLE001
+        logging.exception("pdf failed")
+        raise HTTPException(422, f"Could not make the PDF: {type(e).__name__}")
+    return Response(content=pdf, media_type="application/pdf")
+
+
+@app.post("/v1/docs/docx-to-html")
+async def doc_from_word(file: UploadFile = File(...)):
+    """A Word template (.docx with {{fields}} typed in) as HTML for the template editor."""
+    data = await file.read()
+    if not data or len(data) > MAX_BYTES:
+        raise HTTPException(413, "File is empty or larger than 10 MB")
+    if not data.startswith(b"PK"):
+        raise HTTPException(415, "Upload a Word .docx file")
+    try:
+        return docgen.docx_to_html(data)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"Could not read the Word file: {type(e).__name__}")

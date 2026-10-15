@@ -257,6 +257,37 @@ Every product has its own rules (Products → **Co-applicants & guarantors**, ap
 - Operations or credit asks, a credit manager or the CRO approves (never the person who asked), operations records the handover and a release letter is issued.
 - **Automated valuation:** registered sales within 3 km in the last 24 months, brought to today and weighted by distance, age and size, give a value and range beside the empanelled valuer's report (a cross-check; it never sets the value). Import sales (registry data, your past valuations) under Collateral AI → Policy.
 
+## Loan documents: templates, products and the document pack
+
+**Admin → Document templates** holds the lender's documents and clause library. It starts with an application form,
+sanction letter, KFS, loan agreement, deed of guarantee, DPN, hypothecation deed, memorandum of deposit of title deeds
+(mortgage), welcome letter and no dues certificate, plus ten clauses. Review them with your legal team before use.
+
+- **Write in the browser or in Word.** The editor has formatting, tables, a field picker, repeated sections, conditions
+  and clause inserts, and an HTML view. Or type the fields into your own Word agreement and upload the .docx; headings,
+  bold, lists and tables come across and it becomes a draft.
+- **Template language:**
+  - Fields: `{{applicant.name}}`, with formats such as `{{loan.amount | rupees}}`, `| words` (Rupees Six Lakh Only), `| date`, `| percent`.
+  - Repeated sections: `{{#each coApplicants}}…{{/each}}`.
+  - Conditions: `{{#if guarantors}}…{{else}}…{{/if}}` or `{{#if loan.amount > 1000000}}`.
+  - Clauses: `{{> CL_INTEREST}}`.
+  - Built-in blocks: `{{> KFS_STANDARD}}` (RBI's KFS table, which a KFS must include and cannot change), `{{> SCHEDULE_TABLE}}`, `{{> PARTIES_TABLE}}`, `{{> COLLATERAL_TABLE}}`, `{{> SIGNATURES}}`.
+  - Unknown fields and broken blocks are flagged before a template can go for approval.
+- **Versions and approval:**
+  - Each template has versions per language. Compliance or the CRO approves; the drafter cannot.
+  - Approving retires the earlier version.
+  - An application keeps the version (and language) it was first made with, unless staff choose the newer one and give a reason.
+- **Products → Loan documents:**
+  - Choose which documents a product uses.
+  - Choose when each is made: with the application, at sanction, before disbursement, after disbursement or at closure.
+  - Choose who signs (borrower, co-applicants, guarantors) and when it applies (always, with a guarantor, with collateral, unsecured).
+  - Optionally, disbursement waits until the documents are made, up to date and signed.
+- **Application → Loan documents:**
+  - Make each stage's documents as PDF, in the borrower's language when a translation is approved. They are stored with a fingerprint.
+  - View, download, and record each signature by OTP, or a wet-ink signature checked by operations.
+  - A document goes out of date when the details it shows change (for example a guarantor is added); it must then be made again and signed again.
+- PDFs come from the AI service (WeasyPrint with Noto fonts, so Hindi, Marathi, Tamil and the other scripts print correctly). Without it a plain-text PDF is made.
+
 ## Models, templates and cost per file
 
 - **Your own loan history:** Admin → Risk models → **Our own loan history** imports past loans (CSV; columns listed on the screen). Bad = 90+ days past due in the first 12 months or written off. Tick "Only our own loans" to train without the synthetic book.

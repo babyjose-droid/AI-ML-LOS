@@ -85,7 +85,7 @@ test('video KYC settings per product', async ({ page }) => {
   await login(page, 'admin')
   await page.goto('/admin/products')
   await page.getByRole('cell', { name: /Loan against property/ }).first().click()
-  await openSection(page, 'Video KYC')
+  await page.getByRole('tab', { name: 'Video KYC' }).click()
   await expect(page.locator('select[name=vk_parties]')).toHaveValue('ALL')
   await expect(page.locator('input[name=vk_face]')).toHaveValue('0.45')
   await expect(page.locator('textarea[name=vk_questions]')).toContainText('mortgaged')

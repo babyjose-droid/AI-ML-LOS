@@ -57,7 +57,7 @@ test('workflow designer: edit, validate, send for approval, CRO publishes', asyn
 test('JLG application waits for CGT and GRT recorded by the field and credit officers', async ({ page }) => {
   await login(page, 'field1')
   await expect(page.getByText('Group formation (CGT)').first()).toBeVisible()
-  await page.getByRole('cell', { name: 'Lakshmi Devi' }).first().click()
+  await page.locator('[data-task]', { hasText: 'Lakshmi Devi' }).first().getByRole('button', { name: 'Open task' }).click()
   await expect(page.locator('[data-stage=cgt]')).toBeVisible()
   await expect(page.locator('[data-stage=cgt]')).toHaveAttribute('data-stage-status', /ACTIVE|PENDING/)
   await page.locator('[data-stage-mine]').click()

@@ -28,7 +28,7 @@ const state = (page: Page, domain: string) => page.locator(`[data-domain="${doma
 
 test('demo data is visible in the pipeline', async ({ page }) => {
   await login(page, 'ops1')
-  await page.goto('/applications')
+  await page.goto('/applications?view=list')
   await expect(page.getByRole('cell', { name: 'Priya Nair' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Ramesh Patil' })).toBeVisible()
 })

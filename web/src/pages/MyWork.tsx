@@ -44,7 +44,7 @@ export default function MyWork() {
         const a = t.applicationId ? byId.get(t.applicationId) : undefined
         const isLate = t.ageHours > t.slaHours
         return (
-          <div key={i} className="panel task" data-task={t.action}>
+          <div key={i} className="panel task clickable" data-task={t.action} onClick={e => { if (!(e.target as HTMLElement).closest('a,button')) nav(target(t)) }}>
             <div className="taskh">
               <div style={{ minWidth: 0 }}>
                 <h3><span className="rolepill">{user ? roleName(user.role) : ''}</span>{t.task}</h3>

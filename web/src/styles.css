@@ -320,3 +320,5 @@ input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6)
 .wizard { max-width: 920px; }
 .row.between { justify-content: space-between; }
 .linkbtn { background: none; border: 0; padding: 0 0 0 6px; color: var(--accent); cursor: pointer; font-family: var(--font); }
+.task.clickable { cursor: pointer; }
+.task.clickable:hover { border-color: var(--accent); }

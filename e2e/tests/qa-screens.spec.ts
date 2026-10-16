@@ -54,7 +54,7 @@ for (const width of [1366, 390]) {
         if (!done.has(user)) { await login(page, user); done.clear(); done.add(user) }
         await page.goto(url)
         await page.waitForLoadState('networkidle')
-        await expect(page.locator('h2').first()).toBeVisible()
+        await expect(page.locator('main h1, main h2').first()).toBeVisible()
         await noSidewaysScroll(page, `${name} as ${user}`)
         await page.screenshot({ path: `screens/${width}/${name}-${user}.png`, fullPage: true })
       }

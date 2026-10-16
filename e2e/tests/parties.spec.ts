@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openSection } from './sections'
 
 // Co-applicants and guarantors: product rules, a co-applicant on the new-application form, the Parties tab, and the
 // invite link a guarantor opens on their own phone.
@@ -24,17 +25,16 @@ test('product rules, a co-applicant on the form, and a guarantor through the inv
   await page.locator('select[name=productCode]').selectOption('BL-UNS')
   await page.locator('input[name=loanAmount]').fill('600000')
   await page.locator('input[name=tenureMonths]').fill('36')
+  await page.getByRole('button', { name: 'Continue' }).click()
   await page.locator('input[name=applicantName]').fill('Kunal Joshi')
   await page.locator('input[name=pan]').fill('KUNPJ4411K')
   await page.locator('input[name=mobile]').fill('9876500411')
   await page.locator('input[name=dob]').fill('1984-03-02')
   await page.locator('input[name=city]').fill('Nashik')
+  await page.getByRole('button', { name: 'Continue' }).click()
   await page.locator('input[name=businessVintageYears]').fill('7')
   await page.locator('input[name=declaredMonthlyIncome]').fill('90000')
   await page.locator('input[name=essentialExpenses]').fill('30000')
-  await page.locator('input[name=bankAccountNo]').fill('732145698411')
-  await page.locator('input[name=bankIfsc]').fill('ICIC0000123')
-  for (const c of ['consentKyc', 'consentAa', 'consentBureau']) await page.locator(`input[name=${c}]`).check()
   await expect(page.getByTestId('form-parties')).toContainText('required before sanction when amount > 500000')
   await page.locator('[data-party=form-add]').click()
   await page.locator('select[name=party_relationship]').selectOption('SPOUSE')
@@ -44,10 +44,14 @@ test('product rules, a co-applicant on the form, and a guarantor through the inv
   await page.locator('input[name=party_dob]').fill('1987-07-09')
   await page.locator('input[name=party_monthlyIncome]').fill('45000')
   await page.locator('input[name=party_incomeConsidered]').check()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.locator('input[name=bankAccountNo]').fill('732145698411')
+  await page.locator('input[name=bankIfsc]').fill('ICIC0000123')
+  for (const c of ['consentKyc', 'consentAa', 'consentBureau']) await page.locator(`input[name=${c}]`).check()
   await page.getByRole('button', { name: 'Save draft' }).click()
   await expect(page.getByRole('heading', { name: /Kunal Joshi/ })).toBeVisible()
 
-  await page.getByRole('tab', { name: 'Parties' }).click()
+  await openSection(page, 'Parties')
   await expect(page.locator('[data-party-row="P-1"]')).toContainText('Neha Joshi')
   await expect(page.getByTestId('party-issues')).toContainText('A guarantor is required before sanction')
   await expect(page.getByTestId('party-issues')).toContainText('Neha Joshi (co-applicant) has not given consent yet')
@@ -84,7 +88,7 @@ test('product rules, a co-applicant on the form, and a guarantor through the inv
 
   await page.getByRole('button', { name: 'Close' }).click()
   await page.reload()
-  await page.getByRole('tab', { name: 'Parties' }).click()
+  await openSection(page, 'Parties')
   await expect(page.locator('tr', { hasText: 'Vasant Joshi' })).toContainText('given')
   await expect(page.getByTestId('party-issues')).not.toContainText('Vasant Joshi (guarantor) has not given consent')
 })

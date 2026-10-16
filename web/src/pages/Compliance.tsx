@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api, getToken } from '../api'
 import { useAuth } from '../auth'
-import { ErrorBox, Head, Table, useLoad } from '../components/ui'
+import { ErrorBox, Head, Table, useLoad, useTab } from '../components/ui'
 import { inr, lakh, pct, when } from '../format'
 
 interface Item { id: string; area: string; requirement: string; source: string; status: string; checked: number; exceptions: number; samples: string[]; evidence: string }
@@ -24,7 +24,7 @@ const ST: Record<string, string> = { PASS: 'ok', EXCEPTION: 'bad', NOT_APPLICABL
 /** Compliance pack and regulatory returns. */
 export default function Compliance() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'pack' | 'classification' | 'movement' | 'exposure' | 'cic'>(user && ['ADMIN', 'COMPLIANCE', 'CRO'].includes(user.role) ? 'pack' : 'classification')
+  const [tab, setTab] = useTab(['pack', 'classification', 'movement', 'exposure', 'cic'] as const, user && ['ADMIN', 'COMPLIANCE', 'CRO'].includes(user.role) ? 'pack' : 'classification')
   const canPack = user && ['ADMIN', 'COMPLIANCE', 'CRO'].includes(user.role)
   return (
     <>

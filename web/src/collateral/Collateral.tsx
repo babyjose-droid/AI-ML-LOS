@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, getToken } from '../api'
 import { useAuth } from '../auth'
-import { ErrorBox, Head, Modal, Table, useLoad } from '../components/ui'
+import { ErrorBox, Head, Modal, Table, useLoad, useTab } from '../components/ui'
 import { inr, label, pct, when } from '../format'
 
 // ---------------------------------------------------------------- types
@@ -63,7 +63,7 @@ async function openFile(url: string) {
 export default function CollateralOverview() {
   const { user } = useAuth()
   const reviewer = user && ['LEGAL_REVIEWER', 'VALUER', 'FIELD_OFFICER'].includes(user.role)
-  const [tab, setTab] = useState<'cases' | 'reviews' | 'monitoring' | 'policy'>(reviewer ? 'reviews' : 'cases')
+  const [tab, setTab] = useTab(['cases', 'reviews', 'monitoring', 'policy'] as const, reviewer ? 'reviews' : 'cases')
   return (
     <>
       <Head title="Collateral AI" sub="Property, vehicle and gold collateral: documents, EC and title, photos, valuation and LTV, risk and the collateral rules. AI flags evidence; legal reviewers, valuers and field officers clear it with a reason." />

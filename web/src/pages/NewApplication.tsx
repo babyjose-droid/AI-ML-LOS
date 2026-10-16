@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Head, useLoad } from '../components/ui'
@@ -7,6 +7,15 @@ import type { AppView, LoanApplication, Product } from '../types'
 import { PartiesOnForm, partyBody, type PartyDraft } from '../parties/Parties'
 
 type Form = Record<string, string | boolean>
+
+/** Capture in five short steps, as in the prototype (SCR-010); every step can be saved as a draft. */
+const STEPS: { name: string; fields: string[] }[] = [
+  { name: 'Product & loan', fields: ['productCode', 'loanAmount', 'tenureMonths', 'purpose'] },
+  { name: 'Applicant', fields: ['applicantName', 'pan', 'mobile', 'email', 'dob', 'gender', 'city', 'pincode', 'address'] },
+  { name: 'Income & people', fields: ['businessName', 'industry', 'businessVintageYears', 'declaredMonthlyIncome', 'essentialExpenses'] },
+  { name: 'Account & consent', fields: ['bankAccountNo', 'bankIfsc', 'consentKyc', 'consentAa', 'consentBureau', 'preferredLanguage'] },
+  { name: 'Review & submit', fields: [] },
+]
 
 const EMPTY: Form = {
   productCode: 'BL-UNS', applicantName: '', pan: '', mobile: '', email: '', dob: '', gender: '', address: '', city: '', pincode: '',
@@ -33,6 +42,7 @@ export default function NewApplication() {
   const [people, setPeople] = useState<PartyDraft[]>([])
   // once saved, later saves update the same application (for example after fixing a co-applicant's details)
   const [savedId, setSavedId] = useState<number>()
+  const [step, setStep] = useState(0)
 
   useEffect(() => {
     // the draft endpoint returns PAN and account number in full for editing; everywhere else they are masked
@@ -71,6 +81,9 @@ export default function NewApplication() {
       nav('/applications/' + a.id)
     } catch (e) {
       setError(e)
+      const bad = Object.keys((e as { fields?: Record<string, string> })?.fields ?? {})
+      const at = STEPS.findIndex(st => st.fields.some(k => bad.includes(k)))
+      if (at >= 0) setStep(at)
       window.scrollTo(0, 0)
     } finally {
       setBusy(false)
@@ -80,8 +93,15 @@ export default function NewApplication() {
   return (
     <>
       <Head title={id ? 'Edit application' : 'New application'} sub="Minimum data for a first decision. Bank, bureau and GST data is fetched after the borrower's consent, so it is not typed here." />
+      <ol className="phases steps5" aria-label="Steps">
+        {STEPS.map((st, i) => (
+          <li key={st.name}><button type="button" className={(i < step ? 'done' : i === step ? 'now' : 'todo') + (i === step ? ' sel' : '')} data-step={i + 1} onClick={() => setStep(i)}
+            aria-current={i === step ? 'step' : undefined}><span className="sn">{i < step ? '✓' : i + 1}</span>{st.name}</button></li>
+        ))}
+      </ol>
       <ErrorBox error={error} />
-      <div className="panel">
+      <div className="wizard">
+      {step === 0 && <div className="panel">
         <h3>Product and loan</h3>
         <div className="form">
           <label className="fld">Product
@@ -94,8 +114,8 @@ export default function NewApplication() {
           {txt('purpose', 'Purpose')}
         </div>
         {p && <p className="small muted" style={{ marginBottom: 0 }}>{p.name}: {inr(p.minAmount)}–{inr(p.maxAmount)}, {p.minTenure}–{p.maxTenure} months, documents {p.requiredDocs.replace(/,/g, ', ').replace(/\|/g, ' or ')}.</p>}
-      </div>
-      <div className="panel">
+      </div>}
+      {step === 1 && <div className="panel">
         <h3>Applicant</h3>
         <div className="form">
           {txt('applicantName', 'Full name (as on PAN)')}
@@ -118,8 +138,8 @@ export default function NewApplication() {
               () => setError(new Error('Location is not available: allow location access in the browser')), { enableHighAccuracy: true, timeout: 15000 })}>Use my current location</button>
           </div>
         </div>
-      </div>
-      <div className="panel">
+      </div>}
+      {step === 2 && <><div className="panel">
         <h3>Income and business</h3>
         <div className="form">
           {txt('businessName', 'Business or employer')}
@@ -136,7 +156,8 @@ export default function NewApplication() {
         </div>
       </div>
       {f.productCode && <PartiesOnForm productCode={String(f.productCode)} list={people} onChange={setPeople} />}
-      <div className="panel">
+      </>}
+      {step === 3 && <><div className="panel">
         <h3>Disbursement account</h3>
         <div className="form">
           {txt('bankAccountNo', 'Bank account number', { inputMode: 'numeric' })}
@@ -145,6 +166,7 @@ export default function NewApplication() {
       </div>
       <div className="panel">
         <h3>Borrower consent</h3>
+        <p className="small muted" style={{ marginTop: -4 }}>We need the borrower's permission for each data source. They can withdraw it at any time.</p>
         <label className="check"><input type="checkbox" name="consentKyc" checked={!!f.consentKyc} onChange={set('consentKyc')} /> KYC verification (PAN, Aadhaar offline e-KYC or DigiLocker, CKYC)</label>
         <label className="check"><input type="checkbox" name="consentAa" checked={!!f.consentAa} onChange={set('consentAa')} /> Bank statements through the Account Aggregator for the last 12 months</label>
         <label className="check"><input type="checkbox" name="consentBureau" checked={!!f.consentBureau} onChange={set('consentBureau')} /> Credit bureau report</label>
@@ -154,10 +176,35 @@ export default function NewApplication() {
           </select>
         </label>
       </div>
-      <div className="row">
-        <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>
-        <button className="btn primary" disabled={busy} onClick={() => save(true)}>Save and submit</button>
+      </>}
+      {step === 4 && <Review f={f} productName={p?.name} people={people.length} onEdit={setStep} />}
+      <div className="row between">
+        <div className="row" style={{ marginTop: 0 }}>
+          {step > 0 && <button className="btn" disabled={busy} onClick={() => setStep(step - 1)}>Back</button>}
+          <button className="btn" disabled={busy} onClick={() => save(false)}>Save draft</button>
+        </div>
+        {step < STEPS.length - 1
+          ? <button className="btn primary" onClick={() => { setStep(step + 1); window.scrollTo(0, 0) }}>Continue</button>
+          : <button className="btn primary" disabled={busy} onClick={() => save(true)}>Save and submit</button>}
+      </div>
       </div>
     </>
+  )
+}
+
+function Review({ f, productName, people, onEdit }: { f: Form; productName?: string; people: number; onEdit: (i: number) => void }) {
+  const rows: [string, string, number][] = [
+    ['Product', productName ?? String(f.productCode), 0], ['Amount', f.loanAmount ? inr(Number(f.loanAmount)) : '—', 0], ['Tenure', `${f.tenureMonths || '—'} months`, 0], ['Purpose', String(f.purpose || '—'), 0],
+    ['Applicant', String(f.applicantName || '—'), 1], ['PAN', String(f.pan || '—').toUpperCase(), 1], ['Mobile', String(f.mobile || '—'), 1], ['City / PIN', [f.city, f.pincode].filter(Boolean).join(' · ') || '—', 1],
+    ['Business or employer', String(f.businessName || '—'), 2], ['Monthly income', f.declaredMonthlyIncome ? inr(Number(f.declaredMonthlyIncome)) : '—', 2], ['Co-applicants and guarantors', people ? String(people) : 'None', 2],
+    ['Disbursement account', f.bankAccountNo ? `${String(f.bankAccountNo).replace(/.(?=.{4})/g, 'X')} · ${String(f.bankIfsc).toUpperCase()}` : '—', 3],
+    ['Consents', [f.consentKyc && 'KYC', f.consentAa && 'Account Aggregator', f.consentBureau && 'Bureau'].filter(Boolean).join(', ') || 'None yet', 3],
+  ]
+  return (
+    <div className="panel" data-testid="application-review">
+      <h3>Check and submit</h3>
+      <p className="small muted" style={{ marginTop: -4 }}>Submitting runs the automated checks: KYC, bank and bureau data, documents, fraud and the decision engine.</p>
+      <dl className="dl">{rows.map(([k, v, i]) => <Fragment key={k}><dt>{k}</dt><dd>{v} <button type="button" className="linkbtn small" onClick={() => onEdit(i)}>Change</button></dd></Fragment>)}</dl>
+    </div>
   )
 }

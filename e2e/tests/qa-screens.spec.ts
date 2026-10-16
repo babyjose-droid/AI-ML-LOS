@@ -3,6 +3,7 @@
  * Fails on browser console errors, failed API calls (5xx) or sideways scrolling; saves a screenshot of each page.
  */
 import { expect, test, type Page } from '@playwright/test'
+import { openSection } from './sections'
 
 const PAGES: [string, string, string[]][] = [
   ['my-work', '/my-work', ['sales1', 'ops1', 'cm1', 'fraud1']],
@@ -64,7 +65,7 @@ for (const width of [1366, 390]) {
     await page.getByPlaceholder('Search name, PAN or application no.').fill('Priya Nair')
     await page.getByRole('cell', { name: 'Priya Nair', exact: true }).first().click()
     for (const tab of TABS) {
-      await page.getByRole('tab', { name: tab }).click()
+      await openSection(page, tab)
       await page.waitForLoadState('networkidle')
       await noSidewaysScroll(page, `Application 360 / ${tab}`)
       await page.screenshot({ path: `screens/${width}/app360-${tab.replace(/[^A-Za-z]+/g, '-').toLowerCase()}.png`, fullPage: true })

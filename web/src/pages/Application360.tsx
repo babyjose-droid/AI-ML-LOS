@@ -1,18 +1,39 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import { ErrorBox, Head, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
+import { ErrorBox, Modal, Pill, StateBoard, Table, useLoad } from '../components/ui'
 import { REASON, inr, label, pct, when } from '../format'
 import VideoKycTab from '../vkyc/VideoKycTab'
-import WorkflowTab, { StageStrip } from '../flow/WorkflowTab'
+import WorkflowTab from '../flow/WorkflowTab'
 import { ApplicationCollateralTab } from '../collateral/Collateral'
 import { PartiesTab } from '../parties/Parties'
 import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '../flow/CasePanels'
 import { LoanDocsTab } from '../docgen/LoanDocsTab'
-import type { AppStages, AppView, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
+import type { AppStages, AppSummary, AppView, States, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
 const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
+type PhaseStatus = 'done' | 'now' | 'fail' | 'todo'
+
+/** The eight stages of the prototype's Application 360 stepper, the sections each opens, and how its status is read from the state board. */
+const PHASES: { name: string; tabs: Tab[]; status: (s: States) => PhaseStatus | null }[] = [
+  { name: 'Lead & application', tabs: ['Customer', 'Parties'], status: s => s.APP === 'DRAFT' ? 'now' : ['REJECTED', 'WITHDRAWN'].includes(s.APP) ? 'fail' : 'done' },
+  { name: 'Consent & KYC', tabs: ['Video KYC'], status: s => s.KYC === 'VERIFIED' ? 'done' : s.KYC === 'FAILED' ? 'fail' : s.KYC === 'REVIEW' ? 'now' : null },
+  { name: 'Documents', tabs: ['Documents', 'Bank statement'], status: s => s.DOCS === 'COMPLETE' ? 'done' : ['DEFICIENT', 'IN_REVIEW'].includes(s.DOCS) ? 'now' : null },
+  { name: 'Field visit', tabs: ['Field visit', 'Collateral'], status: s => ['NOT_REQUIRED', 'DONE'].includes(s.FIELD) ? 'done' : s.FIELD === 'REQUIRED' ? 'now' : null },
+  { name: 'Underwriting', tabs: ['Data', 'Decision'], status: s => ['APPROVE', 'APPROVE_WITH_CONDITIONS'].includes(s.DECISION) ? 'done' : s.DECISION === 'REJECT' || s.FRAUD === 'BLOCK' ? 'fail' : ['REFER', 'INCOMPLETE'].includes(s.DECISION) || s.FRAUD === 'REVIEW' ? 'now' : null },
+  { name: 'Credit memo', tabs: ['Credit memo'], status: s => s.SANCTION !== 'NOT_STARTED' ? 'done' : null },
+  { name: 'Sanction', tabs: ['Sanction & KFS', 'Signing pack'], status: s => s.SANCTION === 'KFS_ACCEPTED' ? 'done' : s.SANCTION === 'DECLINED' ? 'fail' : s.SANCTION !== 'NOT_STARTED' ? 'now' : null },
+  { name: 'Disbursement', tabs: ['Disbursement'], status: s => s.DISB === 'DISBURSED' ? 'done' : s.DISB === 'FAILED' ? 'fail' : s.DISB === 'READY' ? 'now' : null },
+]
+/** Statuses for the stepper: a stage nobody has reached yet becomes "now" once everything before it is done. */
+function phaseStatuses(s: States): PhaseStatus[] {
+  const out: PhaseStatus[] = []
+  PHASES.forEach((p, i) => { const v = p.status(s); out.push(v ?? (i === 0 || out.slice(0, i).every(x => x === 'done') ? 'now' : 'todo')) })
+  if (['REJECTED', 'WITHDRAWN'].includes(s.APP)) return out.map(x => x === 'now' ? 'todo' : x)
+  return out
+}
+const UTIL_TABS: Tab[] = ['Workflow', 'History', 'Integrations']
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
 
@@ -37,7 +58,11 @@ const ACTION_LABEL: Record<string, string> = {
 
 export default function Application360() {
   const { id } = useParams()
-  const [tab, setTab] = useState<Tab>(() => { const q = new URLSearchParams(window.location.search).get('tab'); return (TABS as readonly string[]).includes(q ?? '') ? q as Tab : 'Overview' })
+  const [tab, setTabState] = useState<Tab>(() => { const q = new URLSearchParams(window.location.search).get('tab'); return (TABS as readonly string[]).includes(q ?? '') ? q as Tab : 'Overview' })
+  const [phase, setPhase] = useState<number | null>(() => { const i = PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
+  const setTab = (t: Tab) => { setTabState(t); const i = PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
+  const navTo = useNavigate()
+  const others = useLoad(() => api.get<AppSummary[]>('/api/applications?state=&q='), [])
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [error, setError] = useState<unknown>()
   const [msg, setMsg] = useState<string>()
@@ -97,18 +122,58 @@ export default function Application360() {
   const a = v.application
   const buttons = v.actions.filter(x => x !== 'uploadDocument')
 
+  const ph = phaseStatuses(v.states)
+  const current = Math.max(0, ph.findIndex(x => x !== 'done'))
+  const sel = phase ?? current
+  const stageCls = (st: string) => st === 'DONE' ? 'd' : st === 'SKIPPED' ? 's f' : st === 'FAILED' ? 'x' : ['ACTIVE', 'REVIEW'].includes(st) ? 'c' : 'f'
+  const mine = stages.data?.stages.filter(s => s.canComplete || s.canReview) ?? []
+  const tabBtn = (t: Tab) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
+
   return (
     <>
-      <Head title={`${a.applicantName} · ${a.appNo}`} sub={`${v.product.name} · workflow ${a.workflowVersion ? 'v' + a.workflowVersion : 'default'} · ${inr(a.loanAmount)} for ${a.tenureMonths} months · ${a.city ?? ''} · created by ${a.createdBy} ${when(a.createdAt)}`} />
+      {(others.data?.length ?? 0) > 1 && (
+        <label className="fld appsel">Application
+          <select value={a.id} onChange={e => navTo('/applications/' + e.target.value)} aria-label="Switch application" data-app-switch>
+            {others.data!.map(o => <option key={o.id} value={o.id}>{o.applicantName} · {o.appNo} · {label(o.states.APP)}</option>)}
+          </select>
+        </label>
+      )}
       <ErrorBox error={error} />
       {msg && <div className="alert ok" role="status">{msg}</div>}
       {a.rejectionReason && <div className="alert bad">{a.rejectionReason}</div>}
-      <div className="layout360">
+      <div className="panel">
+        <div className="ahead">
+          <div style={{ minWidth: 0 }}>
+            <p className="eyebrow">{a.appNo} · {v.product.name} · {a.city ?? '—'} · via {a.channel === 'BORROWER_PORTAL' ? 'borrower portal' : 'branch / sales'} · workflow {a.workflowVersion ? 'v' + a.workflowVersion : 'default'}</p>
+            <h1>{a.applicantName} · {a.appNo}</h1>
+            <p className="small muted" style={{ margin: 0 }}>{a.segment} · requested {inr(a.loanAmount)} for {a.tenureMonths} months · created by {a.createdBy} {when(a.createdAt)}</p>
+          </div>
+          <div className="aflags">
+            <Pill s={v.states.DECISION} />
+            {v.states.FRAUD !== 'CLEAR' && v.states.FRAUD !== 'NOT_CHECKED' && <span className="pill bad">Fraud {label(v.states.FRAUD)}</span>}
+          </div>
+        </div>
+        <details className="small" style={{ marginTop: 12 }} open={window.innerWidth > 860}>
+          <summary className="muted" style={{ cursor: 'pointer' }}>State of each part</summary>
+          <div style={{ marginTop: 8 }}><StateBoard states={v.states} /></div>
+        </details>
+      </div>
+      <ol className="phases" aria-label="Stages">
+        {PHASES.map((p, i) => (
+          <li key={p.name}>
+            <button className={ph[i] + (sel === i ? ' sel' : '')} data-phase={i + 1} data-phase-status={ph[i]} data-sections={'|' + p.tabs.join('|') + '|'}
+              aria-current={sel === i ? 'step' : undefined} onClick={() => { setPhase(i); setTabState(p.tabs[0]) }}>
+              <span className="sn">{ph[i] === 'done' ? '✓' : ph[i] === 'fail' ? '!' : i + 1}</span>{p.name}
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="a360">
         <div style={{ minWidth: 0 }}>
-          <div className="panel"><StateBoard states={v.states} /></div>
-          {stages.data && <StageStrip data={stages.data} onOpen={() => setTab('Workflow')} />}
-          <div className="tabs" role="tablist">
-            {TABS.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
+          <div className="subtabs" role="tablist">
+            {tabBtn('Overview')}
+            {PHASES[sel].tabs.map(tabBtn)}
+            <span className="more">{UTIL_TABS.map(tabBtn)}</span>
           </div>
           {tab === 'Overview' && <Overview v={v} rev={rev} onChange={refresh} />}
           {tab === 'Customer' && <CustomerPanel id={id!} rev={rev} />}
@@ -128,18 +193,36 @@ export default function Application360() {
           {tab === 'History' && <HistoryTab id={id!} rev={rev} />}
           {tab === 'Integrations' && <IntegrationsTab id={id!} rev={rev} />}
         </div>
-        <div className="panel actions">
-          <h3>Actions</h3>
-          {buttons.length === 0 && <p className="small muted">No actions for your role at this stage.</p>}
-          {buttons.map(x => x === 'edit'
-            ? <Link key={x} className="btn" to={`/applications/${id}/edit`} style={{ display: 'block', marginBottom: 8 }}>{ACTION_LABEL[x]}</Link>
-            : <button key={x} data-action={x} className={'btn' + (['process', 'sanction', 'disburse', 'submit', 'acceptKfs'].includes(x) ? ' primary' : '') + (x === 'decline' ? ' danger' : '')}
-                disabled={busy} onClick={() => DIALOGS[x] ? setDialog(DIALOGS[x]) : run(x)}>{ACTION_LABEL[x] ?? x}</button>)}
-          {v.blockers.length > 0 && ['SUBMITTED', 'UNDERWRITING'].includes(v.states.APP) && v.states.DECISION === 'PENDING' && (
-            <>
-              <h3 style={{ marginTop: 14 }}>Waiting for</h3>
-              <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{v.blockers.map(b => <li key={b}>{b}</li>)}</ul>
-            </>
+        <div className="rail">
+          <div className="panel actions">
+            <h3>Actions</h3>
+            {buttons.length === 0 && <p className="small muted" style={{ margin: 0 }}>No actions for your role at this stage.</p>}
+            {buttons.map(x => x === 'edit'
+              ? <Link key={x} className="btn" to={`/applications/${id}/edit`} style={{ display: 'block', marginBottom: 8 }}>{ACTION_LABEL[x]}</Link>
+              : <button key={x} data-action={x} className={'btn' + (['process', 'sanction', 'disburse', 'submit', 'acceptKfs'].includes(x) ? ' primary' : '') + (x === 'decline' ? ' danger' : '')}
+                  disabled={busy} onClick={() => DIALOGS[x] ? setDialog(DIALOGS[x]) : run(x)}>{ACTION_LABEL[x] ?? x}</button>)}
+            {v.blockers.length > 0 && ['SUBMITTED', 'UNDERWRITING'].includes(v.states.APP) && v.states.DECISION === 'PENDING' && (
+              <>
+                <h3 style={{ marginTop: 14 }}>Waiting for</h3>
+                <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{v.blockers.map(b => <li key={b}>{b}</li>)}</ul>
+              </>
+            )}
+          </div>
+          {stages.data && (
+            <div className="panel" data-testid="stage-strip">
+              <h3>Timeline</h3>
+              <p className="small muted" style={{ marginTop: -6 }}>Workflow {stages.data.product}{stages.data.version ? ` v${stages.data.version}` : ' (default)'}</p>
+              {mine.length > 0 && <button className="btn sm primary" style={{ marginBottom: 8 }} data-stage-mine onClick={() => setTab('Workflow')}>Your turn: {mine.map(s => s.name).join(', ')}</button>}
+              <ol className="tl">
+                {stages.data.stages.map(s => (
+                  <li key={s.key} className={stageCls(s.status)} data-stage={s.key} data-stage-status={s.status} title={s.skipReason ? `Skipped: ${s.skipReason}` : s.help}>
+                    <b>{s.name}</b>
+                    <span>{s.status === 'DONE' ? `${s.completedBy ?? 'Done'}${s.completedAt ? ' · ' + when(s.completedAt) : ''}` : s.status === 'SKIPPED' ? 'Skipped' : `${label(s.status)} · SLA ${s.sla} h${s.breachedAt ? ' · breached' : ''}${s.assignedToMe ? ' · you' : ''}`}</span>
+                  </li>
+                ))}
+              </ol>
+              <button className="btn sm" style={{ marginTop: 6 }} onClick={() => setTab('Workflow')}>Open workflow</button>
+            </div>
           )}
         </div>
       </div>

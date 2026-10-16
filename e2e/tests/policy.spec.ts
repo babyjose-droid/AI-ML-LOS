@@ -18,6 +18,7 @@ async function logout(page: Page) {
 test('policy studio: draft, simulate, maker-checker approval, live', async ({ page }) => {
   test.setTimeout(120_000)
   await login(page, 'cm1')
+  await page.locator('[data-nav-group=Credit] .ngl').click() // menu groups open and close (prototype v3.1)
   await page.getByRole('link', { name: 'Credit policy studio' }).click()
   await page.locator('[data-policy=new]').click()
   await expect(page.locator('[data-policy-detail=DRAFT]')).toBeVisible()

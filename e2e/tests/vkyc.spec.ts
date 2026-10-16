@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openSection } from './sections'
 
 // Phase 4: video KYC between two browsers (official and customer) with Chromium's fake camera.
 // The fake camera shows a test pattern, not a face, so the AI correctly reports no face and the official
@@ -20,7 +21,7 @@ test('video KYC: customer joins by link, the official runs the call, AI checks, 
   await officer.goto('/applications')
   await officer.getByPlaceholder('Search name, PAN or application no.').fill('Suresh Yadav')
   await officer.getByRole('cell', { name: 'Suresh Yadav', exact: true }).first().click()
-  await officer.getByRole('tab', { name: 'Video KYC' }).click()
+  await openSection(officer, 'Video KYC')
   await officer.locator('[data-vkyc=create]').click()
   const link = await officer.locator('[data-vkyc-link]').inputValue()
   expect(link).toMatch(/\/vkyc\/[A-Za-z0-9_-]{20,}$/)
@@ -84,7 +85,7 @@ test('video KYC settings per product', async ({ page }) => {
   await login(page, 'admin')
   await page.goto('/admin/products')
   await page.getByRole('cell', { name: /Loan against property/ }).first().click()
-  await page.getByRole('tab', { name: 'Video KYC' }).click()
+  await openSection(page, 'Video KYC')
   await expect(page.locator('select[name=vk_parties]')).toHaveValue('ALL')
   await expect(page.locator('input[name=vk_face]')).toHaveValue('0.45')
   await expect(page.locator('textarea[name=vk_questions]')).toContainText('mortgaged')

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, getToken } from '../api'
 import { useAuth } from '../auth'
-import { ErrorBox, Head, Modal, Pill, Table, useLoad } from '../components/ui'
+import { ErrorBox, Head, Modal, Pill, Table, useLoad, useTab } from '../components/ui'
 import { inr, lakh, pct } from '../format'
 import { Collections, LoanActions, Restructures, Topups } from './Growth'
 import { LoanCollateral } from '../collateral/LoanCollateral'
@@ -25,7 +25,7 @@ const CLS_PILL: Record<string, string> = { STANDARD: 'ok', 'SMA-0': 'warn', 'SMA
 /** Loan book: LMS feed, SMA/NPA, Ind AS 109 ECL and the early-warning watchlist. */
 export default function Portfolio() {
   const { user } = useAuth()
-  const [tab, setTab] = useState<'summary' | 'loans' | 'watch' | 'collections' | 'topups' | 'restructures' | 'feeds'>('summary')
+  const [tab, setTab] = useTab(['summary', 'loans', 'watch', 'collections', 'topups', 'restructures', 'feeds'] as const, 'summary')
   const [rev, setRev] = useState(0)
   const [msg, setMsg] = useState<string>()
   const [error, setError] = useState<unknown>()
@@ -53,7 +53,7 @@ export default function Portfolio() {
 
   return (
     <>
-      <Head title="Loan book" sub="Live loans from the LMS feed: asset classification (SMA / NPA), expected credit loss (Ind AS 109) against the RBI minimum provision, and early warnings.">
+      <Head title="Loan book & early warning" sub="Live loans from the LMS feed: asset classification (SMA / NPA), expected credit loss (Ind AS 109) against the RBI minimum provision, and early warnings.">
         {canFeed && <>
           <label className="btn">Upload LMS CSV<input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={e => { upload(e.target.files?.[0]); e.target.value = '' }} /></label>
           <button className="btn primary" disabled={busy} data-action="demoFeed" onClick={demo}>{busy ? 'Loading…' : 'Run demo LMS feed (one month)'}</button>

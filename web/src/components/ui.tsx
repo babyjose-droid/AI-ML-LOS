@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api'
 import { label, tone } from '../format'
 import type { States } from '../types'
@@ -11,12 +12,35 @@ export function Head({ title, sub, children }: { title: string; sub?: string; ch
   return (
     <div className="head">
       <div>
-        <h2>{title}</h2>
+        <h1>{title}</h1>
         {sub && <p>{sub}</p>}
       </div>
       {children && <div className="row">{children}</div>}
     </div>
   )
+}
+
+/** A page's inner tab kept in the address (?tab=), so the sidebar and links can open a page on a given tab. */
+export function useTab<T extends string>(keys: readonly T[], def: T): [T, (t: T) => void] {
+  const [sp, setSp] = useSearchParams()
+  const q = sp.get('tab') as T | null
+  const tab = q && keys.includes(q) ? q : def
+  const set = (t: T) => { const n = new URLSearchParams(sp); if (t === def) n.delete('tab'); else n.set('tab', t); setSp(n, { replace: true }) }
+  return [tab, set]
+}
+
+/** Prototype KPI strip: one panel, figures side by side. */
+export function KpiStrip({ items }: { items: [string, ReactNode, ReactNode?, boolean?][] }) {
+  return (
+    <div className="panel kstrip">
+      {items.map(([l, v, sub, bad]) => <div key={l}><span>{l}</span><b className={bad ? 'bad' : ''}>{v}</b>{sub && <em>{sub}</em>}</div>)}
+    </div>
+  )
+}
+
+export const DOMAIN_LABEL: Record<string, string> = {
+  APP: 'Application', KYC: 'KYC', DATA: 'Bank & bureau data', DOCS: 'Documents', FIELD: 'Field visit',
+  DECISION: 'Decision', FRAUD: 'Fraud', SANCTION: 'Sanction', DISB: 'Disbursement',
 }
 
 const DOMAIN: Record<string, string> = {

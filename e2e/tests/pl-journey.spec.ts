@@ -111,8 +111,7 @@ test('Personal loan journey (recorded): application, KYC, bank data, decision, s
     await page.getByRole('button', { name: 'Upload', exact: true }).click()
     await expect(page.locator(`[data-doc="${t}"]`)).toBeVisible({ timeout: 30_000 })
   }
-  await expect(page.locator('[data-doc=PAN] [data-field=pan]')).toHaveText('ROHPM5521M')
-  await say(page, 'Document AI read each document: PAN, name, date of birth, net pay ₹95,000; Aadhaar masked to the last 4 digits', 2600)
+  await say(page, 'Documents uploaded; Document AI reads them during the automated checks', 1800)
   await logout(page)
 
   // ---------------------------------------------------------------- 2. operations: automated checks
@@ -127,8 +126,9 @@ test('Personal loan journey (recorded): application, KYC, bank data, decision, s
   await expect(state(page, 'DECISION')).not.toHaveText('Pending')
   await say(page, 'All checks done in one pass. No field visit for a salaried personal loan, so the decision runs straight away', 2600)
   await openSection(page, 'Documents')
+  await expect(page.locator('[data-doc=PAN] [data-field=pan]')).toHaveText('ROHPM5521M')
   await expect(page.locator('[data-doc=AADHAAR] [data-field=aadhaarMasked]')).toContainText('XXXX XXXX')
-  await say(page, 'Documents verified against the application', 1600)
+  await say(page, 'Document AI read PAN, name, date of birth and net pay ₹95,000; Aadhaar is masked to the last 4 digits', 2600)
   await openSection(page, 'Data')
   await expect(page.getByText('KYC checks from documents')).toBeVisible()
   await say(page, 'KYC checks from the documents, 12 months of Account Aggregator bank data and the bureau report', 2600)

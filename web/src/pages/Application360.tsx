@@ -21,7 +21,7 @@ const PHASES: { name: string; tabs: Tab[]; status: (s: States) => PhaseStatus | 
   { name: 'Consent & KYC', tabs: ['Video KYC'], status: s => s.KYC === 'VERIFIED' ? 'done' : s.KYC === 'FAILED' ? 'fail' : s.KYC === 'REVIEW' ? 'now' : null },
   { name: 'Documents', tabs: ['Documents', 'Bank statement'], status: s => s.DOCS === 'COMPLETE' ? 'done' : ['DEFICIENT', 'IN_REVIEW'].includes(s.DOCS) ? 'now' : null },
   { name: 'Field visit', tabs: ['Field visit', 'Collateral'], status: s => ['NOT_REQUIRED', 'DONE'].includes(s.FIELD) ? 'done' : s.FIELD === 'REQUIRED' ? 'now' : null },
-  { name: 'Underwriting', tabs: ['Data', 'Decision'], status: s => ['APPROVE', 'APPROVE_WITH_CONDITIONS'].includes(s.DECISION) ? 'done' : s.DECISION === 'REJECT' || s.FRAUD === 'BLOCK' ? 'fail' : ['REFER', 'INCOMPLETE'].includes(s.DECISION) || s.FRAUD === 'REVIEW' ? 'now' : null },
+  { name: 'Underwriting', tabs: ['Data', 'Decision'], status: s => ['APPROVE', 'APPROVE_WITH_CONDITIONS'].includes(s.DECISION) || s.DECISION === 'REFER' && ['SANCTIONED', 'KFS_ACCEPTED'].includes(s.SANCTION) ? 'done' : s.DECISION === 'REJECT' || s.FRAUD === 'BLOCK' ? 'fail' : ['REFER', 'INCOMPLETE'].includes(s.DECISION) || s.FRAUD === 'REVIEW' ? 'now' : null },
   { name: 'Credit memo', tabs: ['Credit memo'], status: s => s.SANCTION !== 'NOT_STARTED' ? 'done' : null },
   { name: 'Sanction', tabs: ['Sanction & KFS', 'Signing pack'], status: s => s.SANCTION === 'KFS_ACCEPTED' ? 'done' : s.SANCTION === 'DECLINED' ? 'fail' : s.SANCTION !== 'NOT_STARTED' ? 'now' : null },
   { name: 'Disbursement', tabs: ['Disbursement'], status: s => s.DISB === 'DISBURSED' ? 'done' : s.DISB === 'FAILED' ? 'fail' : s.DISB === 'READY' ? 'now' : null },

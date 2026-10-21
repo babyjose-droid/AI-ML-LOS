@@ -207,7 +207,7 @@ test('Group loan (JLG) journey (recorded): application, household, CGT, GRT, dec
   // ---------------------------------------------------------------- 6. the member accepts the KFS
   await login(page, 'sales1', 'Sales officer')
   await openApp(page)
-  await say(page, 'Step 6 · The member hears the KFS in Marathi and accepts it with an OTP')
+  await say(page, 'Step 6 · The member hears the KFS in her language and accepts it with an OTP')
   await page.locator('[data-action=acceptKfs]').click()
   await page.locator('input[name=otp]').fill('123456')
   await page.getByRole('button', { name: 'Confirm' }).click()

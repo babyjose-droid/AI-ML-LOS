@@ -83,7 +83,7 @@ export default function Application360() {
         case 'withdraw': await api.post(base + '/withdraw', body); break
         case 'process': {
           const r = await api.post<{ steps: { step: string; outcome: string }[] }>(base + '/process')
-          setMsg(r.steps.map(s => `${s.step}: ${label(s.outcome)}`).join(' · '))
+          setMsg(r.steps.map(s => `${s.step}: ${/^[A-Z_]+$/.test(s.outcome) ? label(s.outcome) : s.outcome}`).join(' · '))
           break
         }
         case 'runKyc': await api.post(base + '/kyc/run'); break

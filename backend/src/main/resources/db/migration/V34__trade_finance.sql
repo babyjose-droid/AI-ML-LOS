@@ -126,11 +126,11 @@ insert into product (code, name, segment, secured, min_amount, max_amount, min_t
                      processing_fee_pct, rate_min, rate_max, field_visit_rule, field_visit_threshold, required_docs,
                      min_vintage_years, min_monthly_income, min_processing_fee, foreclosure_pct, bounce_charge, penal_rate_pct,
                      auto_sanction_limit, repayment_frequency) values
- ('INV-FIN', 'Invoice & receivables finance',    'MSME', false, 200000, 20000000, 12, 12, 21, 70, 0.50, 11.00, 17.00, 'ABOVE_AMOUNT', 5000000,
+ ('INV-FIN', 'Invoice & receivables finance',    'MSME', false, 200000, 5000000, 12, 12, 21, 70, 0.50, 11.00, 17.00, 'ABOVE_AMOUNT', 5000000,
   'PAN,AADHAAR|VOTER_ID|DRIVING_LICENCE|PASSPORT,UDYAM', 2, 50000, 2500, 0, 500, 24, null, 'REVOLVING'),
- ('SCF',     'Supply chain finance (vendor)',    'MSME', false, 100000, 20000000, 12, 12, 21, 70, 0.25, 10.00, 15.00, 'NEVER',        null,
+ ('SCF',     'Supply chain finance (vendor)',    'MSME', false, 100000, 5000000, 12, 12, 21, 70, 0.25, 10.00, 15.00, 'NEVER',        null,
   'PAN,AADHAAR|VOTER_ID|DRIVING_LICENCE|PASSPORT,UDYAM', 1, 30000, 1500, 0, 500, 24, null, 'REVOLVING'),
- ('DDF',     'Dealer & distributor finance',     'MSME', false, 200000, 20000000, 12, 12, 21, 70, 0.50, 11.00, 16.00, 'NEVER',        null,
+ ('DDF',     'Dealer & distributor finance',     'MSME', false, 200000, 5000000, 12, 12, 21, 70, 0.50, 11.00, 16.00, 'NEVER',        null,
   'PAN,AADHAAR|VOTER_ID|DRIVING_LICENCE|PASSPORT,UDYAM', 2, 40000, 2500, 0, 500, 24, null, 'REVOLVING');
 
 alter table product add column trade_kind varchar(15);   -- RECEIVABLES, VENDOR, DEALER
@@ -192,5 +192,5 @@ select c.code, 1, 'PUBLISHED', c.stages, 'Initial trade-finance workflow', 'syst
 ) as c(code, stages);
 
 update policy_version set overrides_json = (coalesce(nullif(overrides_json, ''), '{}')::jsonb
-  || '{"product:INV-FIN": {"exposureCap": 20000000}, "product:SCF": {"exposureCap": 20000000}, "product:DDF": {"exposureCap": 20000000}}'::jsonb)::text
+  || '{"product:INV-FIN": {"exposureCap": 5000000}, "product:SCF": {"exposureCap": 5000000}, "product:DDF": {"exposureCap": 5000000}}'::jsonb)::text
  where status = 'LIVE';

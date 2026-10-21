@@ -117,7 +117,7 @@ public class TradeService {
 
     /** Principal still out on a drawdown: repayments pay the interest first, then the principal. */
     static double principalOut(TradeInvoice x) {
-        if (!LIVE.contains(x.status) && !"REPAID".equals(x.status)) return 0;
+        if (!LIVE.contains(x.status)) return 0;          // repaid (within a rupee), rejected or not yet funded
         return Math.max(0, d(x.fundedAmount) - Math.max(0, d(x.repaidAmount) - d(x.interestAmount)));
     }
 

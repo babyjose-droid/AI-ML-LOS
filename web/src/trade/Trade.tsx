@@ -167,7 +167,7 @@ export function LimitTab({ id, rev, onChange }: { id: string; rev: number; onCha
 
 function InvoicePanel({ x, d, busy, run }: { x: Inv; d: View; busy: boolean; run: (f: () => Promise<unknown>, m: string) => Promise<void> }) {
   const [ref, setRef] = useState('')
-  const [amount, setAmount] = useState(String(Math.round(x.due)))
+  const [amount, setAmount] = useState(x.due.toFixed(2))
   const [note, setNote] = useState('')
   const [rule, setRule] = useState<string | null>(null)
   const live = ['FUNDED', 'PART_PAID'].includes(x.status)

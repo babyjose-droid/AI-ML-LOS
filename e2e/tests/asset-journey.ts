@@ -85,6 +85,7 @@ export function assetJourney(c: AssetCase) {
     viewport: { width: 1366, height: 768 },
     video: { mode: 'on', size: { width: 1366, height: 768 } },
     launchOptions: { slowMo: 120 },
+    actionTimeout: 30_000,
   })
 
   test(c.title, async ({ page }) => {
@@ -210,7 +211,9 @@ export function assetJourney(c: AssetCase) {
     await logout(page)
 
     // ---------------------------------------------------------------- 5. sanction (unless the product auto-sanctioned it)
-    await login(page, 'cm1', 'Credit manager')
+    // delegation: L1 up to ₹2 lakh, L2 up to ₹10 lakh (credit manager), above that L3 (CRO)
+    const l3 = Number(c.amount) > 1_000_000
+    await login(page, l3 ? 'cro1' : 'cm1', l3 ? 'CRO' : 'Credit manager')
     await openApp(page, c.name)
     const s = (await state(page, 'SANCTION').innerText()).trim()
     if (s.startsWith('Pending')) {

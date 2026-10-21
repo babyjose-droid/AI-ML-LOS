@@ -62,7 +62,6 @@ export default function Application360() {
   const [phase, setPhase] = useState<number | null>(() => { const i = PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
   const setTab = (t: Tab) => { setTabState(t); const i = PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
   const navTo = useNavigate()
-  const others = useLoad(() => api.get<AppSummary[]>('/api/applications?state=&q='), [])
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [error, setError] = useState<unknown>()
   const [msg, setMsg] = useState<string>()
@@ -71,6 +70,7 @@ export default function Application360() {
   const view = useLoad(() => api.get<AppView>('/api/applications/' + id), [id, rev])
   const stages = useLoad(() => api.get<AppStages>('/api/applications/' + id + '/stages'), [id, rev])
   const refresh = () => setRev(r => r + 1)
+  const others = useLoad(() => api.get<AppSummary[]>('/api/applications?state=&q='), [rev])
 
   async function run(action: string, body?: Record<string, unknown>) {
     setBusy(true)

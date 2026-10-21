@@ -571,7 +571,8 @@ function ValuationTab({ d, onChange }: { d: Detail; onChange: () => void }) {
       {canRecord && <div className="panel" style={{ marginTop: 12 }}>
         {gold ? <>
           <h3>Gold appraisal</h3>
-          {items.map((it, i) => <div className="row" key={i} style={{ marginBottom: 6 }}>
+          <div className="gold-items gold-head small muted"><span>Item</span><span>Gross weight (g)</span><span>Stones (g)</span><span>Purity</span></div>
+          {items.map((it, i) => <div className="gold-items" key={i}>
             <input placeholder="Item" value={it.description} onChange={e2 => setItems(items.map((x, j) => j === i ? { ...x, description: e2.target.value } : x))} />
             <input placeholder="Gross g" inputMode="decimal" value={it.grossWeight} onChange={e2 => setItems(items.map((x, j) => j === i ? { ...x, grossWeight: e2.target.value } : x))} />
             <input placeholder="Stones g" inputMode="decimal" value={it.stoneWeight} onChange={e2 => setItems(items.map((x, j) => j === i ? { ...x, stoneWeight: e2.target.value } : x))} />

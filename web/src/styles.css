@@ -322,3 +322,6 @@ input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6)
 .linkbtn { background: none; border: 0; padding: 0 0 0 6px; color: var(--accent); cursor: pointer; font-family: var(--font); }
 .task.clickable { cursor: pointer; }
 .task.clickable:hover { border-color: var(--accent); }
+.gold-items { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; align-items: center; }
+.gold-head { font-weight: 600; margin-bottom: 2px; }
+@media (max-width: 560px) { .gold-items { grid-template-columns: 1fr 1fr; } .gold-head { display: none; } }

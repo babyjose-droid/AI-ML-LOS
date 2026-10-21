@@ -122,7 +122,15 @@ export default function Application360() {
   const a = v.application
   const buttons = v.actions.filter(x => x !== 'uploadDocument')
 
+  // group loans: step 4 is the group's training and test (CGT, GRT) from the workflow, not a field visit
+  const groupStages = (stages.data?.stages ?? []).filter(x => ['cgt', 'grt'].includes(x.key))
+  const phaseName = (i: number) => i === 3 && groupStages.length ? 'Group (CGT, GRT)' : PHASES[i].name
   const ph = phaseStatuses(v.states)
+  if (groupStages.length) {
+    const st = groupStages.map(x => x.status)
+    ph[3] = st.every(x => ['DONE', 'SKIPPED'].includes(x)) ? 'done' : st.some(x => x === 'FAILED') ? 'fail'
+      : st.some(x => ['ACTIVE', 'REVIEW'].includes(x)) || ph.slice(0, 3).every(x => x === 'done') ? 'now' : 'todo'
+  }
   const current = Math.max(0, ph.findIndex(x => x !== 'done'))
   const sel = phase ?? current
   const stageCls = (st: string) => st === 'DONE' ? 'd' : st === 'SKIPPED' ? 's f' : st === 'FAILED' ? 'x' : ['ACTIVE', 'REVIEW'].includes(st) ? 'c' : 'f'
@@ -163,7 +171,7 @@ export default function Application360() {
           <li key={p.name}>
             <button className={ph[i] + (sel === i ? ' sel' : '')} data-phase={i + 1} data-phase-status={ph[i]} data-sections={'|' + p.tabs.join('|') + '|'}
               aria-current={sel === i ? 'step' : undefined} onClick={() => { setPhase(i); setTabState(p.tabs[0]) }}>
-              <span className="sn">{ph[i] === 'done' ? '✓' : ph[i] === 'fail' ? '!' : i + 1}</span>{p.name}
+              <span className="sn">{ph[i] === 'done' ? '✓' : ph[i] === 'fail' ? '!' : i + 1}</span>{phaseName(i)}
             </button>
           </li>
         ))}

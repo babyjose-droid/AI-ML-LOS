@@ -325,6 +325,8 @@ public class WorkflowService {
         @SuppressWarnings("unchecked") Map<String, Object> st = ((List<Map<String, Object>>) v.get("stages")).stream()
                 .filter(x -> key.equals(x.get("key"))).findFirst().orElseThrow(() -> ApiException.notFound("Stage " + key + " in this workflow"));
         if (!"RECORDED".equals(st.get("kind"))) throw ApiException.unprocessable("NOT_RECORDED", st.get("name") + " is completed by the system, not by hand");
+        if ("asset".equals(key) && "PASS".equalsIgnoreCase(req.outcome()))
+            throw ApiException.conflict("ASSET_RULES", "Asset & dealer check passes on its own once the asset meets the asset rules (Asset tab); a person can only fail it");
         if (!Boolean.TRUE.equals(st.get("canComplete")))
             throw ApiException.forbidden("NOT_YOURS", st.get("name") + " is " + String.valueOf(st.get("status")).toLowerCase() + "; it is done by " + label((String) st.get("role")) + " once earlier stages are finished");
         String outcome = req.outcome() == null ? "" : req.outcome().toUpperCase();

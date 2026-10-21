@@ -51,6 +51,9 @@ public final class StageLibrary {
         add(new Def("col", "Collateral AI review", "CREDIT_OFFICER", 120, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Collateral Document AI", "Collateral Vision AI", "Valuation AI"), a -> false, List.of(),
                 "Done when every collateral passes the collateral rules (CR-01 to CR-11), after legal, valuer and field reviews"));
+        add(new Def("asset", "Asset & dealer check", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
+                List.of("Invoice AI", "Dealer master", "Vahan"), a -> false, List.of(),
+                "Asset finance: dealer, quotation and invoice, down payment, insurance and LTV pass the asset rules (AF-01 to AF-13)"));
         add(new Def("legal", "Legal & technical (property)", "CREDIT_MANAGER", 72, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Legal vendor", "Technical vendor"), a -> false, List.of("titleClear", "marketValue"), "Title search and technical valuation of the property"));
     }

@@ -79,8 +79,16 @@ public class DocTemplateService {
                 throw new IllegalStateException("Starter templates missing", e);
             }
         }
-        if (mappings.count() == 0)
-            for (var p : products.findAll()) defaultMapping(p.getCode(), p.isSecured(), p.getCollateralTypes()).forEach(mappings::save);
+        // every product gets the standard pack once (products added later, such as asset finance, get theirs on the next start)
+        java.util.Set<String> mapped = new java.util.HashSet<>();
+        mappings.findAll().forEach(m -> mapped.add(m.getProductCode()));
+        for (var p : products.findAll())
+            if (!mapped.contains(p.getCode()))
+                for (ProductDocument m : defaultMapping(p.getCode(), p.isSecured(), (p.getCollateralTypes() == null ? "" : p.getCollateralTypes()) + (p.assetClassList().isEmpty() ? "" : ",VEHICLE"))) {
+                    // asset finance: the financed asset itself is hypothecated, so the deed is always in the pack
+                    if (!p.assetClassList().isEmpty() && "HYPOTHECATION_DEED".equals(m.getTemplateCode())) m.setCondition("ALWAYS");
+                    mappings.save(m);
+                }
     }
 
     static List<ProductDocument> defaultMapping(String product, boolean secured, String collateralTypes) {

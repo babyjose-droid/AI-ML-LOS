@@ -29,6 +29,10 @@ public class DocData {
     private com.rhythm.los.org.BranchRepository branches;
     private com.rhythm.los.disbursement.DisbursementRepository disbursements;
     private com.rhythm.los.book.LiveLoanRepository loans;
+    private com.rhythm.los.asset.AssetService assets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assets = a; }
 
     @Value("${rhythm.lender.name:Rhythm Demo Finance Ltd (NBFC)}") String lenderName = "Rhythm Demo Finance Ltd (NBFC)";
     @Value("${rhythm.lender.address:Registered office: Pune, Maharashtra}") String lenderAddress = "Registered office: Pune, Maharashtra";
@@ -182,6 +186,7 @@ public class DocData {
                 disb.put("account", x.getBeneficiaryAccount());
             });
         d.put("disbursement", disb);
+        d.put("asset", assets == null ? Map.of() : assets.docData(a.getId()));
         return d;
     }
 }

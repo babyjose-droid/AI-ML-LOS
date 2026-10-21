@@ -84,6 +84,8 @@ public class SanctionService {
         if (amt.compareTo(p.getMinAmount()) < 0 || amt.compareTo(p.getMaxAmount()) > 0 || amt.compareTo(a.getLoanAmount()) > 0) {
             throw ApiException.unprocessable("AMOUNT_OUT_OF_RANGE", "Sanction amount must be within product limits and not above the amount applied for");
         }
+        // asset finance: the asset rules must pass, and the amount stays within the asset's maximum loan
+        if (assets != null) assets.requireReadyForSanction(a, amt);
         // COL-BR-13: above the collateral's maximum exposure (LTV cap) only L3 may sanction, with a reason
         boolean ltvException = col != null && col.maxExposure() != null && amt.doubleValue() > col.maxExposure() + 0.5;
         if (ltvException) {
@@ -153,6 +155,10 @@ public class SanctionService {
     }
 
     private com.rhythm.los.collateral.CollateralService collateral;
+    private com.rhythm.los.asset.AssetService assets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assets = a; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setCollateral(com.rhythm.los.collateral.CollateralService c) { this.collateral = c; }
@@ -178,6 +184,9 @@ public class SanctionService {
                 && d.getRecommendedAmount().compareTo(a.getLoanAmount()) == 0
                 && a.getLoanAmount().compareTo(p.getAutoSanctionLimit()) <= 0;
         if (!clean || !workflow.pendingBefore(a, "sanction").isEmpty()) return java.util.Optional.empty();
+        if (assets != null && assets.isAssetProduct(a)) {
+            try { assets.requireReadyForSanction(a, a.getLoanAmount()); } catch (com.rhythm.los.common.ApiException e) { return java.util.Optional.empty(); }
+        }
         CurrentUser sys = CurrentUser.SYSTEM;
         Kfs kfs = KfsCalculator.build(a.getAppNo(), a.getApplicantName(), p.getName(), a.getLoanAmount().doubleValue(),
                 d.getRate().doubleValue(), a.getTenureMonths(), p.charges());

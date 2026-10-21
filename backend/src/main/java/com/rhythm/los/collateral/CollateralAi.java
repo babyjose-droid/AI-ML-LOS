@@ -40,6 +40,14 @@ public class CollateralAi {
         return post("/v1/collateral/documents/analyze", form);
     }
 
+    /** Asset finance: reads a quotation, tax invoice, down-payment receipt or insurance policy. */
+    public Optional<Map<String, Object>> assetDocument(byte[] bytes, String contentType, String fileName, String docType) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", part(bytes, contentType, fileName));
+        form.add("doc_type", docType);
+        return post("/v1/assets/documents/analyze", form);
+    }
+
     public Optional<Map<String, Object>> media(byte[] bytes, String contentType, String fileName) {
         LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("file", part(bytes, contentType, fileName));

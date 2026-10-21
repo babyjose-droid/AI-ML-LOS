@@ -46,6 +46,7 @@ public class Product {
     /** AUTO (bureau model if a bureau record, else new-to-credit), THICK, NTC, RULES (policy rules only, no PD model). */
     @Column(name = "scoring_model") private String scoringModel = "AUTO";
     @Column(name = "collateral_types") private String collateralTypes;
+    @Column(name = "asset_classes") private String assetClasses;
     @Column(name = "collateral_required") private boolean collateralRequired;
     /** Co-applicant and guarantor rules (JSON, see PartyRules); null on products saved before they existed. */
     @Column(name = "party_rules") private String partyRules;
@@ -150,6 +151,12 @@ public class Product {
                 bounceCharge == null ? 0 : bounceCharge.doubleValue(), penalRatePct == null ? 0 : penalRatePct.doubleValue(), repaymentFrequency);
     }
     public String getCollateralTypes() { return collateralTypes; }
+    public String getAssetClasses() { return assetClasses; }
+    public void setAssetClasses(String v) { this.assetClasses = v; }
+    /** Asset finance: the asset classes this product finances (CV, CAR, EQUIPMENT, MEDICAL, SOLAR, DURABLE); empty for other products. */
+    public java.util.List<String> assetClassList() {
+        return assetClasses == null || assetClasses.isBlank() ? java.util.List.of() : java.util.Arrays.stream(assetClasses.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
+    }
     public void setCollateralTypes(String v) { this.collateralTypes = v; }
     public boolean isCollateralRequired() { return collateralRequired; }
     public void setCollateralRequired(boolean v) { this.collateralRequired = v; }

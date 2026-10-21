@@ -157,6 +157,16 @@ async def collateral_document(file: UploadFile = File(...), doc_type: str = Form
     return collateral.analyze_document(data, file.content_type or "application/pdf", doc_type.upper())
 
 
+@app.post("/v1/assets/documents/analyze")
+async def asset_document(file: UploadFile = File(...), doc_type: str = Form(...)):
+    """Asset finance Document AI: quotation, invoice, down-payment receipt, insurance, RC."""
+    from . import asset
+    data = await file.read()
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(413, "File too large")
+    return asset.analyze_document(data, file.content_type or "application/pdf", doc_type.upper())
+
+
 @app.post("/v1/collateral/media/analyze")
 async def collateral_media(file: UploadFile = File(...)):
     """Collateral Vision AI: EXIF time and GPS, quality and editing hints for one photo."""

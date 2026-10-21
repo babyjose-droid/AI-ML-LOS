@@ -32,6 +32,11 @@ public class MyWorkService {
     @org.springframework.beans.factory.annotation.Autowired
     void setCollateral(com.rhythm.los.collateral.CollateralReviewRepository r, com.rhythm.los.collateral.CollateralRepository c) { this.colReviews = r; this.collaterals = c; }
 
+    private com.rhythm.los.asset.AssetService assetService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assetService = a; }
+
     private com.rhythm.los.party.ApplicationPartyRepository partyRepo;
     private com.rhythm.los.party.PartyRequirementRepository partyRequests;
 
@@ -166,6 +171,12 @@ public class MyWorkService {
                         a.getProductCode(), a.getLoanAmount().doubleValue(), "Credit asked for a " + com.rhythm.los.party.PartyRules.label(q.getRole()) + ": " + q.getReason(),
                         "parties", Duration.between(q.getRequestedAt(), Instant.now()).toHours(), 48)));
             }
+        }
+        // asset finance: documents due after disbursement (RC with hypothecation, installation certificate, delivery note)
+        if (assetService != null) for (var t : assetService.dueTasks(u)) {
+            LoanApplication a = (LoanApplication) t.get("application");
+            out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                    (String) t.get("task"), "asset", (Long) t.get("ageHours"), 720));
         }
         return out;
     }

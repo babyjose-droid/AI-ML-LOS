@@ -73,6 +73,10 @@ public class DisbursementService {
     public List<Disbursement> list(Long appId) { return repo.findByApplicationIdOrderByIdAsc(appId); }
 
     private com.rhythm.los.docgen.DocPackService docPacks;
+    private com.rhythm.los.asset.AssetService assets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assets = a; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setDocPacks(@org.springframework.context.annotation.Lazy com.rhythm.los.docgen.DocPackService d) { this.docPacks = d; }
@@ -87,6 +91,7 @@ public class DisbursementService {
         recheck.addAll(newLinksSinceDecision(a));
         recheck.addAll(sanctions.partyBlockers(a, "DISBURSE"));
         if (docPacks != null) recheck.addAll(docPacks.blockers(a));
+        if (assets != null) recheck.addAll(assets.disbursementBlockers(a));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
 
@@ -95,20 +100,23 @@ public class DisbursementService {
         d.setGrossAmount(BigDecimal.valueOf(kfs.sanctionedAmount()));
         d.setDeductions(BigDecimal.valueOf(kfs.processingFee() + kfs.gstOnFee() + kfs.insurance()));
         d.setNetAmount(BigDecimal.valueOf(kfs.netDisbursed()));
-        d.setBeneficiaryAccount(mask(a.getBankAccountNo()));
-        d.setIfsc(a.getBankIfsc());
+        // asset finance pays the dealer or supplier; other loans pay the borrower
+        LoanApplication payee = assets == null ? a : assets.payee(a).orElse(a);
+        boolean toDealer = payee != a;
+        d.setBeneficiaryAccount(mask(payee.getBankAccountNo()));
+        d.setIfsc(payee.getBankIfsc());
         d.setActor(by.username());
 
-        var pd = gateway.call(appId, bank.name(), "bank.penny_drop", () -> bank.pennyDrop(a),
+        var pd = gateway.call(appId, bank.name(), "bank.penny_drop", () -> bank.pennyDrop(payee),
                 r -> "name " + r.beneficiaryName() + " match " + r.nameMatch(), null);
         if (!pd.ok()) return fail(a, d, "Penny drop failed: " + pd.error(), by);
         PennyDropResult p = pd.value();
         d.setNameMatchScore(BigDecimal.valueOf(p.nameMatch()));
         if (!p.accountValid() || p.nameMatch() < MIN_NAME_MATCH) {
-            return fail(a, d, "Beneficiary name '" + p.beneficiaryName() + "' does not match the borrower (match " + p.nameMatch() + ")", by);
+            return fail(a, d, "Beneficiary name '" + p.beneficiaryName() + "' does not match the " + (toDealer ? "dealer" : "borrower") + " (match " + p.nameMatch() + ")", by);
         }
 
-        var po = gateway.call(appId, payout.name(), "payout.transfer", () -> payout.pay(a, kfs.netDisbursed(), a.getAppNo()),
+        var po = gateway.call(appId, payout.name(), "payout.transfer", () -> payout.pay(payee, kfs.netDisbursed(), a.getAppNo()),
                 r -> r.success() ? "UTR " + r.utr() : "failed " + r.failureReason(), null);
         if (!po.ok() || !po.value().success()) {
             return fail(a, d, "Payout failed: " + (po.ok() ? po.value().failureReason() : po.error()), by);
@@ -118,9 +126,10 @@ public class DisbursementService {
         d.setUtr(r.utr());
         d.setLmsPayload(Json.write(lmsPayload(a, kfs, r.utr())));
         d = repo.save(d);
-        apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, "UTR " + r.utr() + " · net ₹" + kfs.netDisbursed());
+        apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, "UTR " + r.utr() + " · net ₹" + kfs.netDisbursed() + (toDealer ? " paid to " + payee.getApplicantName() : ""));
         apps.transition(a, Domain.APP, "DISBURSED", "application.disbursed", by, "Loan booking file sent to LMS");
         if (book != null) book.onDisbursed(a, kfs, "LN-" + a.getAppNo().replace("APP-", ""));
+        if (assets != null && toDealer) assets.onDisbursed(a);
         return d;
     }
 

@@ -237,7 +237,7 @@ test('Business loan journey (recorded): application, guarantor, KYC, field visit
   await say(page, 'The guarantor signs the guarantee with an OTP on his own phone', 1400)
   await (await partyRow(page)).getByRole('button', { name: 'Sign by OTP' }).click()
   await otpDialog(page, 'Record signature')
-  await expect(page.getByTestId('party-issues')).not.toContainText('has not signed', { timeout: 10_000 })
+  await expect((await partyRow(page)).getByRole('button', { name: 'Sign by OTP' })).toHaveCount(0, { timeout: 10_000 })
   await say(page, 'Guarantee signed')
   await logout(page)
 

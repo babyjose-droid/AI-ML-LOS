@@ -123,8 +123,11 @@ export default function Application360() {
   const buttons = v.actions.filter(x => x !== 'uploadDocument')
 
   // group loans: step 4 is the group's training and test (CGT, GRT) from the workflow, not a field visit
-  const groupStages = (stages.data?.stages ?? []).filter(x => ['cgt', 'grt'].includes(x.key))
-  const phaseName = (i: number) => i === 3 && groupStages.length ? 'Group (CGT, GRT)' : PHASES[i].name
+  // step 4 follows the product's workflow: the group's CGT and GRT, or the vehicle check with the field visit
+  const allStages = stages.data?.stages ?? []
+  const group = allStages.some(x => x.key === 'cgt'), vehicle = allStages.some(x => x.key === 'val')
+  const groupStages = allStages.filter(x => group ? ['cgt', 'grt'].includes(x.key) : vehicle ? ['val', 'field'].includes(x.key) : false)
+  const phaseName = (i: number) => i !== 3 ? PHASES[i].name : group ? 'Group (CGT, GRT)' : vehicle ? 'Vehicle check & field visit' : PHASES[i].name
   const ph = phaseStatuses(v.states)
   if (groupStages.length) {
     const st = groupStages.map(x => x.status)

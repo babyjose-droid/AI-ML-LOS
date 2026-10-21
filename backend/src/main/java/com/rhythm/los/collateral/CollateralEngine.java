@@ -49,7 +49,7 @@ public final class CollateralEngine {
             Map.entry("CR-02", "No confirmed image or document manipulation"),
             Map.entry("CR-03", "All mandatory documents present"),
             Map.entry("CR-04", "No unresolved charge"),
-            Map.entry("CR-05", "Property identifiers consistent across documents"),
+            Map.entry("CR-05", "Identifiers consistent across documents (survey, municipal ID or chassis number)"),
             Map.entry("CR-06", "EC covers the required period"),
             Map.entry("CR-07", "Valuation not older than the policy allows"),
             Map.entry("CR-08", "Valuation variance within the limit"),

@@ -57,7 +57,7 @@ insert into dealer (code, name, kind, categories, oem, gstin, pan, city, pincode
  ('DLR-CAR01', 'Nashik Auto Hub',              'DEALER',    'CAR',       'Maruti Suzuki','27AAGFN7781K1Z2', 'AAGFN7781K', 'Nashik', '422005', 'Nashik Auto Hub',            '50200077881234',  'HDFC0001234', true,  'ACTIVE', 30000000),
  ('DLR-EQ01',  'Deccan Earthmovers',           'DEALER',    'EQUIPMENT', 'JCB India',    '27AACCD3344F1Z9', 'AACCD3344F', 'Nashik', '422007', 'Deccan Earthmovers Pvt Ltd', '0345012000456',   'ICIC0000345', true,  'ACTIVE', 40000000),
  ('SUP-SOL01', 'SunPeak Solar Installers',     'INSTALLER', 'SOLAR',     null,           '27AAPFS9921L1Z4', 'AAPFS9921L', 'Pune',   '411045', 'SunPeak Solar Installers',   '777705559012',    'KKBK0000721', true,  'ACTIVE', 10000000),
- ('SUP-MED01', 'MedEquip India',               'SUPPLIER',  'MEDICAL',   'Siemens',      '27AAECM6612P1Z7', 'AAECM6612P', 'Mumbai', '400072', 'MedEquip India Pvt Ltd',     '912020033445566', 'UTIB0000456', true,  'ACTIVE', 30000000),
+ ('SUP-MED01', 'MedEquip India',               'SUPPLIER',  'MEDICAL',   null,           '27AAECM6612P1Z7', 'AAECM6612P', 'Mumbai', '400072', 'MedEquip India Pvt Ltd',     '912020033445566', 'UTIB0000456', true,  'ACTIVE', 30000000),
  ('DLR-CD01',  'Kulkarni Electronics',         'DEALER',    'DURABLE',   null,           '27ABEPK2231R1Z3', 'ABEPK2231R', 'Nashik', '422002', 'Kulkarni Electronics',       '50100012345678',  'HDFC0001234', true,  'ACTIVE', 5000000),
  ('DLR-X01',   'QuickDeal Traders',            'DEALER',    'CV,CAR,DURABLE', null,      '27AAQFQ1100D1Z1', 'AAQFQ1100D', 'Nashik', '422001', 'QuickDeal Traders',          '112233445566',    'SBIN0000300', false, 'SUSPENDED', null);
 
@@ -144,8 +144,11 @@ insert into product (code, name, segment, secured, min_amount, max_amount, min_t
  ('CD',      'Consumer durable loan',           'SALARIED', false,   5000,  200000,  3, 24, 21, 60, 1.00, 12.00, 24.00, 'NEVER',        null,
   'PAN,AADHAAR|VOTER_ID|DRIVING_LICENCE|PASSPORT', null, 15000, 199, 2, 300, 24, 100000, 'DURABLE');
 
-update product set party_rules = (select party_rules from product where code = 'BL-UNS'),
+-- the financed asset is the security: co-applicants and guarantors are optional, never required by amount
+update product set party_rules = jsonb_set((select party_rules from product where code = 'CV-SEC')::jsonb, '{guarantor,requiredWhen}', '""')::text,
                    vkyc_policy = (select vkyc_policy from product where code = 'PL')
+ where code in ('CV-NEW', 'EQUIP', 'CAR-NEW', 'SOLAR', 'MED-EQ', 'CD');
+update product set party_rules = jsonb_set(party_rules::jsonb, '{note}', '"The financed asset is the security; co-applicants and guarantors are optional"')::text
  where code in ('CV-NEW', 'EQUIP', 'CAR-NEW', 'SOLAR', 'MED-EQ', 'CD');
 
 insert into product_version (product_code, version, status, definition_json, notes, created_by, approved_by, approved_at)

@@ -1,3 +1,4 @@
+import { AssetTab } from '../asset/Asset'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
@@ -11,7 +12,7 @@ import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '
 import { LoanDocsTab } from '../docgen/LoanDocsTab'
 import type { AppStages, AppSummary, AppView, States, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Asset', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 type PhaseStatus = 'done' | 'now' | 'fail' | 'todo'
 
@@ -59,8 +60,8 @@ const ACTION_LABEL: Record<string, string> = {
 export default function Application360() {
   const { id } = useParams()
   const [tab, setTabState] = useState<Tab>(() => { const q = new URLSearchParams(window.location.search).get('tab'); return (TABS as readonly string[]).includes(q ?? '') ? q as Tab : 'Overview' })
-  const [phase, setPhase] = useState<number | null>(() => { const i = PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
-  const setTab = (t: Tab) => { setTabState(t); const i = PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
+  const [phase, setPhase] = useState<number | null>(() => { const i = tab === 'Asset' ? 3 : PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
+  const setTab = (t: Tab) => { setTabState(t); const i = t === 'Asset' ? 3 : PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
   const navTo = useNavigate()
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [error, setError] = useState<unknown>()
@@ -125,9 +126,9 @@ export default function Application360() {
   // group loans: step 4 is the group's training and test (CGT, GRT) from the workflow, not a field visit
   // step 4 follows the product's workflow: the group's CGT and GRT, or the vehicle check with the field visit
   const allStages = stages.data?.stages ?? []
-  const group = allStages.some(x => x.key === 'cgt'), vehicle = allStages.some(x => x.key === 'val'), gold = allStages.some(x => x.key === 'gold')
-  const groupStages = allStages.filter(x => group ? ['cgt', 'grt'].includes(x.key) : vehicle ? ['val', 'field'].includes(x.key) : gold ? x.key === 'gold' : false)
-  const phaseName = (i: number) => i !== 3 ? PHASES[i].name : group ? 'Group (CGT, GRT)' : vehicle ? 'Vehicle check & field visit' : gold ? 'Gold appraisal' : PHASES[i].name
+  const group = allStages.some(x => x.key === 'cgt'), vehicle = allStages.some(x => x.key === 'val'), gold = allStages.some(x => x.key === 'gold'), assetFin = allStages.some(x => x.key === 'asset')
+  const groupStages = allStages.filter(x => group ? ['cgt', 'grt'].includes(x.key) : assetFin ? ['asset', 'field'].includes(x.key) : vehicle ? ['val', 'field'].includes(x.key) : gold ? x.key === 'gold' : false)
+  const phaseName = (i: number) => i !== 3 ? PHASES[i].name : group ? 'Group (CGT, GRT)' : assetFin ? 'Asset & dealer check' : vehicle ? 'Vehicle check & field visit' : gold ? 'Gold appraisal' : PHASES[i].name
   const ph = phaseStatuses(v.states)
   if (groupStages.length) {
     const st = groupStages.map(x => x.status)
@@ -138,6 +139,7 @@ export default function Application360() {
   const sel = phase ?? current
   const stageCls = (st: string) => st === 'DONE' ? 'd' : st === 'SKIPPED' ? 's f' : st === 'FAILED' ? 'x' : ['ACTIVE', 'REVIEW'].includes(st) ? 'c' : 'f'
   const mine = stages.data?.stages.filter(s => s.canComplete || s.canReview) ?? []
+  const phaseTabs = (i: number): Tab[] => i === 3 && assetFin ? ['Asset', 'Field visit'] : PHASES[i].tabs
   const tabBtn = (t: Tab) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
 
   return (
@@ -172,8 +174,8 @@ export default function Application360() {
       <ol className="phases" aria-label="Stages">
         {PHASES.map((p, i) => (
           <li key={p.name}>
-            <button className={ph[i] + (sel === i ? ' sel' : '')} data-phase={i + 1} data-phase-status={ph[i]} data-sections={'|' + p.tabs.join('|') + '|'}
-              aria-current={sel === i ? 'step' : undefined} onClick={() => { setPhase(i); setTabState(p.tabs[0]) }}>
+            <button className={ph[i] + (sel === i ? ' sel' : '')} data-phase={i + 1} data-phase-status={ph[i]} data-sections={'|' + phaseTabs(i).join('|') + '|'}
+              aria-current={sel === i ? 'step' : undefined} onClick={() => { setPhase(i); setTabState(phaseTabs(i)[0]) }}>
               <span className="sn">{ph[i] === 'done' ? '✓' : ph[i] === 'fail' ? '!' : i + 1}</span>{phaseName(i)}
             </button>
           </li>
@@ -183,12 +185,13 @@ export default function Application360() {
         <div style={{ minWidth: 0 }}>
           <div className="subtabs" role="tablist">
             {tabBtn('Overview')}
-            {PHASES[sel].tabs.map(tabBtn)}
+            {phaseTabs(sel).map(tabBtn)}
             <span className="more">{UTIL_TABS.map(tabBtn)}</span>
           </div>
           {tab === 'Overview' && <Overview v={v} rev={rev} onChange={refresh} />}
           {tab === 'Customer' && <CustomerPanel id={id!} rev={rev} />}
           {tab === 'Parties' && <PartiesTab id={id!} rev={rev} onChange={refresh} />}
+          {tab === 'Asset' && <AssetTab id={id!} rev={rev} onChange={refresh} />}
           {tab === 'Field visit' && <FieldVisitsPanel id={id!} rev={rev} />}
           {tab === 'Collateral' && <ApplicationCollateralTab id={id!} productCode={v.application.productCode} rev={rev} onChange={refresh} />}
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}

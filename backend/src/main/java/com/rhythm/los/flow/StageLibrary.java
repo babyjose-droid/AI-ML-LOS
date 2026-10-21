@@ -54,6 +54,9 @@ public final class StageLibrary {
         add(new Def("asset", "Asset & dealer check", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Invoice AI", "Dealer master", "Vahan"), a -> false, List.of(),
                 "Asset finance: dealer, quotation and invoice, down payment, insurance and LTV pass the asset rules (AF-01 to AF-13)"));
+        add(new Def("limit", "Programme & limit", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
+                List.of("Anchor programme", "Buyer master"), a -> false, List.of(),
+                "Trade finance: the anchor programme or the buyer sublimits and the borrower's GSTIN pass the limit checks (LS-01 to LS-04)"));
         add(new Def("legal", "Legal & technical (property)", "CREDIT_MANAGER", 72, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Legal vendor", "Technical vendor"), a -> false, List.of("titleClear", "marketValue"), "Title search and technical valuation of the property"));
     }

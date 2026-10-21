@@ -167,6 +167,16 @@ async def asset_document(file: UploadFile = File(...), doc_type: str = Form(...)
     return asset.analyze_document(data, file.content_type or "application/pdf", doc_type.upper())
 
 
+@app.post("/v1/trade/invoices/analyze")
+async def trade_invoice(file: UploadFile = File(...)):
+    """Trade finance Document AI: invoice offered for receivables, vendor or dealer finance."""
+    from . import trade
+    data = await file.read()
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(413, "File too large")
+    return trade.analyze_invoice(data, file.content_type or "application/pdf")
+
+
 @app.post("/v1/collateral/media/analyze")
 async def collateral_media(file: UploadFile = File(...)):
     """Collateral Vision AI: EXIF time and GPS, quality and editing hints for one photo."""

@@ -33,6 +33,10 @@ public class MyWorkService {
     void setCollateral(com.rhythm.los.collateral.CollateralReviewRepository r, com.rhythm.los.collateral.CollateralRepository c) { this.colReviews = r; this.collaterals = c; }
 
     private com.rhythm.los.asset.AssetService assetService;
+    private com.rhythm.los.trade.TradeService tradeService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTrade(@org.springframework.context.annotation.Lazy com.rhythm.los.trade.TradeService t) { this.tradeService = t; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assetService = a; }
@@ -177,6 +181,12 @@ public class MyWorkService {
             LoanApplication a = (LoanApplication) t.get("application");
             out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
                     (String) t.get("task"), "asset", (Long) t.get("ageHours"), 720));
+        }
+        // trade finance: invoices to confirm or fund, referred checks, overdue drawdowns
+        if (tradeService != null) for (var t : tradeService.tasks(u)) {
+            LoanApplication a = (LoanApplication) t.get("application");
+            out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                    (String) t.get("task"), "trade", (Long) t.get("ageHours"), 24));
         }
         return out;
     }

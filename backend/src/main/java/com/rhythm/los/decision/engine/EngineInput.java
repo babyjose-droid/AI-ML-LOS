@@ -79,5 +79,8 @@ public record EngineInput(
     public record Fraud(int dupLinks, boolean docTamper, int velocity, double rotationShare, int networkScore) {
         public Fraud(int dupLinks, boolean docTamper, int velocity) { this(dupLinks, docTamper, velocity, 0, 0); }
     }
-    public record Loan(double amount, int tenure) {}
+    /** revolving: a working-capital limit drawn against invoices (trade finance); serviced by interest, principal from each invoice's payment. */
+    public record Loan(double amount, int tenure, boolean revolving) {
+        public Loan(double amount, int tenure) { this(amount, tenure, false); }
+    }
 }

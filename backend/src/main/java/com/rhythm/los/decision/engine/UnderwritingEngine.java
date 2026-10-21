@@ -182,13 +182,22 @@ public final class UnderwritingEngine {
         // RBI microfinance cap: all loan repayments of the household within 50% of its monthly income
         double mfiCap = mfi ? Math.max(0, round(0.5 * income - existing)) : Double.MAX_VALUE;
         if (mfi) maxEmi = Math.min(maxEmi, mfiCap);
-        double reqEmi = round(Finance.emi(a.loan().amount(), rate, a.loan().tenure()));
-        double maxLoan = Math.floor(Finance.pv(maxEmi, rate, a.loan().tenure()) / 5000) * 5000;
+        boolean revolving = a.loan().revolving();
+        // a revolving limit is serviced by monthly interest on the drawn amount (assessed fully drawn); each drawdown's
+        // principal is repaid from the invoice it financed. The limit is also held within 25% of annual bank credits
+        // (the turnover method for working-capital limits).
+        double annualCredits = round(sum(inf) / n * 12);
+        double turnoverCap = Math.floor(0.25 * annualCredits / 5000) * 5000;
+        double reqEmi = revolving ? round(a.loan().amount() * rate / 1200) : round(Finance.emi(a.loan().amount(), rate, a.loan().tenure()));
+        double maxLoan = revolving ? Math.min(Math.floor(maxEmi * 1200 / rate / 5000) * 5000, turnoverCap)
+                : Math.floor(Finance.pv(maxEmi, rate, a.loan().tenure()) / 5000) * 5000;
         double foirPost = (existing + reqEmi) / income;
         double recAmt = Math.min(Math.min(a.loan().amount(), maxLoan), p.exposureCap());
-        double recEmi = round(Finance.emi(recAmt, rate, a.loan().tenure()));
-        steps.add(new EngineResult.Step("Affordability", "Max EMI ₹" + inr(maxEmi) + " · FOIR " + Math.round(foirPost * 100) + "%",
-                reqEmi <= maxEmi ? "ok" : recAmt >= a.loan().amount() * 0.6 ? "warn" : "bad"));
+        double recEmi = revolving ? round(recAmt * rate / 1200) : round(Finance.emi(recAmt, rate, a.loan().tenure()));
+        steps.add(new EngineResult.Step(revolving ? "Affordability (revolving limit)" : "Affordability",
+                revolving ? "Interest at full use ₹" + inr(reqEmi) + "/mo of max ₹" + inr(maxEmi) + " · turnover cap ₹" + inr(turnoverCap) + " (25% of ₹" + inr(annualCredits) + " credits a year)"
+                        : "Max EMI ₹" + inr(maxEmi) + " · FOIR " + Math.round(foirPost * 100) + "%",
+                reqEmi <= maxEmi && (!revolving || a.loan().amount() <= turnoverCap) ? "ok" : recAmt >= a.loan().amount() * 0.6 ? "warn" : "bad"));
 
         // 9. Policy rules: hard rejects first, then refers, then counter-offer
         RuleBook rb = new RuleBook(rules, reasons);
@@ -225,7 +234,9 @@ public final class UnderwritingEngine {
         rb.rule("R09", "PD ≤ " + Math.round(p.referPd() * 100) + "% (decline band)", pd <= p.referPd(), "REJECT", "RC-001");
         rb.rule("R10", "PD ≤ " + Math.round(p.approvePd() * 100) + "% (auto-approve band)", pd <= p.approvePd(), "REFER", "RC-001");
         rb.rule("R11", "Some EMI capacity after obligations", maxEmi >= 0.3 * reqEmi && surplus > 0, "REJECT", "RC-003");
-        rb.rule("R12", "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
+        rb.rule("R12", revolving ? "Interest on the full limit within capacity" : "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
+        if (revolving)
+            rb.rule("R24", "Limit ≤ 25% of annual bank credits (₹" + inr(turnoverCap) + ")", a.loan().amount() <= turnoverCap + 0.5, "COUNTER", "RC-003");
         rb.rule("R13", "Amount ≤ auto-approval limit ₹" + inr(p.autoApproveLimit()), recAmt <= p.autoApproveLimit(), "REFER", "RC-014");
         if (a.bank().employerMismatch())
             rb.rule("R15", "Salary slip employer matches the salary credits in the bank statement", false, "REFER", "RC-010");
@@ -253,9 +264,9 @@ public final class UnderwritingEngine {
         if (!missing.isEmpty() && !gateReject) decision = "INCOMPLETE";
         else if (rb.hard != null) decision = "REJECT";
         else if (!rb.refer.isEmpty()) decision = "REFER";
-        else if (reqEmi > maxEmi) decision = "APPROVE_WITH_CONDITIONS";
+        else if (reqEmi > maxEmi || recAmt < a.loan().amount() - 0.5 && revolving) decision = "APPROVE_WITH_CONDITIONS";
         else decision = "APPROVE";
-        if (reqEmi > maxEmi && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision)) reasons.add("RC-003");
+        if ((reqEmi > maxEmi || revolving && a.loan().amount() > turnoverCap + 0.5) && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision)) reasons.add("RC-003");
 
         List<EngineResult.Contribution> sorted = new ArrayList<>(c);
         sorted.sort((x, y) -> Double.compare(y.value(), x.value()));
@@ -268,7 +279,10 @@ public final class UnderwritingEngine {
 
         List<String> conditions = new ArrayList<>();
         if ("APPROVE_WITH_CONDITIONS".equals(decision))
-            conditions.add("Sanction capped at ₹" + inr(recAmt) + " (EMI ₹" + inr(recEmi) + ") to stay within affordability");
+            conditions.add(revolving ? "Limit capped at ₹" + inr(recAmt) + " (interest ₹" + inr(recEmi) + "/mo fully drawn; 25% of annual credits)"
+                    : "Sanction capped at ₹" + inr(recAmt) + " (EMI ₹" + inr(recEmi) + ") to stay within affordability");
+        if (revolving && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision))
+            conditions.add("Each drawdown against an eligible invoice; repaid on the invoice's due date; limit reviewed every 12 months");
         if (!thick && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision)) conditions.add("NACH mandate on primary account used for cash-flow analysis");
         if ("MSME".equalsIgnoreCase(a.segment()) && !"REJECT".equals(decision) && !"INCOMPLETE".equals(decision))
             conditions.add("Re-pull AA statement at month 6 for early-warning monitoring");

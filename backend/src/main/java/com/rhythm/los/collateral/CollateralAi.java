@@ -48,6 +48,13 @@ public class CollateralAi {
         return post("/v1/assets/documents/analyze", form);
     }
 
+    /** Trade finance: reads an invoice offered for financing (both GSTINs, due date, PO, amounts). */
+    public Optional<Map<String, Object>> tradeInvoice(byte[] bytes, String contentType, String fileName) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", part(bytes, contentType, fileName));
+        return post("/v1/trade/invoices/analyze", form);
+    }
+
     public Optional<Map<String, Object>> media(byte[] bytes, String contentType, String fileName) {
         LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("file", part(bytes, contentType, fileName));

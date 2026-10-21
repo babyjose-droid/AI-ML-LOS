@@ -28,10 +28,10 @@ export interface AssetCase {
   end: string
 }
 
-const fixture = (f: string) => path.join(__dirname, '..', 'fixtures', f)
-const state = (page: Page, domain: string) => page.locator(`[data-domain="${domain}"] .pill`)
+export const fixture = (f: string) => path.join(__dirname, '..', 'fixtures', f)
+export const state = (page: Page, domain: string) => page.locator(`[data-domain="${domain}"] .pill`)
 
-async function captions(page: Page) {
+export async function captions(page: Page) {
   await page.addInitScript(() => {
     const draw = () => {
       let el = document.getElementById('__cap')
@@ -53,7 +53,7 @@ export async function say(page: Page, text: string, pause = 1800) {
   await page.evaluate(t => { sessionStorage.setItem('__cap', t); (window as unknown as { __cap?: () => void }).__cap?.() }, text)
   await page.waitForTimeout(pause)
 }
-async function login(page: Page, user: string, who: string) {
+export async function login(page: Page, user: string, who: string) {
   await page.goto('/')
   await page.getByLabel('Username').fill(user)
   await page.getByLabel('Password').fill('Rhythm@123')
@@ -61,11 +61,11 @@ async function login(page: Page, user: string, who: string) {
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
 }
-async function logout(page: Page) {
+export async function logout(page: Page) {
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
 }
-async function openApp(page: Page, name: string) {
+export async function openApp(page: Page, name: string) {
   await page.goto('/applications?view=list')
   await page.getByPlaceholder('Search name, PAN or application no.').fill(name)
   await page.getByRole('cell', { name, exact: true }).first().click()

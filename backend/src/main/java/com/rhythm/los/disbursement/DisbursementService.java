@@ -74,6 +74,10 @@ public class DisbursementService {
 
     private com.rhythm.los.docgen.DocPackService docPacks;
     private com.rhythm.los.asset.AssetService assets;
+    private com.rhythm.los.trade.TradeService trade;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTrade(@org.springframework.context.annotation.Lazy com.rhythm.los.trade.TradeService t) { this.trade = t; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setAssets(@org.springframework.context.annotation.Lazy com.rhythm.los.asset.AssetService a) { this.assets = a; }
@@ -92,8 +96,10 @@ public class DisbursementService {
         recheck.addAll(sanctions.partyBlockers(a, "DISBURSE"));
         if (docPacks != null) recheck.addAll(docPacks.blockers(a));
         if (assets != null) recheck.addAll(assets.disbursementBlockers(a));
+        if (trade != null) recheck.addAll(trade.activationBlockers(a));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
+        if (trade != null && trade.isTrade(a)) return activateLimit(a, kfs, by);
 
         Disbursement d = new Disbursement();
         d.setApplicationId(appId);
@@ -130,6 +136,44 @@ public class DisbursementService {
         apps.transition(a, Domain.APP, "DISBURSED", "application.disbursed", by, "Loan booking file sent to LMS");
         if (book != null) book.onDisbursed(a, kfs, "LN-" + a.getAppNo().replace("APP-", ""));
         if (assets != null && toDealer) assets.onDisbursed(a);
+        return d;
+    }
+
+    /**
+     * A revolving trade-finance limit: the borrower's account is verified (it receives the drawdowns on receivables and vendor
+     * programmes) and the limit becomes available; money moves only when an invoice is funded.
+     */
+    private Disbursement activateLimit(LoanApplication a, Kfs kfs, CurrentUser by) {
+        Disbursement d = new Disbursement();
+        d.setApplicationId(a.getId());
+        d.setGrossAmount(BigDecimal.valueOf(kfs.sanctionedAmount()));
+        d.setDeductions(BigDecimal.valueOf(kfs.processingFee() + kfs.gstOnFee()));
+        d.setNetAmount(BigDecimal.ZERO);
+        d.setBeneficiaryAccount(mask(a.getBankAccountNo()));
+        d.setIfsc(a.getBankIfsc());
+        d.setActor(by.username());
+        var pd = gateway.call(a.getId(), bank.name(), "bank.penny_drop", () -> bank.pennyDrop(a),
+                r -> "name " + r.beneficiaryName() + " match " + r.nameMatch(), null);
+        if (!pd.ok()) return fail(a, d, "Penny drop failed: " + pd.error(), by);
+        PennyDropResult p = pd.value();
+        d.setNameMatchScore(BigDecimal.valueOf(p.nameMatch()));
+        if (!p.accountValid() || p.nameMatch() < MIN_NAME_MATCH)
+            return fail(a, d, "Beneficiary name '" + p.beneficiaryName() + "' does not match the borrower (match " + p.nameMatch() + ")", by);
+        var l = trade.activate(a, kfs.sanctionedAmount(), kfs.ratePa(), by.username());
+        d.setStatus("SUCCESS");
+        d.setUtr("LIMIT " + l.limitNo);
+        Map<String, Object> lms = new LinkedHashMap<>();
+        lms.put("externalRef", a.getAppNo());
+        lms.put("type", "REVOLVING_LIMIT");
+        lms.put("limitNo", l.limitNo);
+        lms.put("limit", kfs.sanctionedAmount());
+        lms.put("ratePa", kfs.ratePa());
+        lms.put("validTo", String.valueOf(l.validTo));
+        lms.put("fees", Map.of("processing", kfs.processingFee(), "gst", kfs.gstOnFee()));
+        d.setLmsPayload(Json.write(lms));
+        d = repo.save(d);
+        apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, "Limit " + l.limitNo + " of ₹" + Math.round(kfs.sanctionedAmount()) + " activated to " + l.validTo + "; drawdowns against invoices");
+        apps.transition(a, Domain.APP, "DISBURSED", "application.disbursed", by, "Revolving limit activated; drawdowns in Trade finance");
         return d;
     }
 

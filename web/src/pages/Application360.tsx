@@ -1,4 +1,5 @@
 import { AssetTab } from '../asset/Asset'
+import { LimitTab } from '../trade/Trade'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
@@ -12,7 +13,7 @@ import { ConsentPanel, CreditMemoPanel, CustomerPanel, FieldVisitsPanel } from '
 import { LoanDocsTab } from '../docgen/LoanDocsTab'
 import type { AppStages, AppSummary, AppView, States, Contribution, Decision, Disbursement, Doc, FieldValue, History, IntegrationLog, Kfs, KycCheck, Rule, SanctionRecord, Snapshot, StatementAnalysis, Step } from '../types'
 
-const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Asset', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
+const TABS = ['Overview', 'Customer', 'Parties', 'Workflow', 'Documents', 'Field visit', 'Collateral', 'Asset', 'Limit', 'Bank statement', 'Video KYC', 'Data', 'Decision', 'Credit memo', 'Sanction & KFS', 'Signing pack', 'Disbursement', 'History', 'Integrations'] as const
 type Tab = typeof TABS[number]
 type PhaseStatus = 'done' | 'now' | 'fail' | 'todo'
 
@@ -60,8 +61,8 @@ const ACTION_LABEL: Record<string, string> = {
 export default function Application360() {
   const { id } = useParams()
   const [tab, setTabState] = useState<Tab>(() => { const q = new URLSearchParams(window.location.search).get('tab'); return (TABS as readonly string[]).includes(q ?? '') ? q as Tab : 'Overview' })
-  const [phase, setPhase] = useState<number | null>(() => { const i = tab === 'Asset' ? 3 : PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
-  const setTab = (t: Tab) => { setTabState(t); const i = t === 'Asset' ? 3 : PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
+  const [phase, setPhase] = useState<number | null>(() => { const i = tab === 'Asset' || tab === 'Limit' ? 3 : PHASES.findIndex(p => p.tabs.includes(tab)); return i >= 0 ? i : null })
+  const setTab = (t: Tab) => { setTabState(t); const i = t === 'Asset' || t === 'Limit' ? 3 : PHASES.findIndex(p => p.tabs.includes(t)); if (i >= 0) setPhase(i) }
   const navTo = useNavigate()
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [error, setError] = useState<unknown>()
@@ -101,7 +102,7 @@ export default function Application360() {
         case 'acceptKfs': await api.post(base + '/kfs/accept', { otp: body?.otp, language: body?.choice || null }); break
         case 'disburse': {
           const d = await api.post<Disbursement>(base + '/disburse')
-          setMsg(d.status === 'SUCCESS' ? `Disbursed. UTR ${d.utr}` : `Disbursement failed: ${d.failureReason}`)
+          setMsg(d.status !== 'SUCCESS' ? `Disbursement failed: ${d.failureReason}` : d.utr?.startsWith('LIMIT ') ? `Limit ${d.utr.slice(6)} activated: draw against invoices in the Limit tab` : `Disbursed. UTR ${d.utr}`)
           break
         }
         case 'retryDisbursement': await api.post(base + '/disburse/retry'); break
@@ -126,9 +127,9 @@ export default function Application360() {
   // group loans: step 4 is the group's training and test (CGT, GRT) from the workflow, not a field visit
   // step 4 follows the product's workflow: the group's CGT and GRT, or the vehicle check with the field visit
   const allStages = stages.data?.stages ?? []
-  const group = allStages.some(x => x.key === 'cgt'), vehicle = allStages.some(x => x.key === 'val'), gold = allStages.some(x => x.key === 'gold'), assetFin = allStages.some(x => x.key === 'asset')
-  const groupStages = allStages.filter(x => group ? ['cgt', 'grt'].includes(x.key) : assetFin ? ['asset', 'field'].includes(x.key) : vehicle ? ['val', 'field'].includes(x.key) : gold ? x.key === 'gold' : false)
-  const phaseName = (i: number) => i !== 3 ? PHASES[i].name : group ? 'Group (CGT, GRT)' : assetFin ? 'Asset & dealer check' : vehicle ? 'Vehicle check & field visit' : gold ? 'Gold appraisal' : PHASES[i].name
+  const group = allStages.some(x => x.key === 'cgt'), vehicle = allStages.some(x => x.key === 'val'), gold = allStages.some(x => x.key === 'gold'), assetFin = allStages.some(x => x.key === 'asset'), tradeFin = allStages.some(x => x.key === 'limit')
+  const groupStages = allStages.filter(x => group ? ['cgt', 'grt'].includes(x.key) : assetFin ? ['asset', 'field'].includes(x.key) : tradeFin ? ['limit', 'field'].includes(x.key) : vehicle ? ['val', 'field'].includes(x.key) : gold ? x.key === 'gold' : false)
+  const phaseName = (i: number) => i === 7 && tradeFin ? 'Limit activation' : i !== 3 ? PHASES[i].name : tradeFin ? 'Programme & limit' : group ? 'Group (CGT, GRT)' : assetFin ? 'Asset & dealer check' : vehicle ? 'Vehicle check & field visit' : gold ? 'Gold appraisal' : PHASES[i].name
   const ph = phaseStatuses(v.states)
   if (groupStages.length) {
     const st = groupStages.map(x => x.status)
@@ -139,7 +140,7 @@ export default function Application360() {
   const sel = phase ?? current
   const stageCls = (st: string) => st === 'DONE' ? 'd' : st === 'SKIPPED' ? 's f' : st === 'FAILED' ? 'x' : ['ACTIVE', 'REVIEW'].includes(st) ? 'c' : 'f'
   const mine = stages.data?.stages.filter(s => s.canComplete || s.canReview) ?? []
-  const phaseTabs = (i: number): Tab[] => i === 3 && assetFin ? ['Asset', 'Field visit'] : PHASES[i].tabs
+  const phaseTabs = (i: number): Tab[] => i === 3 && assetFin ? ['Asset', 'Field visit'] : i === 3 && tradeFin ? ['Limit', 'Field visit'] : PHASES[i].tabs
   const tabBtn = (t: Tab) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
 
   return (
@@ -192,6 +193,7 @@ export default function Application360() {
           {tab === 'Customer' && <CustomerPanel id={id!} rev={rev} />}
           {tab === 'Parties' && <PartiesTab id={id!} rev={rev} onChange={refresh} />}
           {tab === 'Asset' && <AssetTab id={id!} rev={rev} onChange={refresh} />}
+          {tab === 'Limit' && <LimitTab id={id!} rev={rev} onChange={refresh} />}
           {tab === 'Field visit' && <FieldVisitsPanel id={id!} rev={rev} />}
           {tab === 'Collateral' && <ApplicationCollateralTab id={id!} productCode={v.application.productCode} rev={rev} onChange={refresh} />}
           {tab === 'Workflow' && (stages.data ? <WorkflowTab id={id!} data={stages.data} onChange={refresh} /> : <ErrorBox error={stages.error} />)}
@@ -214,7 +216,7 @@ export default function Application360() {
             {buttons.map(x => x === 'edit'
               ? <Link key={x} className="btn" to={`/applications/${id}/edit`} style={{ display: 'block', marginBottom: 8 }}>{ACTION_LABEL[x]}</Link>
               : <button key={x} data-action={x} className={'btn' + (['process', 'sanction', 'disburse', 'submit', 'acceptKfs'].includes(x) ? ' primary' : '') + (x === 'decline' ? ' danger' : '')}
-                  disabled={busy} onClick={() => DIALOGS[x] ? setDialog(DIALOGS[x]) : run(x)}>{ACTION_LABEL[x] ?? x}</button>)}
+                  disabled={busy} onClick={() => DIALOGS[x] ? setDialog(DIALOGS[x]) : run(x)}>{x === 'disburse' && tradeFin ? 'Activate limit' : ACTION_LABEL[x] ?? x}</button>)}
             {v.blockers.length > 0 && ['SUBMITTED', 'UNDERWRITING'].includes(v.states.APP) && v.states.DECISION === 'PENDING' && (
               <>
                 <h3 style={{ marginTop: 14 }}>Waiting for</h3>

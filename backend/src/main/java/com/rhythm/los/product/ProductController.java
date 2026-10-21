@@ -21,7 +21,7 @@ public class ProductController {
     private static final Set<String> DOC_TYPES = com.rhythm.los.document.DocumentService.TYPES;
 
     private static final Set<String> STATUSES = Set.of("DRAFT", "LIVE", "PAUSED", "RETIRED");
-    private static final Set<String> FREQUENCIES = Set.of("MONTHLY", "FORTNIGHTLY", "WEEKLY", "BULLET");
+    private static final Set<String> FREQUENCIES = Set.of("MONTHLY", "FORTNIGHTLY", "WEEKLY", "BULLET", "REVOLVING");
     /** AUTO = the bureau model when there is a bureau record, else the new-to-credit model (FR-UW-02). */
     private static final Set<String> MODELS = Set.of("AUTO");
 

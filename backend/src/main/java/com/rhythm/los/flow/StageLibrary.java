@@ -60,6 +60,9 @@ public final class StageLibrary {
         add(new Def("plan", "Loan plan", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Plan document AI"), a -> false, List.of(),
                 "Housing, education or farm loan: what the loan pays for passes the plan checks (HS, ED or AG rules)"));
+        add(new Def("pledge", "Pledge & lien", "OPERATIONS", 8, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
+                List.of("CAS / deposit receipt AI", "Depository", "Price feed"), a -> false, List.of(),
+                "Loan against securities or a deposit: holdings or deposit read, drawing power covers the loan (PL / FD rules)"));
         add(new Def("legal", "Legal & technical (property)", "CREDIT_MANAGER", 72, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Legal vendor", "Technical vendor"), a -> false, List.of("titleClear", "marketValue"), "Title search and technical valuation of the property"));
     }

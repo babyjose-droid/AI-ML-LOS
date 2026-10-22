@@ -32,6 +32,7 @@ public final class PlanRules {
             case "HOUSING" -> housing(d, docs, tranches, loan, cs, cond);
             case "EDUCATION" -> education(d, docs, tranches, party, applicant, loan, tenureMonths, today, cs, cond);
             case "AGRI" -> agri(d, docs, applicant, loan, cs, cond);
+            case "RENTAL" -> rental(d, docs, applicant, loan, tenureMonths, today, cs, cond);
             default -> cs.add(c("PL-00", "Plan kind", "FAIL", "Unknown plan kind " + kind));
         }
         Map<String, Map<String, Object>> rule = rulings == null ? Map.of() : rulings;
@@ -206,6 +207,56 @@ public final class PlanRules {
         } else cs.add(c("AG-06", "Area matches the 7/12", crop ? "PENDING" : "PASS", crop ? "Area from the 7/12 needed" : "Not area-based"));
         cond.add(crop ? "Instalments after each harvest; the field officer re-visits before each season" : "Monthly repayment from the activity's income");
         cond.add("Insurance kept in force with the lender noted");
+    }
+
+    // ---------------------------------------------------------------- rental income (lease rental discounting)
+
+    /** Share of the net rent (after 10% TDS) that the EMI may take. */
+    public static final double RENT_COVER = 0.80;
+
+    static void rental(Map<String, Object> d, Map<String, Map<String, Object>> docs, String applicant, double loan, int tenure, LocalDate today,
+                       List<Check> cs, List<String> cond) {
+        Map<String, Object> lease = docs.get("LEASE_DEED");
+        String tenant = str(d.get("tenantName"));
+        double rent = num(d.get("monthlyRent")), rate = num(d.get("_ratePa"));
+        if (lease == null) cs.add(c("LR-01", "Lease deed: borrower is the landlord", "PENDING", "Upload the registered lease deed"));
+        else {
+            List<String> diff = new ArrayList<>();
+            if (lease.get("lessor") != null && !sameName(lease.get("lessor").toString(), applicant)) diff.add("landlord " + lease.get("lessor"));
+            if (lease.get("lessee") != null && tenant != null && !sameName(lease.get("lessee").toString(), tenant)) diff.add("tenant " + lease.get("lessee"));
+            if (num(lease.get("monthlyRent")) > 0 && rent > 0 && Math.abs(num(lease.get("monthlyRent")) - rent) > 1) diff.add("rent " + rupees(num(lease.get("monthlyRent"))));
+            cs.add(diff.isEmpty() ? c("LR-01", "Lease deed: borrower is the landlord", "PASS", applicant + " leases to " + (tenant != null ? tenant : Objects.toString(lease.get("lessee"), "the tenant")) + " at " + rupees(rent) + " a month")
+                    : c("LR-01", "Lease deed: borrower is the landlord", "REFER", "The lease reads " + String.join(", ", diff)));
+        }
+        if (rent <= 0 || rate <= 0) cs.add(c("LR-02", "EMI within 80% of the net rent", "PENDING", "Enter the monthly rent"));
+        else {
+            double r = rate / 1200, emi = loan * r * Math.pow(1 + r, tenure) / (Math.pow(1 + r, tenure) - 1), net = rent * 0.90;
+            cs.add(emi <= RENT_COVER * net + 1 ? c("LR-02", "EMI within 80% of the net rent", "PASS", "EMI " + rupees(emi) + " is " + pct(emi / net) + " of the rent after TDS " + rupees(net) + " (at " + fmt(rate) + "%)")
+                    : c("LR-02", "EMI within 80% of the net rent", "REFER", "EMI " + rupees(emi) + " is " + pct(emi / net) + " of the rent after TDS " + rupees(net) + "; the maximum loan is lower"));
+        }
+        LocalDate end = date(d.get("leaseEnd"));
+        if (end == null) cs.add(c("LR-03", "Loan ends before the lease", "PENDING", "Enter the lease end date"));
+        else cs.add(!today.plusMonths(tenure).isAfter(end) ? c("LR-03", "Loan ends before the lease", "PASS", "Loan ends " + today.plusMonths(tenure) + ", lease runs to " + end)
+                : c("LR-03", "Loan ends before the lease", "REFER", "Loan ends " + today.plusMonths(tenure) + ", after the lease ends " + end));
+        LocalDate start = date(d.get("leaseStart"));
+        int lockIn = (int) num(d.get("lockInMonths"));
+        if (start == null || lockIn <= 0) cs.add(c("LR-04", "Lock-in protects the loan", "REFER", "No lock-in recorded: the tenant may leave at short notice"));
+        else {
+            long left = Math.max(0, java.time.temporal.ChronoUnit.MONTHS.between(today, start.plusMonths(lockIn)));
+            long need = Math.min(36, tenure / 2);
+            cs.add(left >= need ? c("LR-04", "Lock-in protects the loan", "PASS", left + " months of lock-in left (needs " + need + ")")
+                    : c("LR-04", "Lock-in protects the loan", "REFER", "Only " + left + " months of lock-in left (needs " + need + ")"));
+        }
+        String escrow = str(d.get("escrowAccount"));
+        cs.add(escrow == null ? c("LR-05", "Rent paid into an escrow account", "PENDING", "Record the escrow account the tenant will pay into")
+                : c("LR-05", "Rent paid into an escrow account", "PASS", "Escrow " + escrow + "; the tenant pays rent there and the EMI is swept first"));
+        String type = str(d.get("tenantType"));
+        cs.add(type == null ? c("LR-06", "Tenant quality", "PENDING", "Record the kind of tenant")
+                : Set.of("BANK", "CORPORATE", "GOVERNMENT").contains(type) ? c("LR-06", "Tenant quality", "PASS", label(type) + " tenant")
+                : c("LR-06", "Tenant quality", "REFER", label(type) + " tenant: higher risk of vacancy"));
+        cond.add("Tripartite agreement: the tenant pays rent into the escrow account until the loan is repaid");
+        cond.add("Assignment of the lease rentals and mortgage of the property in the lender's favour");
+        cond.add("Any change in the lease or tenant to be informed within 15 days");
     }
 
     // ---------------------------------------------------------------- tranche release

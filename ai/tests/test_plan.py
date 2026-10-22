@@ -33,3 +33,12 @@ def test_estimate_and_endpoint():
     res = client.post("/v1/plan/documents/analyze", files={"file": ("e.pdf", e, "application/pdf")}, data={"doc_type": "construction_estimate"})
     f = res.json()["fields"]
     assert f["total"]["value"] == 1800000 and f["carpetAreaSqft"]["value"] == 860 and f["planNo"]["value"] == "NMC/BP/2026/1187"
+
+
+def test_lease_deed():
+    r = plan.analyze_document(pdf("LEASE DEED", ["Lessor: Rajendra Bhalerao", "Lessee: Fictional Bank Ltd (Nashik Road branch)", "Monthly rent: 1,80,000",
+                                                 "Start date: 01-04-2024", "End date: 31-03-2036", "Lock-in period: 5 years", "Escalation: 5% every 3 years"]),
+                              "application/pdf", "LEASE_DEED")
+    f = r["fields"]
+    assert r["missing"] == [] and f["monthlyRent"]["value"] == 180000 and f["lockInMonths"]["value"] == 60
+    assert f["endDate"]["value"] == "2036-03-31" and f["escalationPct"]["value"] == 5

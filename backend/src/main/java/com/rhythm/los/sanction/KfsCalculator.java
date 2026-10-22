@@ -22,7 +22,7 @@ public final class KfsCalculator {
         double gst = Finance.round(fee * 0.18);
         double insurance = 0;
         double net = amount - fee - gst - insurance;
-        if ("REVOLVING".equals(c.frequency())) return revolving(appNo, borrower, product, amount, ratePa, months, c, fee, gst, net);
+        if ("REVOLVING".equals(c.frequency()) || "BULLET".equals(c.frequency())) return revolving(appNo, borrower, product, amount, ratePa, months, c, fee, gst, net);
         if ("SEASONAL".equals(c.frequency()) && months >= 6) return seasonal(appNo, borrower, product, amount, ratePa, months, c, fee, gst, net);
         double emi = Finance.round(Finance.emi(amount, ratePa, months));
         double apr = Math.round(Finance.apr(net, emi, months) * 100) / 100.0;
@@ -62,12 +62,14 @@ public final class KfsCalculator {
         }
         double apr = Math.round(lo * 1200 * 100) / 100.0;
         double totalInterest = round2(interest * months);
+        boolean bullet = "BULLET".equals(c.frequency());
         List<Kfs.Charge> contingent = new ArrayList<>();
-        contingent.add(new Kfs.Charge("How it works", "Draw against eligible invoices up to the limit; each drawdown is repaid on the invoice's due date and the limit is available again"));
+        contingent.add(new Kfs.Charge("How it works", bullet ? "Interest every month; the principal at the end, or earlier from the pledged securities or deposit. A fall in their value below the margin needs more security or a part-payment within 7 days"
+                : "Draw against eligible invoices up to the limit; each drawdown is repaid on the invoice's due date and the limit is available again"));
         if (c.penalRatePct() > 0) contingent.add(new Kfs.Charge("Penal charge", c.penalRatePct() + "% p.a. on a drawdown overdue after its due date (not added to the interest rate)"));
         if (c.bounceCharge() > 0) contingent.add(new Kfs.Charge("Bounce charge", "₹" + Math.round(c.bounceCharge()) + " per dishonoured repayment + GST"));
         return new Kfs(appNo, borrower, product, amount, fee, gst, 0, net, ratePa, apr, months, interest,
-                totalInterest, round2(totalInterest + amount + fee + gst), 3, "Revolving limit: interest monthly, principal on each invoice's due date",
+                totalInterest, round2(totalInterest + amount + fee + gst), 3, bullet ? "Interest monthly, principal at the end (bullet)" : "Revolving limit: interest monthly, principal on each invoice's due date",
                 "Grievance Redressal Officer, grievance@example-nbfc.in", rows, contingent, java.util.List.of());
     }
 

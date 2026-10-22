@@ -242,7 +242,7 @@ public class DecisionService {
                 "MICROFINANCE".equals(a.getSegment()) && workflow.groupRecognised(a),
                 p.isSecured(),
                 fraud,
-                new EngineInput.Loan(a.getLoanAmount().doubleValue(), a.getTenureMonths(), "REVOLVING".equals(p.getRepaymentFrequency())),
+                new EngineInput.Loan(a.getLoanAmount().doubleValue(), a.getTenureMonths(), "REVOLVING".equals(p.getRepaymentFrequency()), "BULLET".equals(p.getRepaymentFrequency())),
                 new EngineInput.Eligibility(p.getCode(), p.getMinAge(), p.getMaxAge(),
                         p.getMinVintageYears() == null ? 0 : p.getMinVintageYears().doubleValue(),
                         p.getMinMonthlyIncome() == null ? 0 : p.getMinMonthlyIncome().doubleValue(),

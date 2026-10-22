@@ -14,6 +14,7 @@ public class CollateralPolicy {
     @Column(name = "title_depth_years") private int titleDepthYears;
     private BigDecimal haircut;
     @Column(name = "max_ltv") private BigDecimal maxLtv;
+    @Column(name = "ltv_slabs") private String ltvSlabs;
     @Column(name = "valuation_max_age_months") private int valuationMaxAgeMonths;
     @Column(name = "second_valuation_above") private BigDecimal secondValuationAbove;
     @Column(name = "variance_limit") private BigDecimal varianceLimit;
@@ -37,6 +38,8 @@ public class CollateralPolicy {
     public void setTitleDepthYears(int v) { this.titleDepthYears = v; }
     public BigDecimal getHaircut() { return haircut; }
     public void setHaircut(BigDecimal v) { this.haircut = v; }
+    public String getLtvSlabs() { return ltvSlabs; }
+    public void setLtvSlabs(String v) { this.ltvSlabs = v; }
     public BigDecimal getMaxLtv() { return maxLtv; }
     public void setMaxLtv(BigDecimal v) { this.maxLtv = v; }
     public int getValuationMaxAgeMonths() { return valuationMaxAgeMonths; }

@@ -63,6 +63,14 @@ public class CollateralAi {
         return post("/v1/plan/documents/analyze", form);
     }
 
+    /** Pledges: CAS statement (holdings), fixed-deposit receipt, lien confirmation. */
+    public Optional<Map<String, Object>> pledgeDocument(byte[] bytes, String contentType, String fileName, String docType) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", part(bytes, contentType, fileName));
+        form.add("doc_type", docType);
+        return post("/v1/pledge/documents/analyze", form);
+    }
+
     public Optional<Map<String, Object>> media(byte[] bytes, String contentType, String fileName) {
         LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("file", part(bytes, contentType, fileName));

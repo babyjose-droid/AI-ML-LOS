@@ -77,4 +77,17 @@ class PlanRulesTest {
         assertThat(PlanRules.sameName("Shri. VITTHAL SHELKE", "Vitthal Shelke")).isTrue();
         assertThat(PlanRules.sameName("Ramdas Shelke", "Vitthal Shelke")).isFalse();
     }
+
+    @Test
+    void rentalIncomeCoversTheEmi() {
+        Map<String, Object> d = new HashMap<>(Map.of("tenantName", "Fictional Bank Ltd", "tenantType", "BANK", "monthlyRent", 180_000, "leaseStart", "2024-04-01",
+                "leaseEnd", "2038-03-31", "lockInMonths", 120, "escrowAccount", "ESC-50200099112233", "_ratePa", 14.0));
+        Map<String, Map<String, Object>> docs = Map.of("LEASE_DEED", Map.of("lessor", "Rajendra Bhalerao", "lessee", "Fictional Bank Ltd (Nashik Road branch)", "monthlyRent", 180_000));
+        var r = PlanRules.evaluate("RENTAL", d, docs, List.of(), null, "Rajendra Bhalerao", 5_000_000, 120, TODAY, null);
+        assertThat(r.status()).isEqualTo("PASS");
+        var big = PlanRules.evaluate("RENTAL", d, docs, List.of(), null, "Rajendra Bhalerao", 10_000_000, 120, TODAY, null);
+        assertThat(check(big, "LR-02").result()).isEqualTo("REFER");
+        d.put("tenantType", "RETAIL");
+        assertThat(check(PlanRules.evaluate("RENTAL", d, docs, List.of(), null, "Rajendra Bhalerao", 5_000_000, 180, TODAY, null), "LR-03").result()).isEqualTo("REFER");
+    }
 }

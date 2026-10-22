@@ -37,6 +37,12 @@ LABELS = {
     "sumInsured": ["sum insured", "insured value"],
     "validTill": ["valid till", "period to", "expiry"],
     "scheme": ["scheme"],
+    "lessor": ["lessor", "landlord", "licensor"],
+    "lessee": ["lessee", "tenant", "licensee"],
+    "monthlyRent": ["monthly rent", "rent per month", "monthly licence fee", "rent"],
+    "endDate": ["end date", "lease end", "lease expiry", "expiry of lease"],
+    "lockIn": ["lock-in", "lock in", "lock-in period", "lock in period"],
+    "escalation": ["escalation", "rent escalation"],
 }
 
 NEEDED = {
@@ -47,9 +53,10 @@ NEEDED = {
     "CONSTRUCTION_ESTIMATE": ["engineer", "total", "builtUpArea", "carpetArea"],
     "STAGE_CERTIFICATE": ["engineer", "stage", "percent"],
     "INSURANCE": ["insurer", "policyNo", "sumInsured", "validTill"],
+    "LEASE_DEED": ["lessor", "lessee", "monthlyRent", "startDate", "endDate", "lockIn"],
 }
-AMOUNTS = {"total", "amountDue", "sumInsured"}
-DATES = {"startDate", "dueDate", "validTill"}
+AMOUNTS = {"total", "amountDue", "sumInsured", "monthlyRent"}
+DATES = {"startDate", "dueDate", "validTill", "endDate"}
 
 
 def _lookup(pairs: dict[str, str], key: str) -> str | None:
@@ -100,6 +107,11 @@ def extract_fields(text: str, doc_type: str, ocr_conf: float = 1.0) -> dict:
             put(key, v or raw, 0.95 if v else 0.5)
         elif key == "duration":
             put("durationMonths", _months(raw), 0.9)
+        elif key == "lockIn":
+            put("lockInMonths", _months(raw), 0.9)
+        elif key == "escalation":
+            m = re.search(r"(\d{1,2}(?:\.\d+)?)\s*%", raw)
+            put("escalationPct", float(m.group(1)) if m else None)
         elif key == "area":
             a = _acres(raw)
             put("areaAcres", a, 0.95 if a is not None else 0.4)
@@ -141,7 +153,7 @@ def analyze_document(data: bytes, content_type: str, doc_type: str) -> dict:
     text_layer = bool(ocr.pdf_text.strip())
     conf = 1.0 if text_layer else max(0.3, min(1.0, ocr.mean_conf / 100 if ocr.mean_conf > 1 else ocr.mean_conf))
     fields = extract_fields(text, doc_type, conf)
-    needed = [("durationMonths" if k == "duration" else "areaAcres" if k == "area" else k + "Sqft" if k in ("builtUpArea", "carpetArea") else k)
+    needed = [("durationMonths" if k == "duration" else "lockInMonths" if k == "lockIn" else "areaAcres" if k == "area" else k + "Sqft" if k in ("builtUpArea", "carpetArea") else k)
               for k in NEEDED.get(doc_type, [])]
     found = [k for k in needed if k in fields]
     confs = [fields[k]["confidence"] for k in found] or [0.0]

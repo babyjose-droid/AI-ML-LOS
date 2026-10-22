@@ -14,7 +14,7 @@ interface Doc { id: number; docType: string; fileName: string; readConfidence?: 
   fields: Record<string, unknown> }
 interface Party { id: number; code: string; name: string; kind: string; category?: string; accreditation?: string; gstin?: string; city?: string; accountName?: string
   account?: string; ifsc?: string; empanelled: boolean; status: string; notes?: string; paid: number; releases: number }
-interface View { kind: 'HOUSING' | 'EDUCATION' | 'AGRI'; product: string; applicant: string; loan: number; tenureMonths: number; sanctioned?: number
+interface View { kind: 'HOUSING' | 'EDUCATION' | 'AGRI' | 'RENTAL'; product: string; applicant: string; loan: number; tenureMonths: number; sanctioned?: number
   details: Record<string, unknown>; status: string; checks: Check[]; conditions: string[]; documents: Doc[]; tranches: Tranche[]; parties: Party[]; docTypes: string[]
   canEdit: boolean; canUpload: boolean; canCertify: boolean; canRelease: boolean; canRule: boolean; disbursed: boolean }
 
@@ -22,7 +22,7 @@ const ST: Record<string, string> = { PASS: 'ok', REFER: 'warn', FAIL: 'bad', PEN
 const St = ({ s }: { s?: string }) => <span className={'pill ' + (ST[s ?? ''] ?? 'muted')}>{(s ?? '—').replace(/_/g, ' ').toLowerCase()}</span>
 const DOC: Record<string, string> = { CONSTRUCTION_ESTIMATE: "Engineer's construction estimate", STAGE_CERTIFICATE: "Engineer's stage certificate", INSURANCE: 'Insurance policy',
   ADMISSION_LETTER: 'Admission letter', FEE_LETTER: 'Fee structure letter', FEE_DEMAND: 'Fee demand for a term', LAND_RECORD_712: 'Land record (7/12 extract)' }
-export const PLAN_TITLE: Record<string, string> = { HOUSING: 'Property & stages', EDUCATION: 'Course & fees', AGRI: 'Farm & activity' }
+export const PLAN_TITLE: Record<string, string> = { HOUSING: 'Property & stages', EDUCATION: 'Course & fees', AGRI: 'Farm & activity', RENTAL: 'Lease & rent' }
 
 type F = { key: string; label: string; type?: 'text' | 'num' | 'date' | 'select'; options?: [string, string][] }
 const FORMS: Record<string, F[]> = {
@@ -41,6 +41,11 @@ const FORMS: Record<string, F[]> = {
     { key: 'crop', label: 'Crops' }, { key: 'landAreaAcres', label: 'Land (acres)', type: 'num' }, { key: 'surveyNo', label: 'Gat / survey no.' }, { key: 'village', label: 'Village' },
     { key: 'scalePerUnit', label: 'Scale of finance (₹ per acre or unit)', type: 'num' }, { key: 'units', label: 'Units (animals, machines)', type: 'num' },
     { key: 'ownContribution', label: 'Own contribution (₹)', type: 'num' }, { key: 'harvestMonths', label: 'Harvest months (repayment)' }, { key: 'insuranceRef', label: 'Insurance (PMFBY / livestock) ref.' }],
+  RENTAL: [
+    { key: 'tenantName', label: 'Tenant' }, { key: 'tenantType', label: 'Kind of tenant', type: 'select', options: [['BANK', 'Bank'], ['CORPORATE', 'Company'], ['GOVERNMENT', 'Government'], ['RETAIL', 'Shop / retail'], ['INDIVIDUAL', 'Individual']] },
+    { key: 'monthlyRent', label: 'Monthly rent (₹)', type: 'num' }, { key: 'leaseStart', label: 'Lease start', type: 'date' }, { key: 'leaseEnd', label: 'Lease end', type: 'date' },
+    { key: 'lockInMonths', label: 'Lock-in (months)', type: 'num' }, { key: 'escalationPct', label: 'Escalation (%)', type: 'num' }, { key: 'escrowAccount', label: 'Escrow account for the rent' },
+    { key: 'propertyAddress', label: 'Property address' }],
 }
 
 async function upload(url: string, form: FormData) {
@@ -86,7 +91,7 @@ export function PlanTab({ id, rev, onChange }: { id: string; rev: number; onChan
   const save = () => {
     const details: Record<string, unknown> = {}
     fields.forEach(f => { const s = (form[f.key] ?? '').trim(); details[f.key] = s === '' ? null : f.type === 'num' ? Number(s.replace(/,/g, '')) : f.key === 'institutionId' ? Number(s) : s })
-    const tranches = d.kind === 'AGRI' ? undefined : rows.filter(x => Number(x.amount) > 0).map(x => ({ label: x.label, amount: Number(x.amount), stagePct: x.stagePct === '' ? null : Number(x.stagePct) }))
+    const tranches = d.kind === 'AGRI' || d.kind === 'RENTAL' ? undefined : rows.filter(x => Number(x.amount) > 0).map(x => ({ label: x.label, amount: Number(x.amount), stagePct: x.stagePct === '' ? null : Number(x.stagePct) }))
     return run(() => api.put(`/api/applications/${id}/plan`, { details, tranches }), 'Plan saved and checked')
   }
   const send = (type: string, seq?: number) => {
@@ -114,7 +119,7 @@ export function PlanTab({ id, rev, onChange }: { id: string; rev: number; onChan
       {msg && <div className="alert ok" role="status">{msg}</div>}
       <KpiStrip items={[
         ['Plan', PLAN_TITLE[d.kind], <span data-plan-status={d.status}><St s={d.status} /></span>],
-        [d.sanctioned ? 'Sanctioned' : 'Loan asked', inr(total), d.kind === 'AGRI' ? 'half-yearly after harvest' : undefined],
+        [d.sanctioned ? 'Sanctioned' : 'Loan asked', inr(total), d.kind === 'AGRI' ? 'half-yearly after harvest' : d.kind === 'RENTAL' ? 'repaid from the rent' : undefined],
         ...(d.tranches.length ? [['Released', <span data-released={released}>{inr(released)}</span>, total ? pct(released / total) : undefined] as [string, React.ReactNode, React.ReactNode]] : []),
         ...(d.tranches.length ? [['Releases', `${d.tranches.filter(t => t.status === 'PAID').length} of ${d.tranches.length}`]] as [string, React.ReactNode][] : []),
         ['Documents', String(d.documents.length)],
@@ -124,7 +129,7 @@ export function PlanTab({ id, rev, onChange }: { id: string; rev: number; onChan
         <h3>{PLAN_TITLE[d.kind]}</h3>
         <div className="grid3">{fields.map(fld)}</div>
         {inst && <p className="small muted">{inst.name} · {inst.accreditation ?? 'not accredited'} · fees paid to {inst.account ?? 'no account on record'} ({inst.ifsc ?? '—'})</p>}
-        {d.kind !== 'AGRI' && <>
+        {(d.kind === 'HOUSING' || d.kind === 'EDUCATION') && <>
           <h4 style={{ margin: '14px 0 6px' }}>{d.kind === 'HOUSING' ? 'Construction stages (released with progress)' : 'Term-wise fee releases (paid to the institution)'}</h4>
           <Table head={d.kind === 'HOUSING' ? ['Stage', 'Amount (₹)', 'Progress needed (%)', ''] : ['Release', 'Amount (₹)', '']} rows={rows.map((x, i) => [
             <input aria-label={'Stage ' + (i + 1)} name={'tr-label-' + (i + 1)} value={x.label} disabled={!d.canEdit} onChange={e => setRows(rows.map((y, j) => j === i ? { ...y, label: e.target.value } : y))} />,

@@ -26,7 +26,13 @@ public final class CollateralEngine {
     public record Media(long id, String label, Double distanceM, String quality, String reuseRef, double tamper, boolean manipulated) {}
     public record Val(long id, String source, LocalDate date, double market, Double realisable, Double distress, boolean approved, String valuer) {}
     public record Policy(String type, int ecYears, int titleDepthYears, double haircut, double maxLtv, int valuationMaxAgeMonths, Double secondValuationAbove,
-                         double varianceLimit, int minImages, int gpsRadiusM, double coverageMin, List<String> requiredDocs, List<String> requiredPhotos) {}
+                         double varianceLimit, int minImages, int gpsRadiusM, double coverageMin, List<String> requiredDocs, List<String> requiredPhotos, String ltvSlabs) {
+        public Policy(String type, int ecYears, int titleDepthYears, double haircut, double maxLtv, int valuationMaxAgeMonths, Double secondValuationAbove,
+                      double varianceLimit, int minImages, int gpsRadiusM, double coverageMin, List<String> requiredDocs, List<String> requiredPhotos) {
+            this(type, ecYears, titleDepthYears, haircut, maxLtv, valuationMaxAgeMonths, secondValuationAbove, varianceLimit, minImages, gpsRadiusM, coverageMin,
+                    requiredDocs, requiredPhotos, null);
+        }
+    }
     public record Facts(String condition, String constructionStage, String declaredOwner, String applicantName, String surveyNo, String municipalId) {}
     /** A person's earlier ruling on a rule hit: CLEARED (accepted with a reason) or UPHELD (the issue is real). */
     public record Ruling(String ruleId, String reason, String outcome) {}
@@ -66,7 +72,35 @@ public final class CollateralEngine {
     static boolean same(String a, String b) { return a != null && b != null && NameMatch.score(a, b) >= 0.8; }
 
     /** Gold: RBI LTV caps by loan size (Lending against gold collateral directions, 2025): 85% up to ₹2.5 lakh, 80% up to ₹5 lakh, 75% above. */
-    public static double goldMaxLtv(double requested) { return requested <= 250_000 ? 0.85 : requested <= 500_000 ? 0.80 : 0.75; }
+    /** RBI gold-loan LTV caps by loan size; the lender's slabs may be lower, never higher. */
+    public static final String GOLD_SLABS_RBI = "250000:0.85,500000:0.80,*:0.75";
+
+    public static double goldMaxLtv(double requested) { return goldMaxLtv(requested, null); }
+
+    /** Gold LTV for a loan size from slabs "upto:ltv,...,*:ltv" (configurable in the collateral policy). */
+    public static double goldMaxLtv(double requested, String slabs) {
+        for (double[] s : goldSlabs(slabs == null || slabs.isBlank() ? GOLD_SLABS_RBI : slabs)) if (requested <= s[0]) return s[1];
+        return 0.75;
+    }
+
+    /** Parsed slabs as [upto, ltv] (upto = +∞ for "*"); throws IllegalArgumentException when malformed or above the RBI caps. */
+    public static List<double[]> goldSlabs(String slabs) {
+        List<double[]> out = new ArrayList<>();
+        double prev = 0;
+        for (String part : slabs.split(",")) {
+            String[] kv = part.trim().split(":");
+            if (kv.length != 2) throw new IllegalArgumentException("Each slab is upto:ltv, e.g. 250000:0.85");
+            double upto = kv[0].trim().equals("*") ? Double.POSITIVE_INFINITY : Double.parseDouble(kv[0].trim());
+            double ltv = Double.parseDouble(kv[1].trim());
+            if (upto <= prev) throw new IllegalArgumentException("Slab limits must increase");
+            double rbi = upto <= 250_000 ? 0.85 : upto <= 500_000 ? 0.80 : 0.75;
+            if (ltv <= 0 || ltv > rbi + 1e-9) throw new IllegalArgumentException("LTV " + ltv + " for loans up to " + (Double.isInfinite(upto) ? "any amount" : Math.round(upto)) + " is above the RBI cap " + rbi);
+            out.add(new double[]{upto, ltv});
+            prev = upto;
+        }
+        if (out.isEmpty() || !Double.isInfinite(out.get(out.size() - 1)[0])) throw new IllegalArgumentException("End with a *:ltv slab for larger loans");
+        return out;
+    }
 
     // ---------------------------------------------------------------- EC and title chain
 
@@ -326,7 +360,7 @@ public final class CollateralEngine {
         }
 
         // CR-11 LTV
-        double maxLtv = gold ? goldMaxLtv(in.requested()) : pol.maxLtv();
+        double maxLtv = gold ? goldMaxLtv(in.requested(), pol.ltvSlabs()) : pol.maxLtv();
         double eligible = valueUsed * (1 - pol.haircut());
         double maxExposure = Math.floor(eligible * maxLtv + 1e-6);
         double recommended = Math.min(in.requested(), maxExposure);

@@ -188,13 +188,15 @@ public final class UnderwritingEngine {
         // (the turnover method for working-capital limits).
         double annualCredits = round(sum(inf) / n * 12);
         double turnoverCap = Math.floor(0.25 * annualCredits / 5000) * 5000;
-        double reqEmi = revolving ? round(a.loan().amount() * rate / 1200) : round(Finance.emi(a.loan().amount(), rate, a.loan().tenure()));
+        boolean interestOnly = a.loan().interestOnly();
+        double reqEmi = interestOnly ? round(a.loan().amount() * rate / 1200) : round(Finance.emi(a.loan().amount(), rate, a.loan().tenure()));
         double maxLoan = revolving ? Math.min(Math.floor(maxEmi * 1200 / rate / 5000) * 5000, turnoverCap)
+                : interestOnly ? Math.floor(maxEmi * 1200 / rate / 5000) * 5000
                 : Math.floor(Finance.pv(maxEmi, rate, a.loan().tenure()) / 5000) * 5000;
         double foirPost = (existing + reqEmi) / income;
         double recAmt = Math.min(Math.min(a.loan().amount(), maxLoan), p.exposureCap());
-        double recEmi = revolving ? round(recAmt * rate / 1200) : round(Finance.emi(recAmt, rate, a.loan().tenure()));
-        steps.add(new EngineResult.Step(revolving ? "Affordability (revolving limit)" : "Affordability",
+        double recEmi = interestOnly ? round(recAmt * rate / 1200) : round(Finance.emi(recAmt, rate, a.loan().tenure()));
+        steps.add(new EngineResult.Step(revolving ? "Affordability (revolving limit)" : interestOnly ? "Affordability (interest only, principal from the pledge)" : "Affordability",
                 revolving ? "Interest at full use ₹" + inr(reqEmi) + "/mo of max ₹" + inr(maxEmi) + " · turnover cap ₹" + inr(turnoverCap) + " (25% of ₹" + inr(annualCredits) + " credits a year)"
                         : "Max EMI ₹" + inr(maxEmi) + " · FOIR " + Math.round(foirPost * 100) + "%",
                 reqEmi <= maxEmi && (!revolving || a.loan().amount() <= turnoverCap) ? "ok" : recAmt >= a.loan().amount() * 0.6 ? "warn" : "bad"));
@@ -234,7 +236,7 @@ public final class UnderwritingEngine {
         rb.rule("R09", "PD ≤ " + Math.round(p.referPd() * 100) + "% (decline band)", pd <= p.referPd(), "REJECT", "RC-001");
         rb.rule("R10", "PD ≤ " + Math.round(p.approvePd() * 100) + "% (auto-approve band)", pd <= p.approvePd(), "REFER", "RC-001");
         rb.rule("R11", "Some EMI capacity after obligations", maxEmi >= 0.3 * reqEmi && surplus > 0, "REJECT", "RC-003");
-        rb.rule("R12", revolving ? "Interest on the full limit within capacity" : "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
+        rb.rule("R12", revolving ? "Interest on the full limit within capacity" : interestOnly ? "Monthly interest within capacity" : "Requested EMI within capacity", reqEmi <= maxEmi, "COUNTER", null);
         if (revolving)
             rb.rule("R24", "Limit ≤ 25% of annual bank credits (₹" + inr(turnoverCap) + ")", a.loan().amount() <= turnoverCap + 0.5, "COUNTER", "RC-003");
         rb.rule("R13", "Amount ≤ auto-approval limit ₹" + inr(p.autoApproveLimit()), recAmt <= p.autoApproveLimit(), "REFER", "RC-014");

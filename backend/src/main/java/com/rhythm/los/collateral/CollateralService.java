@@ -532,7 +532,7 @@ public class CollateralService {
     CollateralEngine.Policy enginePolicy(CollateralPolicy p) {
         return new CollateralEngine.Policy(p.getType(), p.getEcYears(), p.getTitleDepthYears(), p.getHaircut().doubleValue(), p.getMaxLtv().doubleValue(),
                 p.getValuationMaxAgeMonths(), p.getSecondValuationAbove() == null ? null : p.getSecondValuationAbove().doubleValue(), p.getVarianceLimit().doubleValue(),
-                p.getMinImages(), p.getGpsRadiusM(), p.getCoverageMin().doubleValue(), split(p.getRequiredDocs()), split(p.getRequiredPhotos()));
+                p.getMinImages(), p.getGpsRadiusM(), p.getCoverageMin().doubleValue(), split(p.getRequiredDocs()), split(p.getRequiredPhotos()), p.getLtvSlabs());
     }
 
     static List<String> split(String s) { return s == null || s.isBlank() ? List.of() : Arrays.stream(s.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList(); }
@@ -930,7 +930,7 @@ public class CollateralService {
             Optional<LiveLoan> l = liveLoans.findByApplicationId(a.getId());
             if (l.isPresent() && value > 0) {
                 double ltv = l.get().getOutstanding().doubleValue() / value;
-                double max = "GOLD".equals(c.getType()) ? CollateralEngine.goldMaxLtv(l.get().getSanctionedAmount().doubleValue()) : p.getMaxLtv().doubleValue();
+                double max = "GOLD".equals(c.getType()) ? CollateralEngine.goldMaxLtv(l.get().getSanctionedAmount().doubleValue(), p.getLtvSlabs()) : p.getMaxLtv().doubleValue();
                 if (ltv > max) out.add(alert(c, a, "LTV_BREACH", "Outstanding is " + Math.round(ltv * 100) + "% of the value (limit " + Math.round(max * 100) + "%)"));
             }
         }
@@ -962,6 +962,12 @@ public class CollateralService {
         if (r.get("varianceLimit") != null) p.setVarianceLimit(BigDecimal.valueOf(CollateralEngine.num(r.get("varianceLimit"))));
         if (r.get("gpsRadiusM") != null) p.setGpsRadiusM((int) CollateralEngine.num(r.get("gpsRadiusM")));
         if (r.get("requiredDocs") != null) p.setRequiredDocs(r.get("requiredDocs").toString());
+        if (r.get("ltvSlabs") != null && "GOLD".equals(type)) {
+            String slabs = r.get("ltvSlabs").toString().replace(" ", "");
+            try { CollateralEngine.goldSlabs(slabs); } catch (RuntimeException e) { throw ApiException.unprocessable("BAD_SLABS", e.getMessage()); }
+            p.setLtvSlabs(slabs);
+            p.setMaxLtv(BigDecimal.valueOf(CollateralEngine.goldMaxLtv(Double.MAX_VALUE, slabs)));
+        }
         p.setUpdatedBy(by.username());
         p.setUpdatedAt(Instant.now());
         policies.save(p);

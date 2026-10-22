@@ -80,7 +80,10 @@ public record EngineInput(
         public Fraud(int dupLinks, boolean docTamper, int velocity) { this(dupLinks, docTamper, velocity, 0, 0); }
     }
     /** revolving: a working-capital limit drawn against invoices (trade finance); serviced by interest, principal from each invoice's payment. */
-    public record Loan(double amount, int tenure, boolean revolving) {
-        public Loan(double amount, int tenure) { this(amount, tenure, false); }
+    public record Loan(double amount, int tenure, boolean revolving, boolean bullet) {
+        public Loan(double amount, int tenure) { this(amount, tenure, false, false); }
+        public Loan(double amount, int tenure, boolean revolving) { this(amount, tenure, revolving, false); }
+        /** Serviced by interest only (revolving limits, bullet loans against securities or deposits). */
+        public boolean interestOnly() { return revolving || bullet; }
     }
 }

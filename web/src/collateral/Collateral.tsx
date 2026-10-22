@@ -25,7 +25,7 @@ interface Col { id: number; colNo: string; applicationId: number; type: string; 
 interface Doc { document: { id: number; docType: string; version: number; fileName: string; readConfidence?: number; engine?: string; confirmedBy?: string; uploadedBy: string; uploadedAt: string; manipulated: boolean }; extracted: { fields?: Record<string, unknown>; confidence?: Record<string, number>; transactions?: Tx[] }; legalFlag: boolean }
 interface Media { id: number; label: string; lat?: number; lng?: number; distanceM?: number; capturedAt?: string; quality?: string; reuseMatch?: string; tamperScore?: number; manipulated: boolean; uploadedBy: string }
 interface Valuation { id: number; source: string; valuer?: string; reportDate: string; marketValue: number; realisableValue?: number; distressValue?: number; method?: string; approved: boolean; detailsJson?: string }
-interface Policy { type: string; label: string; ecYears: number; haircut: number; maxLtv: number; valuationMaxAgeMonths: number; secondValuationAbove?: number; varianceLimit: number; minImages: number; gpsRadiusM: number; coverageMin: number; revalueMonths: number; requiredDocs: string; optionalDocs?: string; requiredPhotos?: string; updatedBy: string }
+interface Policy { ltvSlabs?: string; type: string; label: string; ecYears: number; haircut: number; maxLtv: number; valuationMaxAgeMonths: number; secondValuationAbove?: number; varianceLimit: number; minImages: number; gpsRadiusM: number; coverageMin: number; revalueMonths: number; requiredDocs: string; optionalDocs?: string; requiredPhotos?: string; updatedBy: string }
 interface Unified { credit: string; collateral: string; decision: string; recommendedAmount?: number; conditions: string[]; note?: string; collaterals: { colNo: string; type: string; status: string; riskScore: number; maxExposure: number }[] }
 interface Detail { collateral: Col; summary: Row; policy: Policy; documents: Doc[]; media: Media[]; valuations: Valuation[]; reviews: Review[]; evaluation?: Evaluation; unified: Unified; avm?: Avm }
 export interface Avm { value: number; ratePerSqft: number; low: number; high: number; confidence: number; comparables: number; basis: string
@@ -178,7 +178,7 @@ function PolicyView() {
       <ErrorBox error={error ?? p.error} />
       <div className="panel flush">
         <Table head={['Type', 'Haircut', 'Max LTV', 'EC years', 'Valuation age', 'Second valuation above', 'Variance limit', 'Photos / GPS', 'Mandatory documents', '']} rows={(p.data ?? []).map(x => [
-          x.label, pct(x.haircut, 0), x.type === 'GOLD' ? '85/80/75% by loan size (RBI)' : pct(x.maxLtv, 0), x.ecYears || '—', `${x.valuationMaxAgeMonths} months`, x.secondValuationAbove ? inr(x.secondValuationAbove) : '—',
+          x.label, pct(x.haircut, 0), x.type === 'GOLD' ? (x.ltvSlabs ?? '').split(',').map(sl => { const [u, v] = sl.split(':'); return `${u === '*' ? 'above' : '≤ ₹' + Number(u).toLocaleString('en-IN')}: ${Math.round(Number(v) * 100)}%` }).join(' · ') + ' (+ FOIR)' : pct(x.maxLtv, 0), x.ecYears || '—', `${x.valuationMaxAgeMonths} months`, x.secondValuationAbove ? inr(x.secondValuationAbove) : '—',
           pct(x.varianceLimit, 0), x.minImages ? `${x.minImages} within ${x.gpsRadiusM} m, ${pct(x.coverageMin, 0)} coverage` : '—', <span className="small">{x.requiredDocs.split(',').filter(Boolean).map(docLabel).join(', ')}</span>,
           canEdit ? <button className="btn sm" onClick={() => setEdit(x)}>Change</button> : ''])} />
       </div>
@@ -241,12 +241,12 @@ function Comparables() {
 }
 
 function PolicyEdit({ p, onClose, onDone }: { p: Policy; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ haircut: String(p.haircut), maxLtv: String(p.maxLtv), ecYears: String(p.ecYears), valuationMaxAgeMonths: String(p.valuationMaxAgeMonths), note: '' })
+  const [f, setF] = useState({ haircut: String(p.haircut), maxLtv: String(p.maxLtv), ecYears: String(p.ecYears), valuationMaxAgeMonths: String(p.valuationMaxAgeMonths), ltvSlabs: p.ltvSlabs ?? '', note: '' })
   const [error, setError] = useState<unknown>()
   async function save() {
     setError(undefined)
     try {
-      await api.put(`/api/collateral-policy/${p.type}`, { haircut: Number(f.haircut), maxLtv: Number(f.maxLtv), ecYears: Number(f.ecYears), valuationMaxAgeMonths: Number(f.valuationMaxAgeMonths), note: f.note })
+      await api.put(`/api/collateral-policy/${p.type}`, { haircut: Number(f.haircut), maxLtv: Number(f.maxLtv), ecYears: Number(f.ecYears), valuationMaxAgeMonths: Number(f.valuationMaxAgeMonths), ...(p.type === 'GOLD' ? { ltvSlabs: f.ltvSlabs } : {}), note: f.note })
       onDone()
     } catch (e) { setError(e) }
   }
@@ -254,10 +254,13 @@ function PolicyEdit({ p, onClose, onDone }: { p: Policy; onClose: () => void; on
     <Modal title={`Collateral policy: ${p.label}`} onClose={onClose}>
       <div className="grid2">
         <label>Haircut (0–0.6)<input value={f.haircut} onChange={e => setF({ ...f, haircut: e.target.value })} /></label>
-        <label>Maximum LTV<input value={f.maxLtv} onChange={e => setF({ ...f, maxLtv: e.target.value })} /></label>
+        {p.type !== 'GOLD' && <label>Maximum LTV<input value={f.maxLtv} onChange={e => setF({ ...f, maxLtv: e.target.value })} /></label>}
         <label>EC years<input value={f.ecYears} onChange={e => setF({ ...f, ecYears: e.target.value })} /></label>
         <label>Valuation age (months)<input value={f.valuationMaxAgeMonths} onChange={e => setF({ ...f, valuationMaxAgeMonths: e.target.value })} /></label>
       </div>
+      {p.type === 'GOLD' && <label>LTV by loan size (up to ₹:LTV, … , *:LTV). RBI caps: 85% up to ₹2.5 lakh, 80% up to ₹5 lakh, 75% above
+        <input name="ltvSlabs" value={f.ltvSlabs} onChange={e => setF({ ...f, ltvSlabs: e.target.value })} /></label>}
+      {p.type === 'GOLD' && <p className="small muted">The loan is also capped by FOIR (Credit policy studio, override for the gold product; 50% now). The lower amount applies.</p>}
       <label>Board approval or reason<input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></label>
       <ErrorBox error={error} />
       <button className="btn primary" onClick={save}>Save</button>

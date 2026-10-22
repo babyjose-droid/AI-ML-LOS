@@ -325,6 +325,8 @@ public class WorkflowService {
         @SuppressWarnings("unchecked") Map<String, Object> st = ((List<Map<String, Object>>) v.get("stages")).stream()
                 .filter(x -> key.equals(x.get("key"))).findFirst().orElseThrow(() -> ApiException.notFound("Stage " + key + " in this workflow"));
         if (!"RECORDED".equals(st.get("kind"))) throw ApiException.unprocessable("NOT_RECORDED", st.get("name") + " is completed by the system, not by hand");
+        if ("pledge".equals(key) && "PASS".equalsIgnoreCase(req.outcome()))
+            throw ApiException.conflict("PLEDGE_RULES", "The pledge passes on its own once the drawing power covers the loan (Pledge tab); a person can only fail it");
         if ("plan".equals(key) && "PASS".equalsIgnoreCase(req.outcome()))
             throw ApiException.conflict("PLAN_RULES", "The loan plan passes on its own once it meets the plan checks (Plan tab); a person can only fail it");
         if ("limit".equals(key) && "PASS".equalsIgnoreCase(req.outcome()))

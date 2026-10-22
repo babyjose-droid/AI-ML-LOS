@@ -76,6 +76,10 @@ public class DisbursementService {
     private com.rhythm.los.asset.AssetService assets;
     private com.rhythm.los.trade.TradeService trade;
     private com.rhythm.los.plan.PlanService plan;
+    private com.rhythm.los.pledge.PledgeService pledge;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPledge(@org.springframework.context.annotation.Lazy com.rhythm.los.pledge.PledgeService p) { this.pledge = p; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setPlan(@org.springframework.context.annotation.Lazy com.rhythm.los.plan.PlanService p) { this.plan = p; }
@@ -102,6 +106,7 @@ public class DisbursementService {
         if (assets != null) recheck.addAll(assets.disbursementBlockers(a));
         if (trade != null) recheck.addAll(trade.activationBlockers(a));
         if (plan != null) recheck.addAll(plan.disbursementBlockers(a));
+        if (pledge != null) recheck.addAll(pledge.disbursementBlockers(a));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
         if (trade != null && trade.isTrade(a)) return activateLimit(a, kfs, by);

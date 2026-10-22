@@ -35,6 +35,10 @@ public class MyWorkService {
     private com.rhythm.los.asset.AssetService assetService;
     private com.rhythm.los.trade.TradeService tradeService;
     private com.rhythm.los.plan.PlanService planService;
+    private com.rhythm.los.pledge.PledgeService pledgeService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPledge(@org.springframework.context.annotation.Lazy com.rhythm.los.pledge.PledgeService p) { this.pledgeService = p; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setPlan(@org.springframework.context.annotation.Lazy com.rhythm.los.plan.PlanService p) { this.planService = p; }
@@ -185,6 +189,12 @@ public class MyWorkService {
             LoanApplication a = (LoanApplication) t.get("application");
             out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
                     (String) t.get("task"), "asset", (Long) t.get("ageHours"), 720));
+        }
+        // pledges: liens to mark, margin calls to cure or invoke
+        if (pledgeService != null) for (var t : pledgeService.tasks(u)) {
+            LoanApplication a = (LoanApplication) t.get("application");
+            out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                    (String) t.get("task"), "pledge", (Long) t.get("ageHours"), 24));
         }
         // loan plans: construction stages to inspect, releases to make, fee demands to collect
         if (planService != null) for (var t : planService.tasks(u)) {

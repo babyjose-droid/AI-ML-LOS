@@ -41,6 +41,7 @@ import { api as client } from './api'
 import { AssetFinancePage, DealersPage } from './asset/Asset'
 import { TradeFinancePage } from './trade/Trade'
 import { InstitutionsPage } from './plan/Plan'
+import { PledgesPage } from './pledge/Pledge'
 
 type NavItem = { to: string; label: string; roles?: Role[]; scr?: string; badge?: 'mywork' | 'review' }
 const PORTFOLIO_ROLES: Role[] = ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE']
@@ -80,6 +81,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/portfolio', label: 'Portfolio & EWS', roles: PORTFOLIO_ROLES, scr: 'SCR-080' },
     { to: '/asset-finance', label: 'Asset finance', roles: PORTFOLIO_ROLES },
     { to: '/trade', label: 'Trade finance', roles: PORTFOLIO_ROLES },
+    { to: '/pledges', label: 'Pledges & margin', roles: PORTFOLIO_ROLES },
     { to: '/admin/models', label: 'Risk models', roles: ['CREDIT_MANAGER', 'CRO', 'ADMIN', 'COMPLIANCE'], scr: 'SCR-062' },
     { to: '/portfolio?tab=restructures', label: 'Restructuring', roles: PORTFOLIO_ROLES, scr: 'SCR-082' },
     { to: '/portfolio?tab=collections', label: 'Collections', roles: PORTFOLIO_ROLES, scr: 'SCR-083' },
@@ -271,6 +273,7 @@ export default function App() {
             <Route path="/admin/dealers" element={<DealersPage />} />
             <Route path="/asset-finance" element={<AssetFinancePage />} />
             <Route path="/trade" element={<TradeFinancePage />} />
+            <Route path="/pledges" element={<PledgesPage />} />
             <Route path="/admin/institutions" element={<InstitutionsPage />} />
             <Route path="/admin/policy" element={<PolicyStudio />} />
             <Route path="/admin/models" element={<Models />} />

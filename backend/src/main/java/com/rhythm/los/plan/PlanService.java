@@ -50,11 +50,13 @@ public class PlanService {
     static final Map<String, Set<String>> DOCS = Map.of(
             "HOUSING", Set.of("CONSTRUCTION_ESTIMATE", "STAGE_CERTIFICATE", "INSURANCE"),
             "EDUCATION", Set.of("ADMISSION_LETTER", "FEE_LETTER", "FEE_DEMAND"),
-            "AGRI", Set.of("LAND_RECORD_712", "INSURANCE"));
+            "AGRI", Set.of("LAND_RECORD_712", "INSURANCE"),
+            "RENTAL", Set.of("LEASE_DEED", "INSURANCE"));
     static final Map<String, Set<String>> FIELDS = Map.of(
             "HOUSING", Set.of("purpose", "estimate", "ownContribution", "carpetAreaSqft", "builtUpAreaSqft", "planNo", "builderId", "propertyAddress"),
             "EDUCATION", Set.of("studentName", "studentDob", "relationship", "institutionId", "course", "courseStart", "durationMonths", "admissionNo", "academicYear"),
-            "AGRI", Set.of("activity", "crop", "landAreaAcres", "surveyNo", "village", "scalePerUnit", "units", "ownContribution", "harvestMonths", "insuranceRef"));
+            "AGRI", Set.of("activity", "crop", "landAreaAcres", "surveyNo", "village", "scalePerUnit", "units", "ownContribution", "harvestMonths", "insuranceRef"),
+            "RENTAL", Set.of("tenantName", "tenantType", "monthlyRent", "leaseStart", "leaseEnd", "lockInMonths", "escalationPct", "escrowAccount", "propertyAddress"));
 
     private final LoanPlanRepository plans;
     private final LoanTrancheRepository tranches;
@@ -280,6 +282,8 @@ public class PlanService {
                 case "FEE_LETTER" -> fill(det, "academicYear", f.get("academicYear"));
                 case "LAND_RECORD_712" -> { fill(det, "surveyNo", f.get("surveyNo")); fill(det, "landAreaAcres", f.get("areaAcres")); fill(det, "village", f.get("village")); fill(det, "crop", f.get("crops")); }
                 case "INSURANCE" -> { if ("AGRI".equals(kind)) fill(det, "insuranceRef", f.get("policyNo")); }
+                case "LEASE_DEED" -> { fill(det, "tenantName", f.get("lessee")); fill(det, "monthlyRent", f.get("monthlyRent")); fill(det, "leaseStart", f.get("startDate"));
+                    fill(det, "leaseEnd", f.get("endDate")); fill(det, "lockInMonths", f.get("lockInMonths")); fill(det, "escalationPct", f.get("escalationPct")); }
                 default -> { }
             }
             p.detailsJson = Json.write(det);
@@ -295,6 +299,7 @@ public class PlanService {
     PlanRules.Result evaluate(LoanApplication a, LoanPlan p) {
         String kind = kind(a);
         Map<String, Object> det = details(p);
+        products.findByCode(a.getProductCode()).ifPresent(pr -> det.put("_ratePa", pr.getRateMax() == null ? 0 : pr.getRateMax().doubleValue()));
         Long inst = det.get("institutionId") == null ? null : Long.valueOf(det.get("institutionId").toString());
         PlanRules.Result r = PlanRules.evaluate(kind, det, docFields(a.getId()), trancheFacts(a.getId()), party(inst), a.getApplicantName(),
                 a.getLoanAmount().doubleValue(), a.getTenureMonths(), today(), rulings(p));

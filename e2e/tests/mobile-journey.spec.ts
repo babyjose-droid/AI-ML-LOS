@@ -148,6 +148,8 @@ test('Mobile app journey (recorded): sales offline capture, operations checks, o
   await say(page, 'Offline at the shop: check in with GPS', 1200)
   await page.getByTestId('checkin').click()
   await expect(page.getByTestId('checked-in')).toContainText('m from the business')
+  for (const k of ['businessRunning', 'ownerMet', 'matchesType']) await page.getByTestId('q-' + k).getByRole('radio', { name: 'Yes', exact: true }).click()
+  await page.getByTestId('q-premises').getByRole('radio', { name: 'Rented', exact: true }).click()
   await page.getByTestId('q-stockValue').fill('160000')
   await page.getByTestId('q-shopSizeSqft').fill('240')
   await radio(page, 'High')

@@ -128,7 +128,7 @@ test('dead-letter queue: failed AA call is retried from the integration log', as
   const retry = page.locator('[data-retry]').first()
   await expect(retry).toBeVisible()
   await retry.click()
-  await expect(page.getByText(/retried/)).toBeVisible()
+  await expect(page.locator('.alert.ok')).toContainText('retried')
   await openApp(page, 'Meera Shah')
   await expect(state(page, 'DATA')).toHaveText('Fetched')
 })

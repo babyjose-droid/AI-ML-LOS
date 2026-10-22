@@ -53,8 +53,8 @@ async function logout(page: Page) {
 }
 async function openApp(page: Page, name: string) {
   await page.getByTestId('tab-apps').click()
-  await page.getByLabel('Search').fill(name)
-  await page.getByLabel('Search').press('Enter')
+  await page.getByTestId('search').fill(name)
+  await page.getByTestId('search').press('Enter')
   await page.getByRole('button', { name: new RegExp('^' + name) }).first().click()
   await expect(page.getByTestId('app-detail')).toBeVisible()
 }

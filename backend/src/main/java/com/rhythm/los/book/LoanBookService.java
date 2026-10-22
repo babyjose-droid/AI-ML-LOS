@@ -134,6 +134,15 @@ public class LoanBookService {
         });
     }
 
+    /** Loans released in tranches: the outstanding follows what has been released so far (never above the sanction). */
+    @Transactional
+    public void setDisbursed(Long applicationId, double released) {
+        loans.findByApplicationId(applicationId).ifPresent(l -> {
+            l.setOutstanding(money(Math.min(released, l.getSanctionedAmount().doubleValue())));
+            loans.save(l);
+        });
+    }
+
     // ---------------------------------------------------------------- feed
 
     @Transactional

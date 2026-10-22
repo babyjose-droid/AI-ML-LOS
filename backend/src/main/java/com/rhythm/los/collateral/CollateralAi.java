@@ -55,6 +55,14 @@ public class CollateralAi {
         return post("/v1/trade/invoices/analyze", form);
     }
 
+    /** Loan plans: admission and fee letters, fee demand, 7/12 land record, construction estimate, stage certificate, insurance. */
+    public Optional<Map<String, Object>> planDocument(byte[] bytes, String contentType, String fileName, String docType) {
+        LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", part(bytes, contentType, fileName));
+        form.add("doc_type", docType);
+        return post("/v1/plan/documents/analyze", form);
+    }
+
     public Optional<Map<String, Object>> media(byte[] bytes, String contentType, String fileName) {
         LinkedMultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("file", part(bytes, contentType, fileName));

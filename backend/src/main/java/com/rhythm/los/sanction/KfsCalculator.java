@@ -23,6 +23,7 @@ public final class KfsCalculator {
         double insurance = 0;
         double net = amount - fee - gst - insurance;
         if ("REVOLVING".equals(c.frequency())) return revolving(appNo, borrower, product, amount, ratePa, months, c, fee, gst, net);
+        if ("SEASONAL".equals(c.frequency()) && months >= 6) return seasonal(appNo, borrower, product, amount, ratePa, months, c, fee, gst, net);
         double emi = Finance.round(Finance.emi(amount, ratePa, months));
         double apr = Math.round(Finance.apr(net, emi, months) * 100) / 100.0;
         List<Kfs.Row> rows = new ArrayList<>();
@@ -67,6 +68,37 @@ public final class KfsCalculator {
         if (c.bounceCharge() > 0) contingent.add(new Kfs.Charge("Bounce charge", "₹" + Math.round(c.bounceCharge()) + " per dishonoured repayment + GST"));
         return new Kfs(appNo, borrower, product, amount, fee, gst, 0, net, ratePa, apr, months, interest,
                 totalInterest, round2(totalInterest + amount + fee + gst), 3, "Revolving limit: interest monthly, principal on each invoice's due date",
+                "Grievance Redressal Officer, grievance@example-nbfc.in", rows, contingent, java.util.List.of());
+    }
+
+    /**
+     * Farm loans repaid after each harvest: a half-yearly instalment of equal principal plus the interest of the half-year
+     * on the balance. Rows are by month (6, 12, ...). APR from those cash flows.
+     */
+    static Kfs seasonal(String appNo, String borrower, String product, double amount, double ratePa, int months, Charges c, double fee, double gst, double net) {
+        int n = Math.max(1, months / 6);
+        double principal = round2(amount / n), bal = amount;
+        List<Kfs.Row> rows = new ArrayList<>();
+        for (int k = 1; k <= n; k++) {
+            double interest = round2(bal * ratePa / 100 / 2);
+            double p = k == n ? round2(bal) : principal;
+            bal = Math.max(0, round2(bal - p));
+            rows.add(new Kfs.Row(k * 6, round2(p + interest), interest, p, bal));
+        }
+        double lo = 0, hi = 2;
+        for (int i = 0; i < 100; i++) {
+            double mid = (lo + hi) / 2, pv = 0;
+            for (Kfs.Row row : rows) pv += row.emi() / Math.pow(1 + mid, row.month());
+            if (pv > net) lo = mid; else hi = mid;
+        }
+        double apr = Math.round(lo * 1200 * 100) / 100.0;
+        double totalInterest = round2(rows.stream().mapToDouble(Kfs.Row::interest).sum());
+        List<Kfs.Charge> contingent = new ArrayList<>();
+        contingent.add(new Kfs.Charge("Repayment", n + " half-yearly instalments after the harvests; interest for each half-year on the balance"));
+        if (c.penalRatePct() > 0) contingent.add(new Kfs.Charge("Penal charge", c.penalRatePct() + "% p.a. on the overdue amount (not added to the interest rate)"));
+        if (c.bounceCharge() > 0) contingent.add(new Kfs.Charge("Bounce charge", "₹" + Math.round(c.bounceCharge()) + " per bounced instalment + GST"));
+        return new Kfs(appNo, borrower, product, amount, fee, gst, 0, net, ratePa, apr, months, rows.get(0).emi(), totalInterest,
+                round2(rows.stream().mapToDouble(Kfs.Row::emi).sum() + fee + gst), 3, "Half-yearly after harvest (" + n + " instalments)",
                 "Grievance Redressal Officer, grievance@example-nbfc.in", rows, contingent, java.util.List.of());
     }
 

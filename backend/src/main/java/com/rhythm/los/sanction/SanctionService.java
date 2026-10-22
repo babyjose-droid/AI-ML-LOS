@@ -87,6 +87,7 @@ public class SanctionService {
         // asset finance: the asset rules must pass, and the amount stays within the asset's maximum loan
         if (assets != null) assets.requireReadyForSanction(a, amt);
         if (trade != null) trade.requireReadyForSanction(a);
+        if (plan != null) plan.requireReadyForSanction(a, amt);
         // COL-BR-13: above the collateral's maximum exposure (LTV cap) only L3 may sanction, with a reason
         boolean ltvException = col != null && col.maxExposure() != null && amt.doubleValue() > col.maxExposure() + 0.5;
         if (ltvException) {
@@ -158,6 +159,10 @@ public class SanctionService {
     private com.rhythm.los.collateral.CollateralService collateral;
     private com.rhythm.los.asset.AssetService assets;
     private com.rhythm.los.trade.TradeService trade;
+    private com.rhythm.los.plan.PlanService plan;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPlan(@org.springframework.context.annotation.Lazy com.rhythm.los.plan.PlanService p) { this.plan = p; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setTrade(@org.springframework.context.annotation.Lazy com.rhythm.los.trade.TradeService t) { this.trade = t; }
@@ -189,6 +194,9 @@ public class SanctionService {
                 && d.getRecommendedAmount().compareTo(a.getLoanAmount()) == 0
                 && a.getLoanAmount().compareTo(p.getAutoSanctionLimit()) <= 0;
         if (!clean || !workflow.pendingBefore(a, "sanction").isEmpty()) return java.util.Optional.empty();
+        if (plan != null && plan.isPlan(a)) {
+            try { plan.requireReadyForSanction(a, a.getLoanAmount()); } catch (com.rhythm.los.common.ApiException e) { return java.util.Optional.empty(); }
+        }
         if (trade != null && trade.isTrade(a)) {
             try { trade.requireReadyForSanction(a); } catch (com.rhythm.los.common.ApiException e) { return java.util.Optional.empty(); }
         }

@@ -48,6 +48,7 @@ public class Product {
     @Column(name = "collateral_types") private String collateralTypes;
     @Column(name = "asset_classes") private String assetClasses;
     @Column(name = "trade_kind") private String tradeKind;
+    @Column(name = "plan_kind") private String planKind;
     @Column(name = "collateral_required") private boolean collateralRequired;
     /** Co-applicant and guarantor rules (JSON, see PartyRules); null on products saved before they existed. */
     @Column(name = "party_rules") private String partyRules;
@@ -152,6 +153,8 @@ public class Product {
                 bounceCharge == null ? 0 : bounceCharge.doubleValue(), penalRatePct == null ? 0 : penalRatePct.doubleValue(), repaymentFrequency);
     }
     public String getCollateralTypes() { return collateralTypes; }
+    public String getPlanKind() { return planKind; }
+    public void setPlanKind(String v) { this.planKind = v; }
     public String getTradeKind() { return tradeKind; }
     public void setTradeKind(String v) { this.tradeKind = v; }
     public String getAssetClasses() { return assetClasses; }

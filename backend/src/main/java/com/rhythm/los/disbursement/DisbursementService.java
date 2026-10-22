@@ -75,6 +75,10 @@ public class DisbursementService {
     private com.rhythm.los.docgen.DocPackService docPacks;
     private com.rhythm.los.asset.AssetService assets;
     private com.rhythm.los.trade.TradeService trade;
+    private com.rhythm.los.plan.PlanService plan;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPlan(@org.springframework.context.annotation.Lazy com.rhythm.los.plan.PlanService p) { this.plan = p; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setTrade(@org.springframework.context.annotation.Lazy com.rhythm.los.trade.TradeService t) { this.trade = t; }
@@ -97,6 +101,7 @@ public class DisbursementService {
         if (docPacks != null) recheck.addAll(docPacks.blockers(a));
         if (assets != null) recheck.addAll(assets.disbursementBlockers(a));
         if (trade != null) recheck.addAll(trade.activationBlockers(a));
+        if (plan != null) recheck.addAll(plan.disbursementBlockers(a));
         if (!recheck.isEmpty()) throw ApiException.conflict("PRE_DISBURSAL_CHECK", "Pre-disbursal check failed: " + String.join("; ", recheck));
         Kfs kfs = sanctions.kfs(appId);
         if (trade != null && trade.isTrade(a)) return activateLimit(a, kfs, by);
@@ -106,23 +111,35 @@ public class DisbursementService {
         d.setGrossAmount(BigDecimal.valueOf(kfs.sanctionedAmount()));
         d.setDeductions(BigDecimal.valueOf(kfs.processingFee() + kfs.gstOnFee() + kfs.insurance()));
         d.setNetAmount(BigDecimal.valueOf(kfs.netDisbursed()));
-        // asset finance pays the dealer or supplier; other loans pay the borrower
+        // asset finance pays the dealer or supplier; loans released in tranches pay the first release; other loans pay the borrower
         LoanApplication payee = assets == null ? a : assets.payee(a).orElse(a);
         boolean toDealer = payee != a;
+        var first = plan == null ? java.util.Optional.<com.rhythm.los.plan.PlanService.FirstRelease>empty() : plan.firstRelease(a, kfs);
+        double payAmount = kfs.netDisbursed();
+        if (first.isPresent()) {
+            payee = first.get().payee();
+            toDealer = false;
+            payAmount = first.get().net();
+            d.setGrossAmount(BigDecimal.valueOf(first.get().gross()));
+            d.setDeductions(BigDecimal.valueOf(first.get().deductions()));
+            d.setNetAmount(BigDecimal.valueOf(payAmount));
+        }
         d.setBeneficiaryAccount(mask(payee.getBankAccountNo()));
         d.setIfsc(payee.getBankIfsc());
         d.setActor(by.username());
 
-        var pd = gateway.call(appId, bank.name(), "bank.penny_drop", () -> bank.pennyDrop(payee),
+        final LoanApplication to = payee;
+        final double amount = payAmount;
+        var pd = gateway.call(appId, bank.name(), "bank.penny_drop", () -> bank.pennyDrop(to),
                 r -> "name " + r.beneficiaryName() + " match " + r.nameMatch(), null);
         if (!pd.ok()) return fail(a, d, "Penny drop failed: " + pd.error(), by);
         PennyDropResult p = pd.value();
         d.setNameMatchScore(BigDecimal.valueOf(p.nameMatch()));
         if (!p.accountValid() || p.nameMatch() < MIN_NAME_MATCH) {
-            return fail(a, d, "Beneficiary name '" + p.beneficiaryName() + "' does not match the " + (toDealer ? "dealer" : "borrower") + " (match " + p.nameMatch() + ")", by);
+            return fail(a, d, "Beneficiary name '" + p.beneficiaryName() + "' does not match the " + (toDealer ? "dealer" : first.isPresent() && !first.get().toBorrower() ? "payee" : "borrower") + " (match " + p.nameMatch() + ")", by);
         }
 
-        var po = gateway.call(appId, payout.name(), "payout.transfer", () -> payout.pay(payee, kfs.netDisbursed(), a.getAppNo()),
+        var po = gateway.call(appId, payout.name(), "payout.transfer", () -> payout.pay(to, amount, a.getAppNo()),
                 r -> r.success() ? "UTR " + r.utr() : "failed " + r.failureReason(), null);
         if (!po.ok() || !po.value().success()) {
             return fail(a, d, "Payout failed: " + (po.ok() ? po.value().failureReason() : po.error()), by);
@@ -132,10 +149,13 @@ public class DisbursementService {
         d.setUtr(r.utr());
         d.setLmsPayload(Json.write(lmsPayload(a, kfs, r.utr())));
         d = repo.save(d);
-        apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, "UTR " + r.utr() + " · net ₹" + kfs.netDisbursed() + (toDealer ? " paid to " + payee.getApplicantName() : ""));
+        apps.transition(a, Domain.DISB, "DISBURSED", "disbursement.completed", by, first.isPresent()
+                ? "UTR " + r.utr() + " · first release ₹" + Math.round(amount) + " paid to " + first.get().payeeName() + "; later releases in the Plan tab"
+                : "UTR " + r.utr() + " · net ₹" + kfs.netDisbursed() + (toDealer ? " paid to " + payee.getApplicantName() : ""));
         apps.transition(a, Domain.APP, "DISBURSED", "application.disbursed", by, "Loan booking file sent to LMS");
         if (book != null) book.onDisbursed(a, kfs, "LN-" + a.getAppNo().replace("APP-", ""));
         if (assets != null && toDealer) assets.onDisbursed(a);
+        if (first.isPresent()) plan.onFirstRelease(a, r.utr(), amount, first.get().payeeName(), by.username());
         return d;
     }
 

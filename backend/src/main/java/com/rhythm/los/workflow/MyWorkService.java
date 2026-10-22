@@ -34,6 +34,10 @@ public class MyWorkService {
 
     private com.rhythm.los.asset.AssetService assetService;
     private com.rhythm.los.trade.TradeService tradeService;
+    private com.rhythm.los.plan.PlanService planService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setPlan(@org.springframework.context.annotation.Lazy com.rhythm.los.plan.PlanService p) { this.planService = p; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setTrade(@org.springframework.context.annotation.Lazy com.rhythm.los.trade.TradeService t) { this.tradeService = t; }
@@ -181,6 +185,12 @@ public class MyWorkService {
             LoanApplication a = (LoanApplication) t.get("application");
             out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
                     (String) t.get("task"), "asset", (Long) t.get("ageHours"), 720));
+        }
+        // loan plans: construction stages to inspect, releases to make, fee demands to collect
+        if (planService != null) for (var t : planService.tasks(u)) {
+            LoanApplication a = (LoanApplication) t.get("application");
+            out.add(new Task(a.getId(), a.getAppNo(), a.getApplicantName(), a.getProductCode(), a.getLoanAmount().doubleValue(),
+                    (String) t.get("task"), "plan", (Long) t.get("ageHours"), 72));
         }
         // trade finance: invoices to confirm or fund, referred checks, overdue drawdowns
         if (tradeService != null) for (var t : tradeService.tasks(u)) {

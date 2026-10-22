@@ -40,6 +40,7 @@ import { AppPicker, CustomerPicker } from './pages/Pickers'
 import { api as client } from './api'
 import { AssetFinancePage, DealersPage } from './asset/Asset'
 import { TradeFinancePage } from './trade/Trade'
+import { InstitutionsPage } from './plan/Plan'
 
 type NavItem = { to: string; label: string; roles?: Role[]; scr?: string; badge?: 'mywork' | 'review' }
 const PORTFOLIO_ROLES: Role[] = ['ADMIN', 'OPERATIONS', 'CREDIT_OFFICER', 'CREDIT_MANAGER', 'CRO', 'COMPLIANCE']
@@ -103,6 +104,7 @@ const NAV: [string, NavItem[]][] = [
     { to: '/admin/products', label: 'Products', scr: 'SCR-124' },
     { to: '/admin/dealers', label: 'Dealers & suppliers', roles: ['ADMIN', 'OPERATIONS', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/trade?tab=parties', label: 'Anchors & buyers', roles: ['ADMIN', 'OPERATIONS', 'CRO', 'CREDIT_MANAGER'] },
+    { to: '/admin/institutions', label: 'Institutions & builders', roles: ['ADMIN', 'OPERATIONS', 'CRO', 'CREDIT_MANAGER'] },
     { to: '/admin/workflows', label: 'Workflow designer', scr: 'SCR-125' },
     { to: '/admin/doc-templates', label: 'Document templates', roles: ['ADMIN', 'COMPLIANCE', 'CREDIT_MANAGER', 'CRO', 'LEGAL_REVIEWER', 'OPERATIONS'] },
     { to: '/admin/templates', label: 'Message templates', roles: ['ADMIN', 'COMPLIANCE', 'CRO', 'CREDIT_MANAGER', 'OPERATIONS'] },
@@ -269,6 +271,7 @@ export default function App() {
             <Route path="/admin/dealers" element={<DealersPage />} />
             <Route path="/asset-finance" element={<AssetFinancePage />} />
             <Route path="/trade" element={<TradeFinancePage />} />
+            <Route path="/admin/institutions" element={<InstitutionsPage />} />
             <Route path="/admin/policy" element={<PolicyStudio />} />
             <Route path="/admin/models" element={<Models />} />
             <Route path="/admin/workflows" element={<Workflows />} />

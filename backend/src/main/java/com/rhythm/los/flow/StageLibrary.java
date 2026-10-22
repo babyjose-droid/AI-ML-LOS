@@ -57,6 +57,9 @@ public final class StageLibrary {
         add(new Def("limit", "Programme & limit", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Anchor programme", "Buyer master"), a -> false, List.of(),
                 "Trade finance: the anchor programme or the buyer sublimits and the borrower's GSTIN pass the limit checks (LS-01 to LS-04)"));
+        add(new Def("plan", "Loan plan", "OPERATIONS", 24, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
+                List.of("Plan document AI"), a -> false, List.of(),
+                "Housing, education or farm loan: what the loan pays for passes the plan checks (HS, ED or AG rules)"));
         add(new Def("legal", "Legal & technical (property)", "CREDIT_MANAGER", 72, "MANUAL", Kind.RECORDED, List.of("MANUAL"),
                 List.of("Legal vendor", "Technical vendor"), a -> false, List.of("titleClear", "marketValue"), "Title search and technical valuation of the property"));
     }

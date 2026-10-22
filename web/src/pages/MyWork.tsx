@@ -11,7 +11,7 @@ const BOARD = ['APP', 'KYC', 'DOCS', 'FIELD', 'DECISION', 'SANCTION', 'DISB', 'F
 /** Where a task opens: the application (on the right tab), a collateral case, or the admin screen it belongs to. */
 function target(t: Task) {
   if (t.action.startsWith('collateralReview:')) return '/collateral/' + t.action.split(':')[1]
-  if (t.applicationId) return '/applications/' + t.applicationId + (t.action === 'parties' ? '?tab=Parties' : t.action === 'asset' ? '?tab=Asset' : t.action === 'trade' ? '?tab=Limit' : '')
+  if (t.applicationId) return '/applications/' + t.applicationId + (t.action === 'parties' ? '?tab=Parties' : t.action === 'asset' ? '?tab=Asset' : t.action === 'trade' ? '?tab=Limit' : t.action === 'plan' ? '?tab=Plan' : '')
   return t.action === 'policy' ? '/admin/policy' : t.action === 'workflow' ? '/admin/workflows' : '/integrations'
 }
 

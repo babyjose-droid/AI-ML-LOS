@@ -72,7 +72,8 @@ function Shell() {
     depth: stack.length - 1,
     push: (name: string, params?: Record<string, any>) => setStacks(s => ({ ...s, [tab]: [...s[tab], route(name, params)] })),
     back: () => setStacks(s => ({ ...s, [tab]: s[tab].length > 1 ? s[tab].slice(0, -1) : s[tab] })),
-    replace: (name: string, params?: Record<string, any>) => setStacks(s => ({ ...s, [tab]: [...s[tab].slice(0, -1), route(name, params)] })),
+    // the tab's own first screen is kept, so tapping the tab again returns to it
+    replace: (name: string, params?: Record<string, any>) => setStacks(s => ({ ...s, [tab]: s[tab].length > 1 ? [...s[tab].slice(0, -1), route(name, params)] : [...s[tab], route(name, params)] })),
     reset: (name: string, params?: Record<string, any>) => setStacks(s => ({ ...s, [tab]: [route(name, params)] })),
     toast: (m: string) => { setToast(m); clearTimeout(timer.current); timer.current = setTimeout(() => setToast(undefined), 6000) },
   }), [tab, stack.length])

@@ -49,7 +49,7 @@ test('Mobile co-applicants, guarantor and video KYC (recorded): wizard, OTP cons
   await page.getByTestId('party1-name').fill('Dilip Shinde')
   await page.getByTestId('party1-pan').fill('DILPS4410D')
   await page.getByTestId('party1-mobile').fill('9876531805')
-  await page.getByTestId('party1-dob').fill('1956-08-12')
+  await page.getByTestId('party1-dob').fill('1962-08-12')
   await page.getByTestId('party-save').click()
   await expect(page.getByTestId('party-P-2')).toContainText('Dilip Shinde')
 

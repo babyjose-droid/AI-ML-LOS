@@ -8,7 +8,7 @@ import type { LocalFile } from '../lib/files'
 import { add, newId } from '../lib/outbox'
 import { useSession } from '../session'
 import { Btn, C, Card, Choice, Feedback, Input, Muted, Note, Pill, Row, Screen, Spinner, inr, label, useRun } from '../ui'
-import { useApp } from './AppDetail'
+import { useApp, useProduct } from './AppDetail'
 import { Capture, Picked } from './Documents'
 import { OfflineBanner } from './Lists'
 
@@ -35,7 +35,8 @@ export default function CollateralScreen({ id }: { id: number }) {
   const [savedAt, setSavedAt] = useState<number>()
   const [declaring, setDeclaring] = useState(false)
   const r = useRun()
-  const types = list((v?.product as unknown as { collateralTypes?: string })?.collateralTypes)
+  const product = useProduct(v?.application.productCode)
+  const types = list(product?.collateralTypes)
 
   const loadList = useCallback(async (pick?: number) => {
     try {

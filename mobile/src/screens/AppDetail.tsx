@@ -1,5 +1,5 @@
 // One application: where it is, what is blocking it, and the actions this officer can take, with the same rules as the web.
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { api, getCached, message } from '../lib/api'
 import { useSession } from '../session'
@@ -61,6 +61,16 @@ export function useApp(id: number) {
   return { v, stages, savedAt, error, loading, load }
 }
 
+/** The product's set-up (collateral types and the like) from the product list, kept on the phone. */
+export function useProduct(code?: string) {
+  const [p, setP] = useState<{ code: string; collateralTypes?: string; collateralRequired?: boolean } | undefined>()
+  useEffect(() => {
+    if (!code) return
+    getCached<{ code: string; collateralTypes?: string }[]>('/api/products').then(x => setP(x.data.find(y => y.code === code))).catch(() => undefined)
+  }, [code])
+  return p
+}
+
 export function productStep(stages: Stage[]): { key: string; name: string } | null {
   for (const k of ['asset', 'limit', 'plan', 'pledge']) { const s = stages.find(x => x.key === k); if (s) return { key: k, name: s.name } }
   return null
@@ -68,8 +78,12 @@ export function productStep(stages: Stage[]): { key: string; name: string } | nu
 
 export default function AppDetail({ id, action: hinted }: { id: number; action?: string }) {
   const nav = useNav()
-  const { user, online } = useSession()
+  const { user, online, waiting } = useSession()
   const { v, stages, savedAt, error, loading, load } = useApp(id)
+  const product = useProduct(v?.application.productCode)
+  // documents and people captured for this case reach the server through the outbox: refresh when it sends something
+  const sent = useRef(waiting)
+  useEffect(() => { if (waiting < sent.current) load(); sent.current = waiting }, [waiting]) // eslint-disable-line react-hooks/exhaustive-deps
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [stage, setStage] = useState<Stage | null>(null)
   const r = useRun()
@@ -77,7 +91,7 @@ export default function AppDetail({ id, action: hinted }: { id: number; action?:
   if (!v) return <Screen title="Application">{error ? <Note kind="bad">{error}</Note> : <Spinner />}</Screen>
   const a = v.application
   const step = productStep(stages)
-  const colTypes = String((v.product as unknown as { collateralTypes?: string }).collateralTypes ?? '').split(',').filter(Boolean)
+  const colTypes = String(product?.collateralTypes ?? '').split(',').filter(Boolean)
   const hasCol = stages.some(x => x.key === 'col') || colTypes.length > 0
   const group = stages.some(x => x.key === 'cgt' || x.key === 'grt')
   const staff = !['VALUER', 'LEGAL_REVIEWER'].includes(user.role)

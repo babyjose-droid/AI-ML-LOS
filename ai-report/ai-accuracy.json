@@ -1,0 +1,219 @@
+{
+  "overall": {
+    "docs": 182,
+    "typeAccuracy": 0.912,
+    "fieldAccuracy": 0.874,
+    "allFieldsCorrect": 0.857,
+    "autoAccepted": 0.846,
+    "toReview": 0.077,
+    "rejectedUnreadable": 0.077,
+    "silentErrors": 0
+  },
+  "byType": {
+    "AADHAAR": {
+      "docs": 26,
+      "typeAccuracy": 0.962,
+      "fieldAccuracy": 0.904,
+      "allFieldsCorrect": 0.846,
+      "autoAccepted": 0.846,
+      "toReview": 0.115,
+      "rejectedUnreadable": 0.038,
+      "silentErrors": 0
+    },
+    "DRIVING_LICENCE": {
+      "docs": 26,
+      "typeAccuracy": 0.923,
+      "fieldAccuracy": 0.923,
+      "allFieldsCorrect": 0.923,
+      "autoAccepted": 0.923,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.077,
+      "silentErrors": 0
+    },
+    "PAN": {
+      "docs": 26,
+      "typeAccuracy": 0.923,
+      "fieldAccuracy": 0.91,
+      "allFieldsCorrect": 0.885,
+      "autoAccepted": 0.846,
+      "toReview": 0.077,
+      "rejectedUnreadable": 0.077,
+      "silentErrors": 0
+    },
+    "PASSPORT": {
+      "docs": 26,
+      "typeAccuracy": 0.808,
+      "fieldAccuracy": 0.692,
+      "allFieldsCorrect": 0.577,
+      "autoAccepted": 0.538,
+      "toReview": 0.346,
+      "rejectedUnreadable": 0.115,
+      "silentErrors": 0
+    },
+    "SALARY_SLIP": {
+      "docs": 26,
+      "typeAccuracy": 0.923,
+      "fieldAccuracy": 0.923,
+      "allFieldsCorrect": 0.923,
+      "autoAccepted": 0.923,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.077,
+      "silentErrors": 0
+    },
+    "UDYAM": {
+      "docs": 26,
+      "typeAccuracy": 0.923,
+      "fieldAccuracy": 0.923,
+      "allFieldsCorrect": 0.923,
+      "autoAccepted": 0.923,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.077,
+      "silentErrors": 0
+    },
+    "VOTER_ID": {
+      "docs": 26,
+      "typeAccuracy": 0.923,
+      "fieldAccuracy": 0.923,
+      "allFieldsCorrect": 0.923,
+      "autoAccepted": 0.923,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.077,
+      "silentErrors": 0
+    }
+  },
+  "byDegradation": {
+    "clean": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 1.0,
+      "allFieldsCorrect": 1.0,
+      "autoAccepted": 1.0,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "phone photo on table": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.952,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.857,
+      "toReview": 0.143,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "tilted 3 degrees": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.857,
+      "allFieldsCorrect": 0.786,
+      "autoAccepted": 0.786,
+      "toReview": 0.214,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "perspective skew": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.976,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.857,
+      "toReview": 0.143,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "rotated 90 (sideways)": {
+      "docs": 14,
+      "typeAccuracy": 0.857,
+      "fieldAccuracy": 0.81,
+      "allFieldsCorrect": 0.857,
+      "autoAccepted": 0.857,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.071,
+      "silentErrors": 0
+    },
+    "upside down": {
+      "docs": 14,
+      "typeAccuracy": 0.929,
+      "fieldAccuracy": 0.905,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.929,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "mild blur": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.952,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.929,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "heavy blur": {
+      "docs": 14,
+      "typeAccuracy": 0.071,
+      "fieldAccuracy": 0.024,
+      "allFieldsCorrect": 0.0,
+      "autoAccepted": 0.0,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.929,
+      "silentErrors": 0
+    },
+    "sensor noise": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.952,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.929,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "low resolution (480px)": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.976,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.929,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "heavy JPEG (q=20)": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 0.952,
+      "allFieldsCorrect": 0.929,
+      "autoAccepted": 0.929,
+      "toReview": 0.071,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "uneven lighting": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 1.0,
+      "allFieldsCorrect": 1.0,
+      "autoAccepted": 1.0,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    },
+    "dark photo": {
+      "docs": 14,
+      "typeAccuracy": 1.0,
+      "fieldAccuracy": 1.0,
+      "allFieldsCorrect": 1.0,
+      "autoAccepted": 1.0,
+      "toReview": 0.0,
+      "rejectedUnreadable": 0.0,
+      "silentErrors": 0
+    }
+  },
+  "silentErrorExamples": [],
+  "seconds": 153.8,
+  "secondsPerDocument": 0.85
+}

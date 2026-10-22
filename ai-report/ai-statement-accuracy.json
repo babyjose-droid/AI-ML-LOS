@@ -1,0 +1,43 @@
+{
+ "clean": {
+  "statements": 9,
+  "transactionsFound": 1.0,
+  "amountsExact": 1.0,
+  "categoryAccuracy": 1.0,
+  "salaryDetected": 1.0,
+  "emiDetected": 1.0,
+  "bouncesRight": 1.0,
+  "gamblingRight": 1.0,
+  "autoAccepted": 1.0,
+  "wronglyFlaggedAsEdited": 0
+ },
+ "locked": {
+  "statements": 9,
+  "transactionsFound": 1.0,
+  "amountsExact": 1.0,
+  "categoryAccuracy": 1.0,
+  "salaryDetected": 1.0,
+  "emiDetected": 1.0,
+  "bouncesRight": 1.0,
+  "gamblingRight": 1.0,
+  "autoAccepted": 1.0,
+  "wronglyFlaggedAsEdited": 0
+ },
+ "scanned": {
+  "statements": 9,
+  "transactionsFound": 0.9783,
+  "amountsExact": 0.9708,
+  "categoryAccuracy": 0.8207,
+  "salaryDetected": 1.0,
+  "emiDetected": 0.889,
+  "bouncesRight": 1.0,
+  "gamblingRight": 1.0,
+  "autoAccepted": 0.778,
+  "wronglyFlaggedAsEdited": 0
+ },
+ "edited": {
+  "statements": 9,
+  "caught": 9
+ },
+ "seconds": 78.6
+}

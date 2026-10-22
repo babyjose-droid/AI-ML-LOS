@@ -60,6 +60,16 @@ services:
       backend:
         condition: service_healthy
 
+  mobile:
+    image: ${RHYTHM_REGISTRY:-rhythmconsultancy}/rhythm-los-mobile:${RHYTHM_TAG:-latest}
+    build: ./mobile
+    ports:
+      # the mobile app in a phone browser (the native app uses the web port, http://<this-computer>:3000)
+      - "${MOBILE_PORT:-3002}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   db-data:
   documents:

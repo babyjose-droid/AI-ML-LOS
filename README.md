@@ -104,9 +104,15 @@ If port 8081 or 3000 is already used on your machine, choose other ports:
 BACKEND_PORT=8091 WEB_PORT=3001 docker compose up --build
 ```
 
+### Mobile app
+
+The mobile app for sales, field, credit and operations officers (works offline) is in [`mobile/`](mobile/README.md).
+`docker compose up` serves it in a phone browser on http://localhost:3002; to run it on a phone with Expo Go, see the
+mobile README.
+
 ### Run from Docker Hub (no build)
 
-After every green CI run on `main`, the tested images are published to Docker Hub as `rhythmconsultancy/rhythm-los-ai`, `rhythmconsultancy/rhythm-los-backend` and `rhythmconsultancy/rhythm-los-web` (tags `latest` and the short commit hash).
+After every green CI run on `main`, the tested images are published to Docker Hub as `rhythmconsultancy/rhythm-los-ai`, `rhythmconsultancy/rhythm-los-backend`, `rhythmconsultancy/rhythm-los-web` and `rhythmconsultancy/rhythm-los-mobile` (tags `latest` and the short commit hash).
 
 ```bash
 docker compose pull

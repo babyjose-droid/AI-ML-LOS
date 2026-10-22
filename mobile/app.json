@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Rhythm LOS",
+    "slug": "rhythm-los",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.rhythm.los",
+      "infoPlist": {
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+      }
+    },
+    "android": {
+      "package": "in.rhythm.los",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Rhythm LOS (mobile)"
+    },
+    "plugins": [
+      "expo-secure-store",
+      ["expo-image-picker", { "cameraPermission": "Rhythm uses the camera to photograph KYC documents, sites and collateral for loan applications." }],
+      ["expo-location", { "locationWhenInUsePermission": "Rhythm records where field visits and site photos are taken, so they can be verified." }]
+    ]
+  }
+}

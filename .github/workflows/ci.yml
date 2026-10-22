@@ -102,11 +102,20 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build 2>&1 | tee ../web-build.log
+      - name: Mobile app (type check and web build)
+        working-directory: mobile
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc --noEmit 2>&1 | tee ../mobile-build.log
+          EXPO_OFFLINE=1 CI=1 npx expo export --platform web --output-dir dist 2>&1 | tail -5 | tee -a ../mobile-build.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: web-report
-          path: web-build.log
+          path: |
+            web-build.log
+            mobile-build.log
           if-no-files-found: ignore
 
   e2e:
@@ -155,7 +164,7 @@ jobs:
           echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           {
-            for s in ai backend web; do
+            for s in ai backend web mobile; do
               img=rhythmconsultancy/rhythm-los-$s
               # the code was tested above; this rebuilds the same source for both chip types (linux/amd64 and linux/arm64)
               docker buildx build --platform linux/amd64,linux/arm64 -t $img:latest -t $img:$SHA --push --quiet ./$s \

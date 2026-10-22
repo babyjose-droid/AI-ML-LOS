@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "rhythm.integration.backoff-ms=0",
         "rhythm.storage.path=target/test-documents-governance",
         "rhythm.workflow.sla-initial-delay-ms=86400000",
+        "rhythm.notify.initial-delay-ms=86400000",
         "rhythm.policy.activation-initial-delay-ms=86400000"
 })
 class PhaseTwoGovernanceIT {

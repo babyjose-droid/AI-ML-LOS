@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "rhythm.storage.path=target/test-documents-phase2",
         "rhythm.network.enabled=true",
         "rhythm.workflow.sla-initial-delay-ms=86400000",
+        "rhythm.notify.initial-delay-ms=86400000",
         "rhythm.policy.activation-initial-delay-ms=86400000"
 })
 class PhaseTwoAnalyticsIT {

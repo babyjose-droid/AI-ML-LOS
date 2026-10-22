@@ -52,7 +52,7 @@ public class NotifyService {
             select id, title, body, application_id, task_key, created_at, read_at from user_notification where username = ?
             order by read_at is not null, created_at desc limit 100""", (rs, i) -> new Alert(rs.getLong(1), rs.getString(2), rs.getString(3),
                 rs.getObject(4) == null ? null : rs.getLong(4), rs.getString(5).split(":")[0], rs.getTimestamp(6).toInstant(),
-                rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toInstant()));
+                rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toInstant()), u.username());
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("alerts", alerts);
         m.put("unread", alerts.stream().filter(a -> a.readAt() == null).count());

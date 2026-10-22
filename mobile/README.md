@@ -15,7 +15,14 @@ Built with React Native and Expo (SDK 58), TypeScript.
 | Field officer | Assigned visits with call and map, visit report: GPS check-in (distance from the business), product checklist, camera photos stamped with time and place, references, remarks; collateral and site photos; tranche inspections |
 | Credit officer / manager / CRO | Decision, reasons and credit memo (sign), sanction with amount and conditions, send back, decline, escalate |
 | Operations | Run automated checks, review documents, verify down payments, confirm and fund invoices, mark liens, cure margin calls, release tranches, disburse |
-| Valuer | Collateral photos |
+| Valuer | Collateral photos and the valuation report |
+
+Also on the phone, for every product: co-applicants and guarantors (added in the wizard or later, consent and signature by
+OTP on their own mobile, invite links, their KYC documents, income); the household (members, earners, expenses);
+group loans (CGT by the field officer, GRT by credit); collateral (declare, documents, gold appraisal with weights and
+purity at the day's rate, the gold rate itself, Collateral AI); video KYC (the live call runs inside the app; the
+customer joins by link); and the set-up forms: asset, quotation and invoice details, buyer sub-limits for invoice
+finance, plan details and construction or fee stages, deposit details, and exceptions on referred checks.
 
 **Works without signal.** New applications, documents, photos and visit reports are saved on the phone in an outbox
 and sent in order when the connection returns (the Outbox tab shows what is waiting; anything the server refuses is

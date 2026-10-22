@@ -10,6 +10,7 @@ import { add, newId, resultOf } from '../lib/outbox'
 import { useSession } from '../session'
 import { Btn, C, Card, Check, Choice, Feedback, Input, Muted, Note, Row, Screen, Select, inr, label, useNav, useRun } from '../ui'
 import { Capture, Picked, typesFor } from './Documents'
+import { EMPTY_PARTY, PartyFields, partyBody, type PartyDraft, type PartyRules } from './Parties'
 
 interface Product { code: string; name: string; status: string; minAmount: number; maxAmount: number; minTenure: number; maxTenure: number; requiredDocs: string; segment: string }
 type Form = Record<string, string | boolean>
@@ -19,9 +20,9 @@ const EMPTY: Form = {
   businessName: '', businessVintageYears: '3', declaredMonthlyIncome: '', essentialExpenses: '', loanAmount: '', tenureMonths: '24',
   purpose: '', bankAccountNo: '', bankIfsc: '', consentBureau: false, consentAa: false, consentKyc: false, preferredLanguage: 'en', industry: '', addressLat: '', addressLng: '',
 }
-const STEPS = ['Loan', 'Applicant', 'Income', 'Account & consent', 'Documents', 'Review']
+const STEPS = ['Loan', 'Applicant', 'Income', 'People', 'Account & consent', 'Documents', 'Review']
 const STEP_FIELDS = [['productCode', 'loanAmount', 'tenureMonths', 'purpose'], ['applicantName', 'pan', 'mobile', 'email', 'dob', 'gender', 'city', 'pincode', 'address'],
-  ['businessName', 'industry', 'businessVintageYears', 'declaredMonthlyIncome', 'essentialExpenses'], ['bankAccountNo', 'bankIfsc', 'consentKyc', 'consentAa', 'consentBureau', 'preferredLanguage'], [], []]
+ ['businessName', 'industry', 'businessVintageYears', 'declaredMonthlyIncome', 'essentialExpenses'], [], ['bankAccountNo', 'bankIfsc', 'consentKyc', 'consentAa', 'consentBureau', 'preferredLanguage'], [], []]
 const INDUSTRIES = ['KIRANA', 'DAIRY', 'TRANSPORT', 'MANUFACTURING', 'SERVICES', 'TRADING', 'AGRI', 'SALARIED', 'OTHER']
 const DRAFT = 'draft:new-application'
 
@@ -44,6 +45,8 @@ export default function NewApplication({ id }: { id?: number }) {
   const [docs, setDocs] = useState<{ type: string; file: LocalFile }[]>([])
   const [docType, setDocType] = useState('')
   const [bad, setBad] = useState<Record<string, string>>({})
+  const [people, setPeople] = useState<PartyDraft[]>([])
+  const [rules, setRules] = useState<PartyRules | null>(null)
   const r = useRun()
 
   useEffect(() => {
@@ -59,6 +62,14 @@ export default function NewApplication({ id }: { id?: number }) {
   useEffect(() => { if (!id) AsyncStorage.setItem(DRAFT, JSON.stringify(f)).catch(() => undefined) }, [f, id])
 
   const p = products.find(x => x.code === f.productCode)
+  useEffect(() => {
+    getCached<Partial<PartyRules>>(`/api/products/${f.productCode}/party-rules`).then(x => {
+      const r = x.data ?? {}
+      const slot = { mode: 'NOT_ALLOWED' as const, max: 0, requiredWhen: '' }
+      setRules({ coApplicant: { ...slot, ...r.coApplicant }, guarantor: { ...slot, ...r.guarantor }, incomeClubbing: { allowed: false, relationships: [], ...r.incomeClubbing },
+        relationships: r.relationships?.length ? r.relationships : ['SPOUSE', 'PARENT', 'CHILD', 'SIBLING', 'BUSINESS_PARTNER', 'DIRECTOR', 'RELATIVE', 'FRIEND', 'OTHER'], note: r.note })
+    }).catch(() => setRules(null))
+  }, [f.productCode])
   const set = (k: string) => (v: string | boolean) => setF(x => ({ ...x, [k]: v }))
   const txt = (k: string, l: string, extra: Record<string, unknown> = {}) =>
     <Input label={l} value={String(f[k] ?? '')} onChangeText={set(k)} error={bad[k]} testID={'f-' + k} {...extra} />
@@ -78,7 +89,13 @@ export default function NewApplication({ id }: { id?: number }) {
       if (f.pincode && !/^\d{6}$/.test(String(f.pincode))) e.pincode = '6 digits'
     }
     if (step === 2 && !Number(f.declaredMonthlyIncome)) e.declaredMonthlyIncome = 'Monthly income'
-    if (step === 3 && !(f.consentKyc && f.consentBureau && f.consentAa)) e.consent = 'All three consents are needed for a decision'
+    if (step === 3) people.forEach((x, i) => {
+      if (x.name.trim().length < 3) e['party' + i] = `Person ${i + 1}: full name`
+      else if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(x.pan.toUpperCase().trim())) e['party' + i] = `Person ${i + 1}: PAN like ABCPK1234L`
+      else if (!/^[6-9][0-9]{9}$/.test(x.mobile)) e['party' + i] = `Person ${i + 1}: their own 10-digit mobile`
+      else if (x.dob && !/^\d{4}-\d{2}-\d{2}$/.test(x.dob)) e['party' + i] = `Person ${i + 1}: date as YYYY-MM-DD`
+    })
+    if (step === 4 && !(f.consentKyc && f.consentBureau && f.consentAa)) e.consent = 'All three consents are needed for a decision'
     setBad(e)
     return Object.keys(e).length ? Object.values(e)[0] : null
   }
@@ -100,6 +117,7 @@ export default function NewApplication({ id }: { id?: number }) {
     await r.run(async () => {
       if (id) {
         await api.put(`/api/applications/${id}`, b)
+        for (const x of people) await add({ id: newId(), kind: 'upload', label: `${x.name} (${x.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}) for ${name}`, method: 'POST', path: `/api/applications/${id}/parties`, json: partyBody(x) })
         for (const d of docs) await add({ id: newId(), kind: 'document', label: `${label(d.type)} for ${name}`, method: 'POST', path: `/api/applications/${id}/documents`, fields: [{ name: 'type', value: d.type }, { name: 'file', file: d.file }] })
         if (submit) await add({ id: newId(), kind: 'submit', label: `Submit ${name}`, method: 'POST', path: `/api/applications/${id}/submit`, json: {} })
         await syncNow()
@@ -118,6 +136,7 @@ export default function NewApplication({ id }: { id?: number }) {
         }
       }
       if (made) {
+        for (const x of people) await add({ id: newId(), kind: 'upload', label: `${x.name} (${x.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}) for ${name}`, method: 'POST', path: `/api/applications/${made}/parties`, json: partyBody(x) })
         for (const d of docs) await add({ id: newId(), kind: 'document', label: `${label(d.type)} for ${name}`, method: 'POST', path: `/api/applications/${made}/documents`, fields: [{ name: 'type', value: d.type }, { name: 'file', file: d.file }] })
         if (submit) await add({ id: newId(), kind: 'submit', label: `Submit ${name}`, method: 'POST', path: `/api/applications/${made}/submit`, json: {} })
         await AsyncStorage.removeItem(DRAFT)
@@ -126,6 +145,7 @@ export default function NewApplication({ id }: { id?: number }) {
         return
       }
       await add({ id: appJob, kind: 'application', label: `New application: ${name}`, method: 'POST', path: '/api/applications', json: b })
+      for (const x of people) await add({ id: newId(), kind: 'upload', label: `${x.name} (${x.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}) for ${name}`, method: 'POST', path: '/api/applications/:app/parties', dependsOn: appJob, json: partyBody(x) })
       for (const d of docs) await add({ id: newId(), kind: 'document', label: `${label(d.type)} for ${name}`, method: 'POST', path: '/api/applications/:app/documents', dependsOn: appJob, fields: [{ name: 'type', value: d.type }, { name: 'file', file: d.file }] })
       if (submit) await add({ id: newId(), kind: 'submit', label: `Submit ${name}`, method: 'POST', path: '/api/applications/:app/submit', dependsOn: appJob, json: {} })
       await AsyncStorage.removeItem(DRAFT)
@@ -133,7 +153,7 @@ export default function NewApplication({ id }: { id?: number }) {
       const created = await resultOf(appJob)
       if (created) { nav.replace('app', { id: created }); return }
       if (s && s.failed.length) { nav.replace('outbox'); return }
-      setF(EMPTY); setDocs([]); setStep(0)
+      setF(EMPTY); setDocs([]); setPeople([]); setStep(0)
       return 'Saved on this phone. It will be created and submitted when you are back online (see Outbox).'
     }, x => typeof x === 'string' ? x : 'Saved')
   }
@@ -179,7 +199,22 @@ export default function NewApplication({ id }: { id?: number }) {
         <Muted>Bank, bureau and GST data are fetched after consent, so they are not typed here.</Muted>
       </Card>}
 
-      {step === 3 && <Card title="Account and consent">
+      {step === 3 && <Card title="Co-applicants and guarantors" testID="form-parties">
+        {!rules || (rules.coApplicant.mode === 'NOT_ALLOWED' && rules.guarantor.mode === 'NOT_ALLOWED') ? <Muted>This product takes no co-applicants or guarantors.</Muted> : <>
+          <Muted>Co-applicant: {label(rules.coApplicant.mode).toLowerCase()}{rules.coApplicant.requiredWhen ? ` (required when ${rules.coApplicant.requiredWhen})` : ''} · guarantor: {label(rules.guarantor.mode).toLowerCase()}{rules.guarantor.requiredWhen ? ` (required before sanction when ${rules.guarantor.requiredWhen})` : ''}{rules.note ? '. ' + rules.note : ''}</Muted>
+          {people.map((x, i) => (
+            <View key={i} style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10, marginTop: 6 }}>
+              <Text style={{ fontWeight: '700', color: C.ink, marginBottom: 6 }}>{x.role === 'GUARANTOR' ? 'Guarantor' : 'Co-applicant'} {i + 1}</Text>
+              <PartyFields n={i + 1} p={x} rules={rules} relationships={rules.relationships} onChange={y => setPeople(people.map((z, j) => j === i ? y : z))} />
+              <Btn small title="Remove" onPress={() => setPeople(people.filter((_, j) => j !== i))} />
+            </View>
+          ))}
+          <Btn title="Add a person" testID="party-form-add" onPress={() => setPeople([...people, { ...EMPTY_PARTY, role: rules.coApplicant.mode !== 'NOT_ALLOWED' ? 'CO_APPLICANT' : 'GUARANTOR', relationship: rules.relationships[0] ?? 'SPOUSE' }])} />
+          {people.length > 0 && <Muted>Each person gives their own consent by OTP after saving (in person or by invite link).</Muted>}
+        </>}
+      </Card>}
+
+      {step === 4 && <Card title="Account and consent">
         {txt('bankAccountNo', 'Bank account number', { keyboardType: 'number-pad' })}
         {txt('bankIfsc', 'IFSC', { autoCapitalize: 'characters', maxLength: 11 })}
         <Choice label="Borrower's language" value={String(f.preferredLanguage)} options={[['en', 'English'], ['hi', 'Hindi'], ['mr', 'Marathi'], ['ta', 'Tamil'], ['ml', 'Malayalam'], ['kn', 'Kannada'], ['te', 'Telugu'], ['bn', 'Bengali'], ['gu', 'Gujarati']]} onChange={set('preferredLanguage')} />
@@ -188,14 +223,14 @@ export default function NewApplication({ id }: { id?: number }) {
         <Check label="Account Aggregator: the borrower agrees to share bank statements" value={!!f.consentAa} onChange={set('consentAa')} />
       </Card>}
 
-      {step === 4 && <Card title="Documents (optional now)">
+      {step === 5 && <Card title="Documents (optional now)">
         <Muted>Capture what the borrower has with them; the rest can be added later from the application.</Muted>
         <Choice label="Type" value={dt} options={types.map(t => [t, label(t)])} onChange={setDocType} testID="new-doc-type" />
         <Capture name={dt.toLowerCase()} onFile={file => setDocs(d => [...d.filter(x => x.type !== dt), { type: dt, file }])} testID="new-doc" />
         {docs.map(d => <View key={d.type}><Text style={{ fontWeight: '600', color: C.ink, marginTop: 6 }}>{label(d.type)}</Text><Picked f={d.file} /></View>)}
       </Card>}
 
-      {step === 5 && <Card title="Review">
+      {step === 6 && <Card title="Review">
         <Row k="Product" v={p?.name ?? String(f.productCode)} />
         <Row k="Loan" v={`${inr(Number(f.loanAmount))} · ${f.tenureMonths} months`} />
         <Row k="Applicant" v={String(f.applicantName)} />
@@ -203,6 +238,7 @@ export default function NewApplication({ id }: { id?: number }) {
         <Row k="Mobile" v={String(f.mobile)} />
         <Row k="Income" v={inr(Number(f.declaredMonthlyIncome))} />
         <Row k="Business location" v={f.addressLat ? 'Saved' : 'Not saved'} />
+        <Row k="Co-applicants / guarantors" v={people.length ? people.map(x => x.name).join(', ') : 'None'} />
         <Row k="Documents" v={docs.length ? docs.map(d => label(d.type)).join(', ') : 'None yet'} />
         <Btn title={online ? 'Save and submit' : 'Save and submit when online'} kind="primary" busy={r.busy} onPress={() => save(true)} testID="save-submit" />
         <Btn title="Save as draft" busy={r.busy} onPress={() => save(false)} testID="save-draft" />

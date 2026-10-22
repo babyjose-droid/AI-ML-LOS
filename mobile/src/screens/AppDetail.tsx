@@ -12,7 +12,14 @@ export interface AppView {
   states: Record<string, string>; actions: string[]; blockers: string[]; missingDocuments: string[]
   product: { code: string; name: string; requiredDocs: string; secured: boolean }
 }
-export interface Stage { key: string; name: string; role: string; kind: 'STATE' | 'RECORDED'; help: string; dataFields: string[]; status: string; outcome?: string; completedBy?: string; completedAt?: string; dueAt?: string; canComplete: boolean; assignedToMe?: boolean; note?: string }
+export interface Stage { key: string; name: string; role: string; kind: 'STATE' | 'RECORDED'; help: string; dataFields: string[]; status: string; outcome?: string; completedBy?: string; completedAt?: string; dueAt?: string; canComplete: boolean; canReview?: boolean; assignedToMe?: boolean; note?: string; onFailure?: string; data?: Record<string, unknown> }
+
+export const STAGE_FIELD: Record<string, string> = {
+  groupName: 'Group name', members: 'Members', sessionsHeld: 'Training sessions held', membersPresent: 'Members present',
+  registrationNo: 'Registration no.', valuation: 'Valuation (₹)', netWeightGrams: 'Net weight (g)', purityKarat: 'Purity (karat)',
+  value: 'Value (₹)', titleClear: 'Title clear (yes/no)', marketValue: 'Market value (₹)',
+}
+const NUMERIC = ['members', 'sessionsHeld', 'membersPresent', 'valuation', 'netWeightGrams', 'purityKarat', 'value', 'marketValue']
 
 type Dialog = { kind: string; title: string; fields: ('note' | 'amount' | 'otp' | 'choice' | 'conditions')[]; choices?: [string, string][]; hint?: string; choiceLabel?: string }
 const DIALOGS: Record<string, Dialog> = {
@@ -70,9 +77,13 @@ export default function AppDetail({ id, action: hinted }: { id: number; action?:
   if (!v) return <Screen title="Application">{error ? <Note kind="bad">{error}</Note> : <Spinner />}</Screen>
   const a = v.application
   const step = productStep(stages)
-  const hasCol = stages.some(x => x.key === 'col') || v.product.secured
+  const colTypes = String((v.product as unknown as { collateralTypes?: string }).collateralTypes ?? '').split(',').filter(Boolean)
+  const hasCol = stages.some(x => x.key === 'col') || colTypes.length > 0
+  const group = stages.some(x => x.key === 'cgt' || x.key === 'grt')
+  const staff = !['VALUER', 'LEGAL_REVIEWER'].includes(user.role)
   const field = stages.some(x => x.key === 'field')
-  const recorded = stages.filter(x => x.kind === 'RECORDED' && x.canComplete && ['PENDING', 'IN_PROGRESS', 'WAITING', 'OVERDUE'].includes(x.status) && !['asset', 'limit', 'plan', 'pledge', 'field', 'col'].includes(x.key))
+  // recorded workflow steps this officer completes (or confirms); the product steps and the gold appraisal have screens of their own
+  const recorded = stages.filter(x => x.kind === 'RECORDED' && (x.canComplete || x.canReview) && !['asset', 'limit', 'plan', 'pledge', 'field', 'col', 'gold'].includes(x.key))
 
   async function act(x: string, body?: Record<string, string>) {
     const base = '/api/applications/' + id
@@ -109,7 +120,7 @@ export default function AppDetail({ id, action: hinted }: { id: number; action?:
   function press(x: string) {
     if (x === 'edit') return nav.push('new', { id })
     if (x === 'uploadDocument' || x === 'reviewDocuments') return nav.push('documents', { id })
-    if (x === 'videoKyc') return r.setError('Video KYC runs on the web console (it needs the borrower on a video call).')
+    if (x === 'videoKyc') return nav.push('vkyc', { id })
     if (x === 'fieldVisit' && user.role === 'FIELD_OFFICER') return nav.push('visits')
     if (DIALOGS[x]) setDialog(DIALOGS[x]); else act(x)
   }
@@ -141,12 +152,17 @@ export default function AppDetail({ id, action: hinted }: { id: number; action?:
         </Card>
 
         {recorded.length > 0 && <Card title="Steps for you">
-          {recorded.map(s => <Btn key={s.key} title={s.name} testID={'stage-' + s.key} onPress={() => setStage(s)} />)}
+          {recorded.map(s => <Btn key={s.key} title={(s.canReview && !s.canComplete ? 'Confirm: ' : '') + s.name} testID={'stage-' + s.key}
+            onPress={() => ['cgt', 'grt'].includes(s.key) ? nav.push('group', { id }) : setStage(s)} />)}
         </Card>}
 
         <ListItem title="Documents" sub="Capture, upload and review" testID="go-documents" onPress={() => nav.push('documents', { id })} />
         {step && <ListItem title={step.name} sub="Product-specific step" testID={'go-' + step.key} onPress={() => nav.push('step', { id, kind: step.key })} />}
-        {hasCol && <ListItem title="Collateral" sub="Geo-tagged photos of the security" testID="go-collateral" onPress={() => nav.push('collateral', { id })} />}
+        {hasCol && <ListItem title="Collateral" sub={colTypes.includes('GOLD') ? 'Declare the gold, weigh and test it, photos' : 'Declare, documents, valuation and geo-tagged photos'} testID="go-collateral" onPress={() => nav.push('collateral', { id })} />}
+        {group && <ListItem title="Group: CGT and GRT" sub="Group formation, training and recognition test" testID="go-group" onPress={() => nav.push('group', { id })} />}
+        {staff && <ListItem title="Household" sub="Members, earners, expenses and repayments" testID="go-household" onPress={() => nav.push('group', { id, household: true })} />}
+        {staff && <ListItem title="Co-applicants & guarantors" sub="Add, consent and sign by OTP, documents, KYC" testID="go-parties" onPress={() => nav.push('parties', { id })} />}
+        {['OPERATIONS', 'ADMIN', 'CREDIT_OFFICER', 'CREDIT_MANAGER'].includes(user.role) && <ListItem title="Video KYC" sub="Live call with the customer, AI checks, decision" testID="go-vkyc" onPress={() => nav.push('vkyc', { id })} />}
         {field && user.role === 'FIELD_OFFICER' && <ListItem title="Field visit" sub="Check in, checklist and photos" testID="go-visit" onPress={() => nav.push('visits')} />}
         <ListItem title="Decision & credit memo" sub="Score, recommended amount, reasons" testID="go-decision" onPress={() => nav.push('decision', { id })} />
         <ListItem title="Sanction & KFS" sub="Key Fact Statement and schedule" testID="go-kfs" onPress={() => nav.push('kfs', { id })} />
@@ -184,25 +200,29 @@ function ActionSheet({ d, busy, error, onClose, onGo }: { d: Dialog; busy: boole
   )
 }
 
-function StageSheet({ id, s, onClose, onDone }: { id: number; s: Stage; onClose: () => void; onDone: () => void }) {
+export function StageSheet({ id, s, onClose, onDone }: { id: number; s: Stage; onClose: () => void; onDone: () => void }) {
+  const review = !!s.canReview && !s.canComplete
   const [outcome, setOutcome] = useState('PASS')
   const [note, setNote] = useState('')
   const [data, setData] = useState<Record<string, string>>({})
   const r = useRun()
   async function go() {
     const d: Record<string, unknown> = {}
-    for (const [k, x] of Object.entries(data)) if (x.trim()) d[k] = x.trim() !== '' && !isNaN(Number(x)) ? Number(x) : x.trim()
-    const ok = await r.run(() => api.post(`/api/applications/${id}/stages/${s.key}/complete`, { outcome, note, data: d }), 'done')
+    for (const [k, x] of Object.entries(data)) if (x.trim()) d[k] = NUMERIC.includes(k) && !isNaN(Number(x)) ? Number(x) : x.trim()
+    const ok = await r.run(() => review ? api.post(`/api/applications/${id}/stages/${s.key}/review`, { note })
+      : api.post(`/api/applications/${id}/stages/${s.key}/complete`, { outcome, note, data: d }), 'done')
     if (ok !== undefined) onDone()
   }
   return (
-    <Sheet visible title={s.name} onClose={onClose}>
+    <Sheet visible title={(review ? 'Confirm: ' : '') + s.name} onClose={onClose}>
       {s.help ? <Muted>{s.help}</Muted> : null}
       <Feedback error={r.error} />
-      <Choice label="Outcome" value={outcome} options={[['PASS', 'Pass'], ['REFER', 'Refer'], ['FAIL', 'Fail']]} onChange={setOutcome} />
-      {(s.dataFields ?? []).map(f => <Input key={f} label={label(f)} value={data[f] ?? ''} onChangeText={t => setData({ ...data, [f]: t })} />)}
-      <Input label="Note" multiline value={note} onChangeText={setNote} />
-      <Btn title="Record" kind="primary" busy={r.busy} onPress={go} testID="confirm" />
+      {!review && <Choice label="Outcome" value={outcome} options={[['PASS', 'Pass'], ['FAIL', 'Fail' + (s.onFailure ? ` (${label(s.onFailure).toLowerCase()})` : '')]]} onChange={setOutcome} testID="stage-outcome" />}
+      {!review && (s.dataFields ?? []).map(f => <Input key={f} label={STAGE_FIELD[f] ?? label(f)} keyboardType={NUMERIC.includes(f) ? 'numeric' : 'default'} value={data[f] ?? ''}
+        onChangeText={t => setData({ ...data, [f]: t })} testID={'stage-' + f} />)}
+      <Input label="Notes (at least 10 characters)" multiline value={note} onChangeText={setNote} testID="stage-note" />
+      {!review && outcome === 'FAIL' && s.onFailure === 'REJECT' ? <Note kind="bad">Failing this step rejects the application.</Note> : null}
+      <Btn title={review ? 'Confirm' : 'Save'} kind="primary" busy={r.busy} onPress={go} testID="confirm" />
     </Sheet>
   )
 }

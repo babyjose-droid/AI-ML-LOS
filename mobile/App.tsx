@@ -11,6 +11,9 @@ import CollateralScreen from './src/screens/Collateral'
 import { DecisionScreen, KfsScreen } from './src/screens/Decision'
 import Documents from './src/screens/Documents'
 import { VisitForm, VisitsScreen } from './src/screens/Field'
+import GroupScreen from './src/screens/Group'
+import PartiesScreen from './src/screens/Parties'
+import VideoKyc from './src/screens/VideoKyc'
 import { AppsScreen, MeScreen, OutboxScreen, WorkScreen } from './src/screens/Lists'
 import Login from './src/screens/Login'
 import NewApplication from './src/screens/NewApplication'
@@ -24,7 +27,7 @@ function tabsFor(u: User): Tab[] {
   const t: Tab[] = []
   if (u.role === 'FIELD_OFFICER') t.push({ key: 'visits', label: 'Visits', icon: '⌖' })
   t.push({ key: 'work', label: 'My work', icon: '☑' })
-  if (u.role !== 'FIELD_OFFICER') t.push({ key: 'apps', label: 'Search', icon: '⌕' })
+  t.push({ key: 'apps', label: 'Search', icon: '⌕' })
   if (canCreate(u.role)) t.push({ key: 'new', label: 'New', icon: '＋' })
   t.push({ key: 'outbox', label: 'Outbox', icon: '⇅' }, { key: 'me', label: 'Me', icon: '☺' })
   return t
@@ -46,6 +49,9 @@ function render(r: Route) {
     case 'kfs': return <KfsScreen id={p.id} />
     case 'step': return <ProductStep id={p.id} kind={p.kind} />
     case 'collateral': return <CollateralScreen id={p.id} />
+    case 'group': return <GroupScreen id={p.id} household={p.household} />
+    case 'parties': return <PartiesScreen id={p.id} />
+    case 'vkyc': return <VideoKyc id={p.id} />
     default: return <Text>Unknown screen</Text>
   }
 }

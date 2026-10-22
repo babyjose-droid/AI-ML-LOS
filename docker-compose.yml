@@ -69,6 +69,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      web:
+        condition: service_started
 
 volumes:
   db-data:

@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
-import { fixture, say } from './asset-journey'
+import { expect, test } from '@playwright/test'
+import { say } from './asset-journey'
+import { captions, login, logout, openApp, phone, pick, radio } from './mobile-helpers'
 
 /**
  * Recorded walkthrough of the mobile app (the React Native screens in a phone-sized browser): every role works the case on
@@ -9,61 +10,8 @@ import { fixture, say } from './asset-journey'
  * sanctions; the borrower accepts the KFS on the sales officer's phone; operations disburses.
  * Fictional borrower and SPECIMEN documents.
  */
-const MOBILE = process.env.MOBILE_URL ?? 'http://localhost:3002'
 const SHOP = { latitude: 20.00731, longitude: 73.79102 }   // Panchavati, Nashik (fictional shop)
-
-test.use({
-  baseURL: MOBILE,
-  viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
-  video: { mode: 'on', size: { width: 390, height: 844 } }, launchOptions: { slowMo: 120 }, actionTimeout: 30_000,
-  permissions: ['geolocation', 'camera'], geolocation: { ...SHOP, accuracy: 12 },
-})
-
-async function captions(page: Page) {
-  await page.addInitScript(() => {
-    const draw = () => {
-      let el = document.getElementById('__cap')
-      if (!el) {
-        el = document.createElement('div')
-        el.id = '__cap'
-        el.setAttribute('style', 'position:fixed;left:8px;right:8px;bottom:70px;z-index:99999;padding:8px 12px;border-radius:10px;background:rgba(20,23,31,.9);color:#fff;font:600 13px/1.35 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:none;text-align:center')
-        document.body.appendChild(el)
-      }
-      const t = sessionStorage.getItem('__cap') || ''
-      el.textContent = t
-      el.style.display = t ? 'block' : 'none'
-    }
-    ;(window as unknown as { __cap: () => void }).__cap = draw
-    document.addEventListener('DOMContentLoaded', draw)
-  })
-}
-
-async function login(page: Page, user: string, who: string) {
-  await page.goto('/')
-  await page.getByLabel('Username').fill(user)
-  await page.getByLabel('Password').fill('Rhythm@123')
-  await say(page, `On the phone: ${who} (${user}) signs in`, 900)
-  await page.getByTestId('sign-in').click()
-  await expect(page.getByRole('tablist')).toBeVisible()
-}
-async function logout(page: Page) {
-  await page.getByTestId('tab-me').click()
-  await page.getByTestId('sign-out').click()
-  await expect(page.getByTestId('sign-in')).toBeVisible()
-}
-async function openApp(page: Page, name: string) {
-  await page.getByTestId('tab-apps').click()
-  await page.getByTestId('search').fill(name)
-  await page.getByTestId('search').press('Enter')
-  await page.getByRole('button', { name: new RegExp('^' + name) }).first().click()
-  await expect(page.getByTestId('app-detail')).toBeVisible()
-}
-async function pick(page: Page, testId: string, file: string) {
-  const chooser = page.waitForEvent('filechooser')
-  await page.getByTestId(testId).click()
-  await (await chooser).setFiles(fixture(file))
-}
-const radio = (page: Page, name: string) => page.getByRole('radio', { name, exact: true }).first().click()
+phone(SHOP)
 
 test('Mobile app journey (recorded): sales offline capture, operations checks, offline field visit, credit, sanction, KFS and disbursement on the phone', async ({ page, context }) => {
   test.setTimeout(15 * 60_000)
@@ -99,6 +47,8 @@ test('Mobile app journey (recorded): sales offline capture, operations checks, o
   await page.getByTestId('f-businessVintageYears').fill('9')
   await page.getByTestId('f-declaredMonthlyIncome').fill('85000')
   await page.getByTestId('f-essentialExpenses').fill('28000')
+  await page.getByTestId('next').click()
+  await say(page, 'No co-applicant or guarantor on this loan', 900)
   await page.getByTestId('next').click()
   await page.getByTestId('f-bankAccountNo').fill('50200977112233')
   await page.getByTestId('f-bankIfsc').fill('HDFC0001234')

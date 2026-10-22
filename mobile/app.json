@@ -10,7 +10,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "in.rhythm.los",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSMicrophoneUsageDescription": "Rhythm uses the microphone for video KYC calls with customers.",
+        "NSCameraUsageDescription": "Rhythm uses the camera to photograph KYC documents, sites and collateral, and for video KYC calls."
       }
     },
     "android": {
@@ -21,7 +25,13 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -30,8 +40,18 @@
     },
     "plugins": [
       "expo-secure-store",
-      ["expo-image-picker", { "cameraPermission": "Rhythm uses the camera to photograph KYC documents, sites and collateral for loan applications." }],
-      ["expo-location", { "locationWhenInUsePermission": "Rhythm records where field visits and site photos are taken, so they can be verified." }]
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Rhythm uses the camera to photograph KYC documents, sites and collateral for loan applications."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Rhythm records where field visits and site photos are taken, so they can be verified."
+        }
+      ]
     ]
   }
 }

@@ -325,3 +325,10 @@ input.changed { border-color: var(--warn); background: var(--warn-soft, #fff7e6)
 .gold-items { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; align-items: center; }
 .gold-head { font-weight: 600; margin-bottom: 2px; }
 @media (max-width: 560px) { .gold-items { grid-template-columns: 1fr 1fr; } .gold-head { display: none; } }
+
+/* video KYC inside the mobile app: phone width, tables scroll sideways */
+.vkyc-embed { padding: 10px; }
+.vkyc-embed .panel { padding: 12px; }
+.vkyc-embed table { display: block; overflow-x: auto; white-space: nowrap; }
+.vkyc-embed .row { flex-wrap: wrap; }
+.vkyc-embed .fld { min-width: 0 !important; width: 100%; }

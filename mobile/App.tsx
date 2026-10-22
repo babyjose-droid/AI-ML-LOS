@@ -6,6 +6,8 @@ import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { api, getTenant, getToken, init, setToken, setUnauthorizedHandler } from './src/lib/api'
 import { setOwner } from './src/lib/outbox'
+import { onOpen, unregisterPush } from './src/lib/push'
+import AlertsScreen from './src/screens/Alerts'
 import AppDetail from './src/screens/AppDetail'
 import CollateralScreen from './src/screens/Collateral'
 import { DecisionScreen, KfsScreen } from './src/screens/Decision'
@@ -52,6 +54,7 @@ function render(r: Route) {
     case 'group': return <GroupScreen id={p.id} household={p.household} />
     case 'parties': return <PartiesScreen id={p.id} />
     case 'vkyc': return <VideoKyc id={p.id} />
+    case 'alerts': return <AlertsScreen />
     default: return <Text>Unknown screen</Text>
   }
 }
@@ -77,6 +80,12 @@ function Shell() {
     reset: (name: string, params?: Record<string, any>) => setStacks(s => ({ ...s, [tab]: [route(name, params)] })),
     toast: (m: string) => { setToast(m); clearTimeout(timer.current); timer.current = setTimeout(() => setToast(undefined), 6000) },
   }), [tab, stack.length])
+
+  // tapping a push or local notification opens its application on the My work tab
+  useEffect(() => onOpen(appId => {
+    setTab('work')
+    setStacks(s => ({ ...s, work: appId ? [s.work[0], route('app', { id: appId })] : [s.work[0], route('alerts')] }))
+  }), [])
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -116,7 +125,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
 
   const signIn = useCallback((u: User) => { setOwner(`${getTenant() ?? ''}/${u.username}`); setUser(u) }, [])
-  const signOut = useCallback(() => { setToken(null); setOwner(''); setUser(null) }, [])
+  const signOut = useCallback(() => { unregisterPush().finally(() => { setToken(null); setOwner(''); setUser(null) }) }, [])
 
   useEffect(() => {
     setUnauthorizedHandler(() => { setOwner(''); setUser(null) })

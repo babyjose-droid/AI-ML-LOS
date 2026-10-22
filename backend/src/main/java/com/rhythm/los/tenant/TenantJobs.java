@@ -2,6 +2,7 @@ package com.rhythm.los.tenant;
 
 import com.rhythm.los.flow.WorkflowService;
 import com.rhythm.los.masters.MastersController;
+import com.rhythm.los.notify.NotifyService;
 import com.rhythm.los.policy.PolicyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,13 +21,15 @@ public class TenantJobs {
     private final PolicyService policy;
     private final MastersController masters;
     private final BenchmarkService benchmarks;
+    private final NotifyService notify;
 
-    public TenantJobs(TenantRegistry registry, WorkflowService workflow, PolicyService policy, MastersController masters, BenchmarkService benchmarks) {
+    public TenantJobs(TenantRegistry registry, WorkflowService workflow, PolicyService policy, MastersController masters, BenchmarkService benchmarks, NotifyService notify) {
         this.registry = registry;
         this.workflow = workflow;
         this.policy = policy;
         this.masters = masters;
         this.benchmarks = benchmarks;
+        this.notify = notify;
     }
 
     void each(String job, Runnable r) {
@@ -46,6 +49,9 @@ public class TenantJobs {
 
     @Scheduled(fixedDelayString = "${rhythm.policy.activation-check-ms:60000}", initialDelayString = "${rhythm.policy.activation-initial-delay-ms:5000}")
     public void policyActivation() { each("Policy activation", policy::activateDue); }
+
+    @Scheduled(fixedDelayString = "${rhythm.notify.sweep-ms:60000}", initialDelayString = "${rhythm.notify.initial-delay-ms:30000}")
+    public void alerts() { each("Alerts", notify::sweep); }
 
     @Scheduled(cron = "0 40 2 * * *", zone = "Asia/Kolkata")
     public void benchmarks() { benchmarks.computeAll(); }

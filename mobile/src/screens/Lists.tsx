@@ -1,6 +1,6 @@
 // My work, applications search, outbox and the "me" page.
 import React, { useCallback, useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { clearCache, getCached, getServer, isWeb, message } from '../lib/api'
 import { jobs, remove, retry, subscribe, type Job } from '../lib/outbox'
 import { ROLE_NAME, useSession } from '../session'
@@ -34,14 +34,27 @@ function sla(t: Task) {
   return <Pill s={left < 0 ? 'FAIL' : left < t.slaHours / 4 ? 'REFER' : 'PENDING'} text={left < 0 ? `${Math.round(-left)}h late` : `${Math.round(left)}h left`} />
 }
 
+export function Bell() {
+  const nav = useNav()
+  const { alerts } = useSession()
+  const n = alerts?.unread ?? 0
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Alerts${n ? `: ${n} new` : ''}`} testID="bell" onPress={() => nav.push('alerts')} style={{ padding: 6 }}>
+      <Text style={{ fontSize: 22, color: '#fff' }}>🔔</Text>
+      {n > 0 ? <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: C.bad, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }} testID="bell-count">{n}</Text></View> : null}
+    </Pressable>
+  )
+}
+
 export function WorkScreen() {
   const nav = useNav()
-  const { user } = useSession()
+  const { user, refreshAlerts } = useSession()
   const w = useCachedList<Task[]>('/api/my-work')
   const tasks = (w.data ?? []).filter(t => t.applicationId)
   return (
-    <Screen title="My work" sub={`${user.name} · ${ROLE_NAME[user.role]}`} scroll={false} testID="work">
-      <ScrollView refreshControl={<RefreshControl refreshing={w.loading} onRefresh={w.load} />}>
+    <Screen title="My work" sub={`${user.name} · ${ROLE_NAME[user.role]}`} scroll={false} testID="work" right={<Bell />}>
+      <ScrollView refreshControl={<RefreshControl refreshing={w.loading} onRefresh={() => { w.load(); refreshAlerts() }} />}>
         <OfflineBanner savedAt={w.savedAt} />
         <Feedback error={w.error} />
         {w.data === null && !w.error ? <Spinner /> : null}

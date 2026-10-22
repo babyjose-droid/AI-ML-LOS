@@ -51,6 +51,12 @@
         {
           "locationWhenInUsePermission": "Rhythm records where field visits and site photos are taken, so they can be verified."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0d6e6e"
+        }
       ]
     ]
   }

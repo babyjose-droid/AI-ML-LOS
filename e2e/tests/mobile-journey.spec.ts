@@ -82,7 +82,12 @@ test('Mobile app journey (recorded): sales offline capture, operations checks, o
 
   // ---- operations ----
   await login(page, 'ops1', 'Operations')
-  await openApp(page, name)
+  await page.getByTestId('bell').click()
+  const alert = page.locator('[data-testid="alert-process"]', { hasText: name })
+  await expect(alert).toBeVisible({ timeout: 30_000 })
+  await say(page, 'Alerts: the new task reaches operations (pushed to the phone in the installed app)', 1800)
+  await alert.click()
+  await expect(page.getByTestId('app-detail')).toBeVisible()
   await say(page, 'Operations runs the automated checks from the phone: documents, KYC, bank data, bureau, GST, fraud', 1600)
   await page.getByTestId('act-process').click()
   await expect(page.getByTestId('ok')).toContainText('Decision engine', { timeout: 90_000 })

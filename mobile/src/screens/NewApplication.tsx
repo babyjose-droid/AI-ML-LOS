@@ -1,12 +1,12 @@
 // New application in short steps, as on the web. Works offline: the application, its documents and the submission are
 // queued in order and sent when the signal returns. A draft is kept on the phone between steps.
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import React, { useEffect, useState } from 'react'
 import { Text, View } from 'react-native'
 import { ApiError, OfflineError, api, getCached, message } from '../lib/api'
 import { position } from '../lib/capture'
 import type { LocalFile } from '../lib/files'
 import { add, newId, resultOf } from '../lib/outbox'
+import { vault } from '../lib/vault'
 import { useSession } from '../session'
 import { Btn, C, Card, Check, Choice, Feedback, Input, Muted, Note, Row, Screen, Select, inr, label, useNav, useRun } from '../ui'
 import { Capture, Picked, typesFor } from './Documents'
@@ -56,10 +56,10 @@ export default function NewApplication({ id }: { id?: number }) {
       for (const k of Object.keys(EMPTY)) { const v = a[k]; if (v !== undefined && v !== null) g[k] = typeof v === 'boolean' ? v : String(v) }
       setF(g)
     }).catch(e => r.setError(message(e)))
-    else AsyncStorage.getItem(DRAFT).then(s => { if (s) { setF({ ...EMPTY, ...JSON.parse(s) }); r.setOk('Draft restored from this phone') } })
+    else vault.get(DRAFT).then(s => { if (s) { setF({ ...EMPTY, ...JSON.parse(s) }); r.setOk('Draft restored from this phone') } })
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (!id) AsyncStorage.setItem(DRAFT, JSON.stringify(f)).catch(() => undefined) }, [f, id])
+  useEffect(() => { if (!id) vault.set(DRAFT, JSON.stringify(f)).catch(() => undefined) }, [f, id])
 
   const p = products.find(x => x.code === f.productCode)
   useEffect(() => {
@@ -139,7 +139,7 @@ export default function NewApplication({ id }: { id?: number }) {
         for (const x of people) await add({ id: newId(), kind: 'upload', label: `${x.name} (${x.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}) for ${name}`, method: 'POST', path: `/api/applications/${made}/parties`, json: partyBody(x) })
         for (const d of docs) await add({ id: newId(), kind: 'document', label: `${label(d.type)} for ${name}`, method: 'POST', path: `/api/applications/${made}/documents`, fields: [{ name: 'type', value: d.type }, { name: 'file', file: d.file }] })
         if (submit) await add({ id: newId(), kind: 'submit', label: `Submit ${name}`, method: 'POST', path: `/api/applications/${made}/submit`, json: {} })
-        await AsyncStorage.removeItem(DRAFT)
+        await vault.remove(DRAFT)
         await syncNow()
         nav.replace('app', { id: made })
         return
@@ -148,7 +148,7 @@ export default function NewApplication({ id }: { id?: number }) {
       for (const x of people) await add({ id: newId(), kind: 'upload', label: `${x.name} (${x.role === 'GUARANTOR' ? 'guarantor' : 'co-applicant'}) for ${name}`, method: 'POST', path: '/api/applications/:app/parties', dependsOn: appJob, json: partyBody(x) })
       for (const d of docs) await add({ id: newId(), kind: 'document', label: `${label(d.type)} for ${name}`, method: 'POST', path: '/api/applications/:app/documents', dependsOn: appJob, fields: [{ name: 'type', value: d.type }, { name: 'file', file: d.file }] })
       if (submit) await add({ id: newId(), kind: 'submit', label: `Submit ${name}`, method: 'POST', path: '/api/applications/:app/submit', dependsOn: appJob, json: {} })
-      await AsyncStorage.removeItem(DRAFT)
+      await vault.remove(DRAFT)
       const s = await syncNow()
       const created = await resultOf(appJob)
       if (created) { nav.replace('app', { id: created }); return }

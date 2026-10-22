@@ -57,6 +57,13 @@ rhythm:
   kfs:
     otp: ${KFS_MOCK_OTP:123456}
   demo-data: ${DEMO_DATA:true}
+  # alerts for staff: new My work tasks, pushed to the mobile app through the Expo push service
+  push:
+    enabled: ${RHYTHM_PUSH_ENABLED:true}
+    url: ${RHYTHM_PUSH_URL:https://exp.host/--/api/v2/push/send}
+    access-token: ${RHYTHM_PUSH_ACCESS_TOKEN:}
+  notify:
+    sweep-ms: ${RHYTHM_NOTIFY_SWEEP_MS:60000}
   workflow:
     # how often stage SLAs are checked; a breached stage gets its on-failure action (queue, escalate, reject, pause)
     sla-check-ms: ${WORKFLOW_SLA_CHECK_MS:60000}

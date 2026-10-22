@@ -39,7 +39,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "rhythm.integration.backoff-ms=0",
         "rhythm.storage.path=target/test-documents-field",
         "rhythm.workflow.sla-initial-delay-ms=86400000",
-        "rhythm.policy.activation-initial-delay-ms=86400000"
+        "rhythm.policy.activation-initial-delay-ms=86400000",
+        "rhythm.notify.initial-delay-ms=86400000",
+        "rhythm.push.enabled=false"
 })
 class FieldAppIT {
 
@@ -234,5 +236,32 @@ class FieldAppIT {
         assertThat(checks).contains("already used on").contains("from the business location");
         // the visit id cannot be replayed onto another application
         assertThat(sync(second, field, visit("visit-bbbb-0001", LAT, LNG), photos).body().get("code").asText()).isEqualTo("CLIENT_ID_USED");
+    }
+
+    @Test
+    void newTasksBecomeAlertsForTheOfficer() throws Exception {
+        String sales = login("sales1"), ops = login("ops1");
+        Res first = ok(get("/api/me/notifications"), ops, null);
+        long before = first.body().get("unread").asLong();
+        long id = create(sales, app("Alert Person", "ALEPN4411N", "9866000099", "400001"), "PAN", "AADHAAR");
+        ok(post("/api/applications/" + id + "/submit"), sales, null);
+        Res after = ok(get("/api/me/notifications"), ops, null);
+        assertThat(after.body().get("unread").asLong()).isEqualTo(before + 1);
+        JsonNode alert = null;
+        for (JsonNode a : after.body().get("alerts")) if (a.path("applicationId").asLong() == id) alert = a;
+        assertThat(alert).isNotNull();
+        assertThat(alert.get("title").asText()).isEqualTo("Run automated checks");
+        assertThat(alert.get("body").asText()).contains("Alert Person");
+
+        ok(post("/api/me/push-token"), ops, Map.of("token", "ExponentPushToken[it-test-device]", "platform", "android"));
+        assertThat(ok(get("/api/me/notifications"), ops, null).body().get("devices").asLong()).isEqualTo(1);
+        assertThat(call(post("/api/me/push-token"), ops, Map.of("token", "")).status()).isEqualTo(422);
+
+        ok(post("/api/me/notifications/read"), ops, Map.of("ids", List.of(alert.get("id").asLong())));
+        assertThat(ok(get("/api/me/notifications"), ops, null).body().get("unread").asLong()).isEqualTo(before);
+        ok(post("/api/me/notifications/read"), ops, Map.of());
+        assertThat(ok(get("/api/me/notifications"), ops, null).body().get("unread").asLong()).isZero();
+        ok(delete("/api/me/push-token").param("token", "ExponentPushToken[it-test-device]"), ops, null);
+        assertThat(ok(get("/api/me/notifications"), ops, null).body().get("devices").asLong()).isZero();
     }
 }

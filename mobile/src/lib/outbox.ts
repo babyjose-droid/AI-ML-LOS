@@ -1,7 +1,7 @@
 // Outbox: work done without signal (new applications, document and photo uploads, field visit reports) is saved on the
 // phone and sent in order when the connection returns. A job can depend on an earlier one: documents captured with a new
 // application wait for it, and their address uses the id the server gave it (":app" in the path).
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { vault } from './vault'
 import { ApiError, OfflineError, api, type Field } from './api'
 import { discard, type LocalFile } from './files'
 
@@ -33,7 +33,7 @@ export const setOwner = (u: string) => { owner = u }
 export const newId = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
 
 async function all(): Promise<Job[]> {
-  const s = await AsyncStorage.getItem(KEY)
+  const s = await vault.get(KEY)
   return s ? JSON.parse(s) : []
 }
 /** The signed-in officer's items. */
@@ -42,11 +42,11 @@ export async function jobs(): Promise<Job[]> {
 }
 async function save(mine: Job[]) {
   const others = (await all()).filter(j => j.owner !== owner)
-  await AsyncStorage.setItem(KEY, JSON.stringify([...others, ...mine]))
+  await vault.set(KEY, JSON.stringify([...others, ...mine]))
   listeners.forEach(l => l())
 }
 async function results(): Promise<Record<string, number>> {
-  const s = await AsyncStorage.getItem(RESULTS)
+  const s = await vault.get(RESULTS)
   return s ? JSON.parse(s) : {}
 }
 
@@ -93,8 +93,8 @@ export async function sync(onSent?: (j: Job, r: unknown) => void): Promise<SyncR
       const path = next.path.replace(':app', String(next.dependsOn ? done[next.dependsOn] : ''))
       try {
         const r = await api.send<any>(next.method, path, next.fields ? undefined : next.json, next.fields as Field[] | undefined)
-        if (r && typeof r === 'object' && typeof r.id === 'number') await AsyncStorage.setItem(RESULTS, JSON.stringify({ ...done, [next.id]: r.id }))
-        else await AsyncStorage.setItem(RESULTS, JSON.stringify({ ...done, [next.id]: 0 }))
+        if (r && typeof r === 'object' && typeof r.id === 'number') await vault.set(RESULTS, JSON.stringify({ ...done, [next.id]: r.id }))
+        else await vault.set(RESULTS, JSON.stringify({ ...done, [next.id]: 0 }))
         for (const f of next.fields ?? []) if ('file' in f) await discard(f.file)
         await save((await jobs()).filter(j => j.id !== next.id))
         report.sent.push(next.label)

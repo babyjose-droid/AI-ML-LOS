@@ -29,8 +29,10 @@ and sent in order when the connection returns (the Outbox tab shows what is wait
 kept with the reason so it can be fixed or discarded). Lists and cases opened earlier can be read offline. Decisions
 (sanction, disbursement and so on) need a connection.
 
-**Security.** The session token is kept in the phone's Keychain / Keystore. Photos and files wait in the app's own
-folder and are deleted once uploaded. Items in the outbox belong to the officer who captured them and are only sent
+**Security.** The session token is kept in the phone's Keychain / Keystore. Everything kept on the phone about
+customers (cases and lists read earlier, the outbox, drafts) is encrypted (XChaCha20-Poly1305) with a key made on the
+phone and kept in the Keychain / Keystore; copies older than 3 days are not shown. Photos and files wait in the app's
+own folder and are deleted once uploaded. Items in the outbox belong to the officer who captured them and are only sent
 from their session. Aadhaar is masked to the last four digits on the server. Use HTTPS for a real deployment.
 
 ## Run it on your phone (Expo Go)
@@ -47,6 +49,18 @@ from their session. Aadhaar is masked to the last four digits on the server. Use
 5. Scan the QR code: with the Camera app on iPhone, or from Expo Go on Android.
 6. On the sign-in screen enter the server address `http://192.168.1.20:3000` (your address, port 3000), then a demo
    user such as `sales1` or `field1` with the password `Rhythm@123`.
+
+## Alerts and push notifications
+
+Every new task in an officer's My work becomes an alert (the bell on My work), worked out by the server every minute.
+In an installed build of the app the server also pushes it to the phone through the Expo push service, and tapping the
+notification opens the application. In Expo Go, remote push is not available on Android, so new alerts are shown as
+notifications while the app is open or in the background.
+
+To turn on push for installed builds: run `eas init` in `mobile` (it adds the EAS project id to `app.json`), add the
+Firebase (Android) and APNs (iOS) credentials with `eas credentials`, and make sure the server can reach
+`exp.host` over HTTPS. Server settings: `RHYTHM_PUSH_ENABLED` (default true), `RHYTHM_PUSH_ACCESS_TOKEN` (if push
+security is on in your Expo account), `RHYTHM_NOTIFY_SWEEP_MS` (default 60000).
 
 ## In a phone browser
 

@@ -4,6 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { part, type LocalFile } from './files'
 import { secureDel, secureGet, secureSet } from './secure'
+import { vault } from './vault'
+
+const CACHE_DAYS = 3
 
 export class ApiError extends Error {
   status: number
@@ -115,13 +118,14 @@ export const api = {
 export async function getCached<T>(p: string): Promise<{ data: T; savedAt?: number }> {
   try {
     const data = await api.get<T>(p)
-    AsyncStorage.setItem('cache:' + p, JSON.stringify({ at: Date.now(), data })).catch(() => undefined)
+    vault.set('cache:' + p, JSON.stringify({ at: Date.now(), data })).catch(() => undefined)
     return { data }
   } catch (e) {
     if (!(e instanceof OfflineError)) throw e
-    const c = await AsyncStorage.getItem('cache:' + p)
+    const c = await vault.get('cache:' + p)
     if (!c) throw e
     const { at, data } = JSON.parse(c)
+    if (Date.now() - at > CACHE_DAYS * 86400_000) { await vault.remove('cache:' + p); throw e }   // old copies are not shown
     return { data, savedAt: at }
   }
 }
